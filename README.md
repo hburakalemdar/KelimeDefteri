@@ -75,6 +75,6 @@ xcodebuild test -project KelimeDefteri.xcodeproj -scheme KelimeDefteri -destinat
 - [x] Mac'te menü çubuğu uygulaması
 - [x] Günlük tekrar hatırlatma bildirimi
 - [x] Paylaş menüsünden kelime ekleme
-- [ ] Ters yön: Türkçeden İngilizceye çalışma
-- [ ] Ana ekran widget'ı: "Bugün 12 kelime sırada"
+- [ ] Oyunlaştırma: hafıza gücü, kelime başına kayıt, Hızlı Tur / Eşleştir / Boşluğu Doldur ve diğer
+      oyunlar, karışık sıra, etkileşimli widget. Ayrıntılı plan: [docs/GELECEK.md](docs/GELECEK.md)
 - [ ] Kendi backend'in: kelime listesini yedekleme / web'den ekleme (REST API)
