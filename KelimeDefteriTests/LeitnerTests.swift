@@ -37,3 +37,30 @@ struct LeitnerTests {
         #expect(result.due == expected)
     }
 }
+
+struct DueDescriptionTests {
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Istanbul")!
+        return calendar
+    }
+
+    private let now = Date(timeIntervalSince1970: 1_790_000_000)
+
+    @Test func pastIsNow() {
+        #expect(Leitner.dueDescription(for: now.addingTimeInterval(-60), now: now, calendar: calendar) == "Şimdi")
+    }
+
+    @Test func countsCalendarDaysNotHours() {
+        let result = Leitner.review(box: 0, known: true, now: now, calendar: calendar)
+        #expect(Leitner.dueDescription(for: result.due, now: now, calendar: calendar) == "Yarın")
+        let later = Leitner.review(box: 1, known: true, now: now, calendar: calendar)
+        #expect(Leitner.dueDescription(for: later.due, now: now, calendar: calendar) == "3 gün sonra")
+    }
+
+    @Test func boxNames() {
+        #expect(Leitner.boxDescription(0) == "Yeni")
+        #expect(Leitner.boxDescription(2) == "3 günde bir")
+        #expect(Leitner.boxDescription(Leitner.maxBox) == "Öğrenildi")
+    }
+}

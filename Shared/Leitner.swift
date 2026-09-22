@@ -24,3 +24,27 @@ nonisolated enum Leitner {
         return (newBox, calendar.startOfDay(for: later))
     }
 }
+
+extension Leitner {
+    /// Sıradaki tekrarın kısa, gün bazlı anlatımı: "Şimdi", "Yarın", "3 gün sonra".
+    static func dueDescription(for due: Date, now: Date = .now, calendar: Calendar = .current) -> String {
+        guard due > now else { return "Şimdi" }
+        let days = calendar.dateComponents(
+            [.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: due)
+        ).day ?? 0
+        return switch days {
+        case ...0: "Bugün"
+        case 1: "Yarın"
+        default: "\(days) gün sonra"
+        }
+    }
+
+    /// Kutunun anlamı: 0 yeni, en üst kutu öğrenildi, aradakiler tekrar aralığı.
+    static func boxDescription(_ box: Int) -> String {
+        switch box {
+        case ...0: "Yeni"
+        case maxBox...: "Öğrenildi"
+        default: "\(intervalsInDays[box]) günde bir"
+        }
+    }
+}

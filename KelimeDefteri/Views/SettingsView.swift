@@ -27,54 +27,53 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Günlük hatırlatma", isOn: $reminderEnabled)
+                Toggle(isOn: $reminderEnabled) {
+                    Label { Text("Günlük Hatırlatma") } icon: { SettingsIcon(systemName: "bell.fill", color: .red) }
+                }
                 if reminderEnabled {
-                    DatePicker("Saat", selection: reminderTime, displayedComponents: .hourAndMinute)
+                    DatePicker(selection: reminderTime, displayedComponents: .hourAndMinute) {
+                        Label { Text("Saat") } icon: { SettingsIcon(systemName: "clock.fill", color: .orange) }
+                    }
+                }
+                if permissionDenied {
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                    } label: {
+                        Label { Text("Bildirim İzni Ver") } icon: { SettingsIcon(systemName: "bell.slash.fill", color: .gray) }
+                    }
                 }
             } header: {
                 Text("Hatırlatma")
             } footer: {
-                Text("Sırada kelime olan günlerde, seçtiğin saatte kaç kelimenin beklediğini söyleyen bir bildirim gelir. Uygulama ikonunda da sıradaki kelime sayısı görünür.")
-            }
-
-            if permissionDenied {
-                Section {
-                    Label("Bildirim izni kapalı. Hatırlatma için iPhone ayarlarından Kelime Defteri'ne bildirim izni ver.", systemImage: "bell.slash")
-                        .font(.subheadline)
-                    Button("Ayarları aç") {
-                        if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-                    }
-                }
+                Text(permissionDenied
+                     ? "Bildirim izni kapalı. Hatırlatma için iPhone ayarlarından Kelime Defteri'ne bildirim izni ver."
+                     : "Sırada kelime olan günlerde, seçtiğin saatte kaç kelimenin beklediğini söyleyen bir bildirim gelir. Uygulama simgesinde de sıradaki kelime sayısı görünür.")
             }
 
             Section {
-                // LabeledContent içinde Label/ProgressView satırı gereksiz uzatıyordu; düz HStack kullan.
-                HStack {
-                    Text("iCloud eşitleme")
-                    Spacer()
-                    Group {
-                        switch iCloudStatus {
-                        case .available:
-                            Image(systemName: "checkmark.icloud")
-                            Text("Açık")
-                        case nil:
-                            ProgressView().controlSize(.small)
-                        default:
-                            Image(systemName: "xmark.icloud")
-                            Text("Kapalı")
-                        }
+                LabeledContent {
+                    switch iCloudStatus {
+                    case .available: Text("Açık")
+                    case nil: ProgressView()
+                    default: Text("Kapalı")
                     }
-                    .foregroundStyle(iCloudStatus == .available ? .green : .secondary)
+                } label: {
+                    Label { Text("iCloud Eşitleme") } icon: { SettingsIcon(systemName: "icloud.fill", color: .blue) }
                 }
             } header: {
                 Text("Eşitleme")
             } footer: {
                 Text(iCloudStatus == .available || iCloudStatus == nil
-                     ? "Kelimelerin iCloud'da yedeklenir; iPhone ve Mac'te aynı defter görünür. Mac'te paylaşarak eklediğin kelime, Mac uygulaması açıkken telefona gider."
+                     ? "Kelimelerin iCloud'da yedeklenir; iPhone ve Mac'te aynı defter görünür."
                      : "Bu cihazda iCloud'a giriş yapılmamış ya da iCloud Drive kapalı. Kelimeler yalnızca bu cihazda saklanıyor.")
             }
 
             Section("Defterin") {
+                NavigationLink {
+                    ProgressChartView()
+                } label: {
+                    Label { Text("İlerleme") } icon: { SettingsIcon(systemName: "chart.bar.fill", color: .green) }
+                }
                 LabeledContent("Toplam kelime", value: "\(words.count)")
                 LabeledContent("Öğrenilen", value: "\(words.filter(\.isLearned).count)")
                 LabeledContent("Toplam tekrar", value: "\(words.reduce(0) { $0 + $1.reviewCount })")
@@ -82,12 +81,16 @@ struct SettingsView: View {
                     LabeledContent("Doğru bilme oranı", value: accuracy.formatted(.percent.precision(.fractionLength(0))))
                 }
             }
+
+            Section("Hakkında") {
+                LabeledContent("Sürüm", value: Self.version)
+            }
         }
         .navigationTitle("Ayarlar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Bitti") { dismiss() }
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Kapat", systemImage: "xmark", role: .close) { dismiss() }
             }
         }
         .task {
@@ -109,6 +112,13 @@ struct SettingsView: View {
         }
         .onChange(of: reminderHour) { Task { await ReminderScheduler.refresh(context: context) } }
         .onChange(of: reminderMinute) { Task { await ReminderScheduler.refresh(context: context) } }
+    }
+
+    private static var version: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = info?["CFBundleVersion"] as? String ?? "1"
+        return "\(short) (\(build))"
     }
 
     private var accuracy: Double? {

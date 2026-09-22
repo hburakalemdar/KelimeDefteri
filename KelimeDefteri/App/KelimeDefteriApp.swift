@@ -7,6 +7,14 @@ struct KelimeDefteriApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(SharedStore.container)
+        .modelContainer(Self.container)
+    }
+
+    private static var container: ModelContainer {
+        #if DEBUG
+        // Ekran görüntüleri için: `-demo` ile açılınca gerçek defter yerine bellekteki örnekler.
+        if ProcessInfo.processInfo.arguments.contains("-demo") { return PreviewData.container }
+        #endif
+        return SharedStore.container
     }
 }

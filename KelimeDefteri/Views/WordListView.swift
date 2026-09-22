@@ -2,63 +2,121 @@ import SwiftData
 import SwiftUI
 
 struct WordListView: View {
+    enum Filter: String, CaseIterable, Identifiable {
+        case all, due, learning, learned
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .all: "Tümü"
+            case .due: "Sırada"
+            case .learning: "Öğreniliyor"
+            case .learned: "Öğrenildi"
+            }
+        }
+
+        func includes(_ word: Word) -> Bool {
+            switch self {
+            case .all: true
+            case .due: word.isDue()
+            case .learning: !word.isLearned
+            case .learned: word.isLearned
+            }
+        }
+    }
+
+    enum Sort: String, CaseIterable, Identifiable {
+        case newest, alphabetical, nextReview
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .newest: "Eklenme Tarihi"
+            case .alphabetical: "A–Z"
+            case .nextReview: "Sıradaki Tekrar"
+            }
+        }
+    }
+
     @Query(sort: \Word.createdAt, order: .reverse) private var words: [Word]
     @Environment(\.modelContext) private var context
     @State private var searchText = ""
     @State private var editing: Word?
+    @AppStorage("wordListFilter") private var filter: Filter = .all
+    @AppStorage("wordListSort") private var sort: Sort = .newest
 
-    private var filtered: [Word] {
+    private var rows: [Word] {
         let query = AnswerChecker.fold(searchText)
-        guard !query.isEmpty else { return words }
-        return words.filter {
-            AnswerChecker.fold($0.english).contains(query) || AnswerChecker.fold($0.turkish).contains(query)
+        let matching = words.filter { word in
+            filter.includes(word) && (query.isEmpty
+                || AnswerChecker.fold(word.english).contains(query)
+                || AnswerChecker.fold(word.turkish).contains(query))
+        }
+        return switch sort {
+        case .newest: matching
+        case .alphabetical: matching.sorted { $0.english.localizedStandardCompare($1.english) == .orderedAscending }
+        case .nextReview: matching.sorted { $0.dueDate < $1.dueDate }
         }
     }
 
     var body: some View {
         NavigationStack {
-            List {
-                if !words.isEmpty && searchText.isEmpty {
-                    Section {
-                        StatsLine(words: words)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+            List(rows) { word in
+                NavigationLink(value: word) {
+                    WordRow(word: word)
+                }
+                .swipeActions {
+                    Button("Sil", systemImage: "trash", role: .destructive) {
+                        context.delete(word)
                     }
                 }
-                Section {
-                    ForEach(filtered) { word in
-                        Button {
-                            editing = word
-                        } label: {
-                            WordRow(word: word)
-                        }
-                        .tint(.primary)
-                        .swipeActions {
-                            Button("Sil", systemImage: "trash", role: .destructive) {
-                                context.delete(word)
-                            }
-                        }
-                        .contextMenu {
-                            Button("Düzenle", systemImage: "pencil") { editing = word }
-                            Button("Sil", systemImage: "trash", role: .destructive) {
-                                context.delete(word)
-                            }
-                        }
+                .contextMenu {
+                    Button("Düzenle", systemImage: "pencil") { editing = word }
+                    Button("Dinle", systemImage: "speaker.wave.2") { Speaker.shared.speak(word.english) }
+                    Divider()
+                    Button("Sil", systemImage: "trash", role: .destructive) {
+                        context.delete(word)
                     }
                 }
             }
             .overlay {
                 if words.isEmpty {
                     ContentUnavailableView(
-                        "Henüz kelime yok",
+                        "Henüz Kelime Yok",
                         systemImage: "books.vertical",
                         description: Text("Okurken takıldığın kelimeleri Ekle sekmesinden kaydet.")
                     )
-                } else if filtered.isEmpty {
+                } else if rows.isEmpty && !searchText.isEmpty {
                     ContentUnavailableView.search(text: searchText)
+                } else if rows.isEmpty {
+                    ContentUnavailableView {
+                        Label("“\(filter.title)” Boş", systemImage: "line.3.horizontal.decrease")
+                    } actions: {
+                        Button("Tümünü Göster") { filter = .all }
+                    }
                 }
             }
             .searchable(text: $searchText, prompt: "İngilizce ya da Türkçe ara")
             .navigationTitle("Kelimelerim")
+            .navigationSubtitle(words.isEmpty ? "" : DeckSummary.text(for: words))
+            .navigationDestination(for: Word.self) { word in
+                WordDetailView(word: word)
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Picker("Göster", selection: $filter) {
+                            ForEach(Filter.allCases) { Text($0.title).tag($0) }
+                        }
+                        Picker("Sırala", selection: $sort) {
+                            ForEach(Sort.allCases) { Text($0.title).tag($0) }
+                        }
+                    } label: {
+                        Label("Süz ve Sırala", systemImage: "line.3.horizontal.decrease")
+                    }
+                    .tint(filter == .all ? nil : .accentColor)
+                }
+            }
             .sheet(item: $editing) { word in
                 NavigationStack {
                     WordFormView(mode: .edit(word))
@@ -75,16 +133,19 @@ private struct WordRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(word.english)
-                    .font(.system(.title3, design: .serif).weight(.semibold))
+                    .font(.system(.body, design: .serif, weight: .semibold))
                 Text(word.turkish)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
-            Spacer()
-            BoxDots(box: word.box)
+            Spacer(minLength: 8)
+            Text(Leitner.dueDescription(for: word.dueDate))
+                .font(.footnote)
+                .foregroundStyle(word.isDue() ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
+            BoxRing(box: word.box)
         }
-        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
     }
 }
 
