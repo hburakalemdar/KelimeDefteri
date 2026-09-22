@@ -1,3 +1,4 @@
+import CloudKit
 import SwiftData
 import SwiftUI
 
@@ -11,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(ReminderSettings.hourKey) private var reminderHour = ReminderSettings.defaultHour
     @AppStorage(ReminderSettings.minuteKey) private var reminderMinute = ReminderSettings.defaultMinute
     @State private var permissionDenied = false
+    @State private var iCloudStatus: CKAccountStatus?
 
     private var reminderTime: Binding<Date> {
         Binding {
@@ -45,6 +47,22 @@ struct SettingsView: View {
                 }
             }
 
+            Section {
+                LabeledContent("iCloud eşitleme") {
+                    switch iCloudStatus {
+                    case .available: Label("Açık", systemImage: "checkmark.icloud").foregroundStyle(.green)
+                    case nil: ProgressView()
+                    default: Label("Kapalı", systemImage: "xmark.icloud").foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Eşitleme")
+            } footer: {
+                Text(iCloudStatus == .available || iCloudStatus == nil
+                     ? "Kelimelerin iCloud'da yedeklenir; iPhone ve Mac'te aynı defter görünür. Mac'te paylaşarak eklediğin kelime, Mac uygulaması açıkken telefona gider."
+                     : "Bu cihazda iCloud'a giriş yapılmamış ya da iCloud Drive kapalı. Kelimeler yalnızca bu cihazda saklanıyor.")
+            }
+
             Section("Defterin") {
                 LabeledContent("Toplam kelime", value: "\(words.count)")
                 LabeledContent("Öğrenilen", value: "\(words.filter(\.isLearned).count)")
@@ -62,6 +80,7 @@ struct SettingsView: View {
             }
         }
         .task {
+            iCloudStatus = (try? await CKContainer(identifier: SharedStore.cloudKitContainerID).accountStatus()) ?? .couldNotDetermine
             let denied = await ReminderScheduler.isDenied()
             permissionDenied = reminderEnabled && denied
         }

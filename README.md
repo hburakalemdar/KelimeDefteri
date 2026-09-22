@@ -1,7 +1,8 @@
 # Kelime Defteri
 
 Teknik kitap okurken karşılaşılan İngilizce kelimeleri kaydedip aralıklı tekrarla
-(Leitner sistemi) öğrenmek için bir iPhone uygulaması. SwiftUI + SwiftData, iOS 18+.
+(Leitner sistemi) öğrenmek için iPhone, iPad ve Mac uygulaması. SwiftUI + SwiftData + CloudKit,
+iOS 18+ / Mac Catalyst (macOS 26+).
 
 ## Özellikler
 
@@ -17,6 +18,9 @@ Teknik kitap okurken karşılaşılan İngilizce kelimeleri kaydedip aralıklı 
 - **Paylaş menüsünden ekleme:** Books, Safari ya da PDF okuyucuda metni seç › Paylaş › Kelime Defteri.
   Cümle paylaşıldıysa kelimeleri düğme olarak gelir, bilinmeyene dokunulur; Apple Books'ta kitap adı
   kaynak olarak otomatik dolar.
+- **iCloud eşitleme:** Kelimeler iCloud'da yedeklenir; iPhone ve Mac'te aynı defter.
+  Mac'te Önizleme'den (PDF) seç › sağ tık › Paylaş › Kelime Defteri; kelime saniyeler içinde telefona gelir
+  (Mac uygulaması açıkken — eşitlemeyi eklenti değil ana uygulama yapar).
 - **Günlük hatırlatma:** Seçilen saatte sırada kelime varsa bildirim; ikonda sıradaki kelime sayısı.
 
 ## Proje yapısı
@@ -29,7 +33,7 @@ KelimeDefteri/        Uygulama
 Shared/               Uygulama + paylaşım eklentisinde ortak: Word modeli, SharedStore
                       (App Group veritabanı), Leitner, AnswerChecker, SharedTextParser, WordFormView
 KelimeEkle/           Paylaş menüsü eklentisi (Share Extension)
-Config/               Entitlements (App Group)
+Config/               Entitlements (App Group, iCloud; -mac dosyaları Mac Catalyst için)
 KelimeDefteriTests/   Swift Testing birim testleri
 ```
 
@@ -46,6 +50,9 @@ klasöründe durur, böylece paylaşım eklentisinin eklediği kelimeyi uygulama
 4. İlk seferde iPhone'da **Ayarlar › Gizlilik ve Güvenlik › Geliştirici Modu**'nu aç.
 5. **⌘R** ile çalıştır.
 
+**Mac'te:** Xcode'da cihaz olarak **My Mac (Mac Catalyst)** seçip ⌘R. iCloud şeması şu an geliştirme
+ortamında; TestFlight/App Store'a çıkmadan önce CloudKit Console'dan üretime aktarılmalı.
+
 Testler: Xcode'da **⌘U**, ya da
 
 ```bash
@@ -54,7 +61,7 @@ xcodebuild test -project KelimeDefteri.xcodeproj -scheme KelimeDefteri -destinat
 
 ## Yol haritası
 
-- [ ] iCloud eşitleme (SwiftData + CloudKit), iPad/Mac'te de aynı defter
+- [x] iCloud eşitleme (SwiftData + CloudKit), iPad/Mac'te de aynı defter
 - [x] Günlük tekrar hatırlatma bildirimi
 - [x] Paylaş menüsünden kelime ekleme
 - [ ] Ters yön: Türkçeden İngilizceye çalışma

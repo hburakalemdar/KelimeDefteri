@@ -4,9 +4,14 @@ import SwiftData
 /// Uygulama ile paylaşım eklentisinin (Kelime Ekle) ortak kullandığı veri deposu.
 ///
 /// Veritabanı App Group klasöründe durur; böylece kitaptan paylaşılan kelime,
-/// uygulama açılınca listede görünür.
+/// uygulama açılınca listede görünür. iCloud eşitlemesini yalnızca ana uygulama yapar:
+/// eklenti kısa ömürlü olduğundan sadece yerel depoya yazar, uygulama o değişikliği
+/// kalıcı geçmişten görüp iCloud'a gönderir.
 enum SharedStore {
     static let appGroupID = "group.com.burakalemdar.KelimeDefteri"
+    static let cloudKitContainerID = "iCloud.com.burakalemdar.KelimeDefteri"
+
+    static var isExtension: Bool { Bundle.main.bundlePath.hasSuffix(".appex") }
     private static let storeName = "default.store"
 
     /// Uygulama ve eklenti arasında paylaşılan küçük ayarlar (ör. son kaynak kitap).
@@ -19,7 +24,11 @@ enum SharedStore {
                 return try ModelContainer(for: Word.self)
             }
             migrateLegacyStore(to: storeURL)
-            return try ModelContainer(for: Word.self, configurations: ModelConfiguration(url: storeURL))
+            let configuration = ModelConfiguration(
+                url: storeURL,
+                cloudKitDatabase: isExtension ? .none : .private(cloudKitContainerID)
+            )
+            return try ModelContainer(for: Word.self, configurations: configuration)
         } catch {
             fatalError("Kelime veritabanı açılamadı: \(error)")
         }
