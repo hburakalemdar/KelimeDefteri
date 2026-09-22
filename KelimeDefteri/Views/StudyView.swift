@@ -252,7 +252,9 @@ struct StudyView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     StudyView(onAddTapped: {})
         .modelContainer(PreviewData.container)
 }
+#endif

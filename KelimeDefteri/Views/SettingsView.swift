@@ -107,9 +107,11 @@ struct SettingsView: View {
     }
 }
 
+#if DEBUG
 #Preview {
     NavigationStack {
         SettingsView()
     }
     .modelContainer(PreviewData.container)
 }
+#endif

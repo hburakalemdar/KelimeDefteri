@@ -82,7 +82,9 @@ private struct WordRow: View {
     }
 }
 
+#if DEBUG
 #Preview {
     WordListView()
         .modelContainer(PreviewData.container)
 }
+#endif

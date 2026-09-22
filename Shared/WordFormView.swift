@@ -253,9 +253,11 @@ struct WordFormView: View {
     }
 }
 
+#if DEBUG
 #Preview("Ekle") {
     NavigationStack {
         WordFormView(mode: .add)
     }
     .modelContainer(PreviewData.container)
 }
+#endif

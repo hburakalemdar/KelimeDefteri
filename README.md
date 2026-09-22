@@ -21,6 +21,8 @@ iOS 18+ / Mac Catalyst (macOS 26+).
 - **iCloud eşitleme:** Kelimeler iCloud'da yedeklenir; iPhone ve Mac'te aynı defter.
   Mac'te Önizleme'den (PDF) seç › sağ tık › Paylaş › Kelime Defteri; kelime saniyeler içinde telefona gelir
   (Mac uygulaması açıkken — eşitlemeyi eklenti değil ana uygulama yapar).
+- **Mac kısayolu ⇧⌘E:** Önizleme'de (veya herhangi bir uygulamada) metni seç, ⇧⌘E'ye bas ya da
+  sağ tık › Servisler › Kelime Defteri'ne Ekle. Uygulama kapalıysa kendisi açılır.
 - **Günlük hatırlatma:** Seçilen saatte sırada kelime varsa bildirim; ikonda sıradaki kelime sayısı.
 
 ## Proje yapısı
@@ -33,6 +35,9 @@ KelimeDefteri/        Uygulama
 Shared/               Uygulama + paylaşım eklentisinde ortak: Word modeli, SharedStore
                       (App Group veritabanı), Leitner, AnswerChecker, SharedTextParser, WordFormView
 KelimeEkle/           Paylaş menüsü eklentisi (Share Extension)
+MacHelper/            Mac'te ⇧⌘E servisini sağlayan görünmez AppKit yardımcısı; metni
+                      kelimedefteri://add?text=… ile ana uygulamaya iletir (Catalyst uygulamaları
+                      servis tarafından soğuk başlatılınca çöktüğü için ayrı yardımcı gerekli)
 Config/               Entitlements (App Group, iCloud; -mac dosyaları Mac Catalyst için)
 KelimeDefteriTests/   Swift Testing birim testleri
 ```

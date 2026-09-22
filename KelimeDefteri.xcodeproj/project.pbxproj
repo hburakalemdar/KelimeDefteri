@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		KD0000000000000000000801 /* KelimeEkle.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = KD0000000000000000000013 /* KelimeEkle.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		KD0000000000000000000802 /* KelimeDefteriHelper.app in Embed Helper */ = {isa = PBXBuildFile; fileRef = KD0000000000000000000014 /* KelimeDefteriHelper.app */; platformFilter = maccatalyst; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -25,6 +26,13 @@
 			remoteGlobalIDString = KD0000000000000000000401;
 			remoteInfo = KelimeEkle;
 		};
+		KD0000000000000000000305 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = KD0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = KD0000000000000000000451;
+			remoteInfo = KelimeDefteriHelper;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -39,12 +47,24 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		KD0000000000000000000114 /* Embed Helper */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/Helpers;
+			dstSubfolderSpec = 1;
+			files = (
+				KD0000000000000000000802 /* KelimeDefteriHelper.app in Embed Helper */,
+			);
+			name = "Embed Helper";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		KD0000000000000000000011 /* KelimeDefteri.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KelimeDefteri.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		KD0000000000000000000012 /* KelimeDefteriTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KelimeDefteriTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		KD0000000000000000000013 /* KelimeEkle.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KelimeEkle.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		KD0000000000000000000014 /* KelimeDefteriHelper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KelimeDefteriHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -81,6 +101,11 @@
 			path = KelimeEkle;
 			sourceTree = "<group>";
 		};
+		KD0000000000000000000025 /* MacHelper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = MacHelper;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +130,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		KD0000000000000000000461 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -114,6 +146,7 @@
 				KD0000000000000000000021 /* KelimeDefteri */,
 				KD0000000000000000000023 /* Shared */,
 				KD0000000000000000000024 /* KelimeEkle */,
+				KD0000000000000000000025 /* MacHelper */,
 				KD0000000000000000000022 /* KelimeDefteriTests */,
 				KD0000000000000000000003 /* Products */,
 			);
@@ -125,6 +158,7 @@
 				KD0000000000000000000011 /* KelimeDefteri.app */,
 				KD0000000000000000000012 /* KelimeDefteriTests.xctest */,
 				KD0000000000000000000013 /* KelimeEkle.appex */,
+				KD0000000000000000000014 /* KelimeDefteriHelper.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -140,11 +174,13 @@
 				KD0000000000000000000111 /* Frameworks */,
 				KD0000000000000000000112 /* Resources */,
 				KD0000000000000000000113 /* Embed Foundation Extensions */,
+				KD0000000000000000000114 /* Embed Helper */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				KD0000000000000000000304 /* PBXTargetDependency */,
+				KD0000000000000000000306 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				KD0000000000000000000021 /* KelimeDefteri */,
@@ -197,6 +233,26 @@
 			productReference = KD0000000000000000000013 /* KelimeEkle.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		KD0000000000000000000451 /* KelimeDefteriHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = KD0000000000000000000504 /* Build configuration list for PBXNativeTarget "KelimeDefteriHelper" */;
+			buildPhases = (
+				KD0000000000000000000460 /* Sources */,
+				KD0000000000000000000461 /* Frameworks */,
+				KD0000000000000000000462 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				KD0000000000000000000025 /* MacHelper */,
+			);
+			name = KelimeDefteriHelper;
+			productName = KelimeDefteriHelper;
+			productReference = KD0000000000000000000014 /* KelimeDefteriHelper.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -215,6 +271,9 @@
 						TestTargetID = KD0000000000000000000101;
 					};
 					KD0000000000000000000401 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					KD0000000000000000000451 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 				};
@@ -237,6 +296,7 @@
 				KD0000000000000000000101 /* KelimeDefteri */,
 				KD0000000000000000000201 /* KelimeDefteriTests */,
 				KD0000000000000000000401 /* KelimeEkle */,
+				KD0000000000000000000451 /* KelimeDefteriHelper */,
 			);
 		};
 /* End PBXProject section */
@@ -257,6 +317,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		KD0000000000000000000412 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		KD0000000000000000000462 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -287,6 +354,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		KD0000000000000000000460 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -299,6 +373,12 @@
 			isa = PBXTargetDependency;
 			target = KD0000000000000000000401 /* KelimeEkle */;
 			targetProxy = KD0000000000000000000303 /* PBXContainerItemProxy */;
+		};
+		KD0000000000000000000306 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilter = maccatalyst;
+			target = KD0000000000000000000451 /* KelimeDefteriHelper */;
+			targetProxy = KD0000000000000000000305 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -379,6 +459,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				"INFOPLIST_FILE[sdk=macosx*]" = "Config/Mac-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -417,6 +498,7 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				"INFOPLIST_FILE[sdk=macosx*]" = "Config/Mac-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.education";
 				INFOPLIST_KEY_UIBackgroundModes = "remote-notification";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -542,6 +624,60 @@
 			};
 			name = Release;
 		};
+		KD0000000000000000000641 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/Helper.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U88VJ8A3HQ;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Helper-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Kelime Defteri Yardımcısı";
+				INFOPLIST_KEY_LSUIElement = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.burakalemdar.KelimeDefteri.Helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		KD0000000000000000000642 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Config/Helper.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U88VJ8A3HQ;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Helper-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Kelime Defteri Yardımcısı";
+				INFOPLIST_KEY_LSUIElement = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.burakalemdar.KelimeDefteri.Helper;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -577,6 +713,15 @@
 			buildConfigurations = (
 				KD0000000000000000000631 /* Debug */,
 				KD0000000000000000000632 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		KD0000000000000000000504 /* Build configuration list for PBXNativeTarget "KelimeDefteriHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				KD0000000000000000000641 /* Debug */,
+				KD0000000000000000000642 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
