@@ -27,7 +27,7 @@ struct WordMatcherTests {
         #expect(WordMatcher.mergedMeanings(existing: "", adding: "bayat") == "bayat")
     }
 
-    @Test func absorbKeepsProgressUnlessRelearning() {
+    @Test func absorbAddsInfoAndKeepsProgress() {
         let word = Word(english: "stale", turkish: "eskimiş", example: "Old cache.")
         word.box = 3
         let due = Date.now.addingTimeInterval(86_400 * 5)
@@ -36,18 +36,12 @@ struct WordMatcherTests {
         #expect(word.wouldAbsorb(turkish: "bayat", definition: "", example: "", source: ""))
         #expect(!word.wouldAbsorb(turkish: "Eskimiş", definition: "", example: "New sentence.", source: ""))
 
-        word.absorb(turkish: "bayat", definition: "not fresh", example: "New sentence.", source: "DDIA", relearn: false)
+        word.absorb(turkish: "bayat", definition: "not fresh", example: "New sentence.", source: "DDIA")
         #expect(word.turkish == "eskimiş, bayat")
         #expect(word.definition == "not fresh")
         #expect(word.example == "Old cache.")
         #expect(word.source == "DDIA")
         #expect(word.box == 3)
         #expect(word.dueDate == due)
-
-        let now = Date.now
-        word.absorb(turkish: "", definition: "", example: "", source: "", relearn: true, now: now)
-        #expect(word.box == 0)
-        #expect(word.dueDate == now)
-        #expect(word.isDue(at: now))
     }
 }

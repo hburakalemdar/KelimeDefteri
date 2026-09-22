@@ -90,6 +90,18 @@ struct WordFormView: View {
     }
 
     var body: some View {
+        #if os(macOS)
+        // Mac'te düğmeler formun altında sade durur; form onların üstünde biter, altından geçmez.
+        VStack(spacing: 0) {
+            form
+            macActionBar
+        }
+        #else
+        form
+        #endif
+    }
+
+    private var form: some View {
         Form {
             #if os(macOS)
             if let savedMessage, onFinish == nil {
@@ -166,7 +178,13 @@ struct WordFormView: View {
         #else
         .navigationTitle(editingWord == nil ? "Kelime ekle" : "Düzenle")
         .formStyle(.grouped)
-        .safeAreaInset(edge: .bottom, spacing: 0) { macActionBar }
+        #endif
+        // "Zaten Defterinde" bölümü kayarak açılıp kapansın.
+        .animation(.snappy(duration: 0.3), value: existingMatch?.persistentModelID)
+        #if os(iOS)
+        .sensoryFeedback(trigger: existingMatch?.persistentModelID) { _, new in
+            new != nil && editingWord == nil ? .warning : nil
+        }
         #endif
         .onAppear(perform: load)
         // Kelime değişince ona ait uyarı ve öneriler geçersizleşir. Kaydettikten sonra
@@ -217,13 +235,18 @@ struct WordFormView: View {
         }
 
         Section {
-            TextField("İngilizce kelime", text: $english)
-                .font(.system(.title3, design: .serif, weight: .medium))
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .focused($focusedField, equals: .english)
-                .submitLabel(.next)
-                .onSubmit { focusedField = .turkish }
+            HStack {
+                TextField("İngilizce kelime", text: $english)
+                    .font(.system(.title3, design: .serif, weight: .medium))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($focusedField, equals: .english)
+                    .submitLabel(.next)
+                    .onSubmit { focusedField = .turkish }
+                if editingWord == nil && existingMatch != nil {
+                    existingIcon
+                }
+            }
             TextField("Türkçesi", text: $turkish)
                 .focused($focusedField, equals: .turkish)
             if suggestion != nil {
@@ -315,6 +338,9 @@ struct WordFormView: View {
                         .autocorrectionDisabled()
                         .focused($focusedField, equals: .english)
                         .onSubmit { focusedField = .turkish }
+                    if editingWord == nil && existingMatch != nil {
+                        existingIcon
+                    }
                     Button(action: translate) {
                         if isTranslating {
                             ProgressView().controlSize(.small)
@@ -372,9 +398,7 @@ struct WordFormView: View {
         }
     }
 
-    /// Mac'te pencerenin sağ altında Vazgeç / Kaydet. Kelime zaten defterdeyse Kaydet'in yerine
-    /// Yeniden Çalış / Anlamları Ekle gelir; o an yapılabilir olan öne çıkar ve ⌘S ile basılır.
-    @ViewBuilder
+    /// Mac'te pencerenin sağ altında Vazgeç / Kaydet.
     private var macActionBar: some View {
         HStack {
             Spacer()
@@ -382,37 +406,21 @@ struct WordFormView: View {
                 Button("Vazgeç", action: cancel)
                     .keyboardShortcut(.cancelAction)
             }
-            if editingWord == nil, let existing = existingMatch {
-                let canAbsorb = canAbsorb(into: existing)
-                macButton("Yeniden Çalış", prominent: !canAbsorb) { absorb(into: existing, relearn: true) }
-                    .help("Anlamlar eklenir, kelime başa döner ve hemen sorulur.")
-                macButton("Anlamları Ekle", prominent: canAbsorb) { absorb(into: existing, relearn: false) }
-                    .disabled(!canAbsorb)
-                    .help("Yeni anlamlar mevcut kayda eklenir; ilerleme korunur.")
-            } else {
+            // Kelime zaten defterdeyse kaydedilemez; o durumda ⌘S satırdaki "Anlamları Ekle"yi çalıştırır.
+            if existingMatch == nil || editingWord != nil {
                 Button(editingWord == nil ? "Kaydet" : "Güncelle", action: save)
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut("s", modifiers: .command)
                     .help("⌘S")
                     .disabled(!canSave)
+            } else {
+                Button("Kaydet", action: save)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(true)
             }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        // Form kaydırılınca içerik çubuğun altından geçsin, üstüne binmesin.
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
-    }
-
-    @ViewBuilder
-    private func macButton(_ title: String, prominent: Bool, action: @escaping () -> Void) -> some View {
-        if prominent {
-            Button(title, action: action)
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut("s", modifiers: .command)
-        } else {
-            Button(title, action: action)
-        }
     }
 
     /// Mac'te Sözlük uygulamasında açar.
@@ -483,6 +491,59 @@ struct WordFormView: View {
     /// iPhone'da seçenekler bu bölümde satır olarak, Mac'te pencerenin eylem çubuğundadır.
     private func existingSection(_ word: Word) -> some View {
         Section {
+            HStack(spacing: 12) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(.orange)
+                    .symbolEffect(.bounce, value: word.persistentModelID)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Bu kelime zaten defterinde")
+                        .font(.headline)
+                    #if os(macOS)
+                    Text("Türkçesi alanına yeni bir anlam yazıp mevcut kayda ekleyebilirsin.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    #else
+                    Text("Yeni bir anlam yazarsan mevcut kayda ekleyebilirsin.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    #endif
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 2)
+            #if os(macOS)
+            // Mac formu satır zeminini desteklemiyor; uyarı satırına kendi zeminini ver.
+            // Menü penceresinin camı zemini soldurduğu için rengi koyulaştır ve kenarlık ekle.
+            .padding(10)
+            .background(Color.orange.opacity(0.28), in: .rect(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.orange.opacity(0.7), lineWidth: 1)
+            }
+            #endif
+            .listRowBackground(Self.warningBackground)
+
+            #if os(macOS)
+            // Sistem Ayarları'ndaki gibi: satırda bilgi solda, eylem sağda standart düğme.
+            HStack(alignment: .center, spacing: 10) {
+                BoxRing(box: word.box, size: 16)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(word.english)
+                        .font(.system(.body, design: .serif, weight: .semibold))
+                    Text("\(word.turkish) · \(Leitner.dueDescription(for: word.dueDate))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 8)
+                Button("Anlamları Ekle") { absorb(into: word) }
+                    .keyboardShortcut("s", modifiers: .command)
+                    .disabled(!canAbsorb(into: word))
+                    .help("Türkçesi alanına yazdığın yeni anlamlar mevcut kayda eklenir; ilerleme korunur. (⌘S)")
+            }
+            .padding(.vertical, 2)
+            #else
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(word.english)
@@ -500,26 +561,29 @@ struct WordFormView: View {
                 }
             }
             .padding(.vertical, 2)
+            .listRowBackground(Self.warningBackground)
+            #endif
             #if os(iOS)
             existingOption(
                 "Anlamları Ekle", detail: "Yeni anlamlar mevcut kayda eklenir; ilerleme korunur.",
                 systemImage: "plus.circle.fill", enabled: canAbsorb(into: word)
-            ) { absorb(into: word, relearn: false) }
-            existingOption(
-                "Yeniden Çalış", detail: "Anlamlar eklenir, kelime başa döner ve hemen sorulur.",
-                systemImage: "arrow.counterclockwise.circle.fill", enabled: true
-            ) { absorb(into: word, relearn: true) }
-            #endif
-        } header: {
-            Text("Zaten Defterinde")
-        } footer: {
-            #if os(macOS)
-            Text("Yeni anlamları mevcut kayda ekleyebilir ya da kelimeyi baştan çalışmak için sıraya alabilirsin.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            ) { absorb(into: word) }
+            .listRowBackground(Self.warningBackground)
             #endif
         }
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    /// Uyarı bölümünün turuncu tonlu zemini.
+    private static let warningBackground = Color.orange.opacity(0.18)
+
+    /// Kelime zaten defterdeyse İngilizce alanının yanında beliren turuncu simge.
+    private var existingIcon: some View {
+        Image(systemName: "exclamationmark.circle.fill")
+            .foregroundStyle(.orange)
+            .symbolEffect(.bounce, value: existingMatch?.persistentModelID)
+            .transition(.scale.combined(with: .opacity))
+            .accessibilityLabel("Bu kelime zaten defterinde")
     }
 
     private func canAbsorb(into word: Word) -> Bool {
@@ -627,13 +691,13 @@ struct WordFormView: View {
     }
 
     /// Aynı kelime yeniden eklenirken yeni bilgileri mevcut kayda katar.
-    private func absorb(into word: Word, relearn: Bool) {
+    private func absorb(into word: Word) {
         lastSource = cleanSource
         word.absorb(
             turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample,
-            source: cleanSource, relearn: relearn
+            source: cleanSource
         )
-        finishAdding(message: relearn ? "“\(word.english)” yeniden çalışılacak" : "“\(word.english)” güncellendi")
+        finishAdding(message: "“\(word.english)” güncellendi")
     }
 
     private func finishAdding(message: String) {

@@ -47,19 +47,15 @@ extension Word {
     }
 
     /// Aynı kelime yeniden eklenirken yeni bilgileri bu kayda katar: yeni anlamlar eklenir,
-    /// boş alanlar doldurulur. `relearn` ise kelime başa döner ve hemen sorulur.
-    func absorb(turkish: String, definition: String, example: String, source: String, relearn: Bool, now: Date = .now) {
+    /// boş alanlar doldurulur. İlerleme (kutu, sıradaki tekrar) değişmez.
+    func absorb(turkish: String, definition: String, example: String, source: String) {
         self.turkish = WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish)
         if self.definition.isEmpty { self.definition = definition }
         if self.example.isEmpty { self.example = example }
         if self.source.isEmpty { self.source = source }
-        if relearn {
-            box = 0
-            dueDate = now
-        }
     }
 
-    /// `absorb(relearn: false)` bu kayıtta bir şey değiştirir mi.
+    /// `absorb` bu kayıtta bir şey değiştirir mi.
     func wouldAbsorb(turkish: String, definition: String, example: String, source: String) -> Bool {
         WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish) != self.turkish.trimmingCharacters(in: .whitespaces)
             || (self.definition.isEmpty && !definition.isEmpty)
