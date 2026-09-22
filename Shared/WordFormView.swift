@@ -128,6 +128,21 @@ struct WordFormView: View {
             Section("Kaynak (isteğe bağlı)") {
                 TextField("ör. Designing Data-Intensive Applications", text: $source)
             }
+
+            // Mac'te pencere araç çubuğundaki düğmenin etkin hâli form değişince güncellenmediği
+            // için orada kaydet düğmesi yok; bu düğme her platformda çalışır (⌘S).
+            Section {
+                Button(action: save) {
+                    Text(editingWord == nil ? "Kaydet" : "Güncelle")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .keyboardShortcut("s", modifiers: .command)
+                .disabled(!canSave)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+            }
         }
         .navigationTitle(editingWord == nil ? "Kelime ekle" : "Düzenle")
         .navigationBarTitleDisplayMode(editingWord == nil ? .large : .inline)
@@ -139,13 +154,19 @@ struct WordFormView: View {
                     }
                 }
             }
+            #if !targetEnvironment(macCatalyst)
             ToolbarItem(placement: .confirmationAction) {
                 Button(editingWord == nil ? "Kaydet" : "Güncelle", action: save)
                     .disabled(!canSave)
             }
+            #endif
         }
         .onAppear(perform: load)
-        .onChange(of: english) { message = nil }
+        // Kullanıcı yeni kelime yazmaya başlayınca eski mesajı kaldır; kaydettikten sonra
+        // alanın temizlenmesi "eklendi" mesajını silmesin.
+        .onChange(of: english) { _, newValue in
+            if !newValue.isEmpty { message = nil }
+        }
         .translationTask(translationConfig) { session in
             let term = trimmedEnglish
             do {

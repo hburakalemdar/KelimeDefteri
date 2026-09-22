@@ -37,6 +37,12 @@ struct WordListView: View {
                                 context.delete(word)
                             }
                         }
+                        .contextMenu {
+                            Button("Düzenle", systemImage: "pencil") { editing = word }
+                            Button("Sil", systemImage: "trash", role: .destructive) {
+                                context.delete(word)
+                            }
+                        }
                     }
                 }
             }
