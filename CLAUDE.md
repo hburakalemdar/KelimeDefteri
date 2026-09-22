@@ -2,12 +2,13 @@
 
 Teknik kitaplardaki İngilizce kelimeleri Türkçesiyle kaydedip Leitner aralıklı tekrarıyla
 çalıştıran iPhone + Mac uygulaması. SwiftUI, SwiftData + CloudKit, Swift 6
-(varsayılan izolasyon MainActor). Kullanıcı Türkçe konuşur; arayüz metinleri Türkçe.
+(varsayılan izolasyon MainActor). iOS 26+ (Liquid Glass: `.glass`/`.glassProminent`, `glassEffect`).
+Tasarım dili sistem parçaları; İngilizce kelimeler New York serif, vurgu rengi petrol yeşili. Kullanıcı Türkçe konuşur; arayüz metinleri Türkçe.
 Ayrıntılı özellik listesi ve yapı: README.md.
 
 ## Hedefler (targets)
 
-- **KelimeDefteri** — iPhone/iPad uygulaması (iOS 18+). `KelimeDefteri/` + `Shared/`.
+- **KelimeDefteri** — iPhone/iPad uygulaması (iOS 26+). `KelimeDefteri/` + `Shared/`.
 - **KelimeEkle** — iOS Paylaş menüsü eklentisi. `KelimeEkle/` + `Shared/`. iCloud'a kendisi eşitlemez;
   App Group'taki ortak SQLite'a yazar, ana uygulama kalıcı geçmişten görüp iCloud'a gönderir.
 - **KelimeDefteriMac** — yerel macOS uygulaması (macOS 26+, Catalyst değil). `Mac/` + `Shared/`.
@@ -43,7 +44,17 @@ Mac kurulumunda önce çalışan uygulamayı kapat (`osascript -e 'tell applicat
 Sonra `lsregister -f -R /Applications/KelimeDefteri.app` ve `/System/Library/CoreServices/pbs -update`.
 `build/.metadata_never_index` Spotlight'ın bu klasörü yeniden kaydetmesini engeller.
 
+Ekran görüntüsü için (yalnızca DEBUG): `xcrun simctl launch booted com.burakalemdar.KelimeDefteri -demo`
+gerçek defter yerine örnek kelimelerle açar; `-shareDemo` ek olarak Paylaş eklentisinin formunu gösterir.
+Simülatör ekran görüntüsü: `xcrun simctl io booted screenshot x.png`. Testleri `-parallel-testing-enabled NO`
+ile koş; paralelde simülatör kopyaları açılamayıp testler 0 sn'de "failed" görünebiliyor.
+
 ## Bilinen tuzaklar
+
+- SwiftData bellek içi depo (`isStoredInMemoryOnly`) iOS 27 simülatöründe kaydederken ara ara çöküyor
+  (`_obtainPermanentIDsForObjects`); örnek veri ve testler geçici dosya deposu kullanır.
+- iOS 26 `Form` içinde pasif düğme siyah kalıyor; soluk görünmesi için yazı rengini elle ver.
+- Mac'te `.tint` verilen `.glass` düğme de dolu görünür; öne çıkmayan düğmede yalnızca `foregroundStyle` kullan.
 
 - Mac sürümü eskiden Catalyst'ti: Catalyst uygulaması servis tarafından soğuk başlatılınca çöküyordu ve
   menü çubuğunda yaşayamıyordu; bu yüzden yerel macOS hedefine geçildi. Mac'te Paylaş menüsü

@@ -26,7 +26,15 @@ struct KelimeDefteriMacApp: App {
         .defaultSize(width: 760, height: 480)
 
         Settings {
-            MacSettingsView()
+            TabView {
+                Tab("Genel", systemImage: "gearshape") {
+                    MacSettingsView()
+                }
+                Tab("İlerleme", systemImage: "chart.bar") {
+                    ProgressChartView()
+                        .frame(width: 460, height: 640)
+                }
+            }
         }
         .modelContainer(SharedStore.container)
         .windowResizability(.contentSize)

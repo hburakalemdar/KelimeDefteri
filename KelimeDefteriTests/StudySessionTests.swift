@@ -44,9 +44,11 @@ struct StudySessionTests {
         #expect(session.current == nil)
     }
 
-    /// `sync` kelimeleri kimlikleriyle eşlediği için gerçek bir (bellek içi) depoya eklenmeleri gerekir.
+    /// `sync` kelimeleri kimlikleriyle eşlediği için gerçek bir depoya eklenmeleri gerekir.
+    /// Bellek içi depo iOS 27 simülatöründe kaydederken ara ara çöktüğü için geçici dosya kullanılır.
     private func insert(_ words: Word...) throws -> ModelContext {
-        let container = try ModelContainer(for: Word.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+        let url = URL.temporaryDirectory.appending(path: "test-\(UUID().uuidString).store")
+        let container = try ModelContainer(for: Word.self, configurations: ModelConfiguration(url: url, cloudKitDatabase: .none))
         let context = ModelContext(container)
         words.forEach(context.insert)
         try context.save()

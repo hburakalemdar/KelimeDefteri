@@ -1,8 +1,8 @@
 import SwiftData
 import SwiftUI
 
-/// Menü çubuğu penceresindeki çalışma kartı. Klavyeyle kullanılabilir:
-/// Return kontrol eder, ← Bilemedim, → Bildim.
+/// Menü çubuğu penceresindeki çalışma kartı; iOS'taki Çalış ekranının Mac karşılığı.
+/// Klavyeyle kullanılabilir: Return kontrol eder, ⌘Return gösterir, ← Bilemedim, → Bildim.
 struct MacStudyView: View {
     var onAddTapped: () -> Void
 
@@ -15,14 +15,15 @@ struct MacStudyView: View {
         Group {
             if words.isEmpty {
                 ContentUnavailableView {
-                    Label("Defterin boş", systemImage: "book.closed")
+                    Label("Defterin Boş", systemImage: "book.closed")
                 } description: {
                     Text("Okurken takıldığın ilk kelimeyi ekle, burada sana sorayım.")
                 } actions: {
-                    Button("Kelime ekle", action: onAddTapped)
+                    Button("Kelime Ekle", action: onAddTapped)
+                        .buttonStyle(.glassProminent)
                 }
             } else if let word = session.current {
-                card(for: word)
+                studyPage(for: word)
             } else {
                 finished
             }
@@ -41,152 +42,183 @@ struct MacStudyView: View {
         }
     }
 
+    /// Turda cevaplanan kartların oranı; bilinmeyen kelime sıraya yeniden girdiği için
+    /// toplam da onunla büyür.
+    private var progress: Double {
+        let total = session.reviewedCount + session.remaining + 1
+        return Double(session.reviewedCount) / Double(total)
+    }
+
     // MARK: - Kart
 
+    private func studyPage(for word: Word) -> some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                ProgressView(value: progress)
+                    .accessibilityLabel("Tur ilerlemesi")
+                Text("\(session.remaining + 1) kaldı")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .fixedSize()
+            }
+
+            ScrollView {
+                card(for: word)
+            }
+            .scrollBounceBehavior(.basedOnSize)
+
+            if session.phase == .asking {
+                askBar
+            } else {
+                gradeBar
+            }
+        }
+        .padding(14)
+        .animation(.snappy(duration: 0.2), value: session.phase)
+    }
+
     private func card(for word: Word) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(word.source)
-                    .lineLimit(1)
-                Spacer()
-                Text("kutu \(word.box)/\(Leitner.maxBox) · \(session.remaining) kaldı")
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 5) {
+                if !word.source.isEmpty {
+                    Image(systemName: "book.closed")
+                    Text(word.source)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 10)
+                BoxRing(box: word.box, size: 10)
+                Text("Kutu \(word.box)/\(Leitner.maxBox)")
                     .monospacedDigit()
             }
             .font(.caption)
             .foregroundStyle(.secondary)
 
-            Spacer(minLength: 12)
-
-            // Kart: kelime ortada, altında cümle; cevap açılınca Türkçesi.
-            VStack(spacing: 10) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(word.english)
-                        .font(.system(size: 32, weight: .semibold, design: .serif))
-                        .minimumScaleFactor(0.5)
-                        .lineLimit(1)
-                        .textSelection(.enabled)
-                    Button {
-                        Speaker.shared.speak(word.english)
-                    } label: {
-                        Image(systemName: "speaker.wave.2")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Telaffuzu dinle")
+            HStack(alignment: .firstTextBaseline) {
+                Text(word.english)
+                    .font(.system(size: 30, weight: .semibold, design: .serif))
+                    .minimumScaleFactor(0.5)
+                    .lineLimit(1)
+                    .textSelection(.enabled)
+                Spacer(minLength: 8)
+                Button("Telaffuzu dinle", systemImage: "speaker.wave.2.fill") {
+                    Speaker.shared.speak(word.english)
                 }
-
-                if !word.example.isEmpty {
-                    Text(AttributedString(quoting: word.example, highlighting: word.english))
-                        .font(.system(.body, design: .serif).italic())
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if session.phase != .asking {
-                    answerReveal(for: word)
-                        .padding(.top, 6)
-                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .help("Telaffuzu dinle")
             }
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity)
 
-            Spacer(minLength: 12)
+            if !word.example.isEmpty {
+                Text(AttributedString(quoting: word.example, highlighting: word.english))
+                    .font(.system(.body, design: .serif).italic())
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-            if session.phase == .asking {
-                askArea
-            } else {
-                gradeArea
+            if case .revealed(let verdict) = session.phase {
+                answerReveal(for: word, verdict: verdict)
+                    .transition(.opacity)
             }
         }
         .padding(16)
-        .animation(.snappy(duration: 0.2), value: session.phase)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.quinary, in: .rect(cornerRadius: 16, style: .continuous))
     }
 
-    private var askArea: some View {
+    private func answerReveal(for word: Word, verdict: StudySession.Verdict) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                TextField("Hatırladığın Türkçesi", text: $answer)
-                    .textFieldStyle(.roundedBorder)
-                    .controlSize(.large)
-                    .autocorrectionDisabled()
-                    .focused($answerFocused)
-                    .onSubmit { reveal(withAnswer: true) }
-                Button("Kontrol et") { reveal(withAnswer: true) }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-            }
-            Button("Bilmiyorum, göster") { reveal(withAnswer: false) }
-                .buttonStyle(.link)
-                .font(.callout)
-                .frame(maxWidth: .infinity)
-        }
-        .onAppear { answerFocused = true }
-    }
-
-    private func answerReveal(for word: Word) -> some View {
-        VStack(spacing: 6) {
+            Divider()
+                .padding(.bottom, 2)
+            verdictLabel(verdict)
             Text(word.turkish)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Color("HighlightText"))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(Color("Highlight"), in: .rect(cornerRadius: 4))
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.tint)
                 .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
             if !word.definition.isEmpty {
                 Text(word.definition)
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            if !answer.isEmpty {
-                Text("Senin cevabın: \(answer)")
+            if verdict == .incorrect {
+                Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Bildim'e bas.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
-        .transition(.opacity)
+    }
+
+    private func verdictLabel(_ verdict: StudySession.Verdict) -> some View {
+        let (text, icon, color): (String, String, Color) = switch verdict {
+        case .correct: ("Doğru", "checkmark.circle.fill", .green)
+        case .incorrect: ("Tam tutmadı", "xmark.circle.fill", .red)
+        case .peeked: ("Cevaba baktın. Biliyor muydun?", "eye.fill", .secondary)
+        }
+        return Label(text, systemImage: icon)
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(color)
+    }
+
+    // MARK: - Alt çubuk
+
+    private var askBar: some View {
+        HStack(spacing: 8) {
+            Button("Cevabı göster", systemImage: "eye") { reveal(withAnswer: false) }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .keyboardShortcut(.return, modifiers: .command)
+                .help("Cevabı göster (⌘↩)")
+            TextField("Türkçesi", text: $answer)
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+                .focused($answerFocused)
+                .onSubmit { reveal(withAnswer: true) }
+                .padding(.horizontal, 12)
+                .frame(height: 30)
+                .glassEffect(.regular, in: .capsule)
+            Button("Kontrol et", systemImage: "checkmark") { reveal(withAnswer: true) }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glassProminent)
+                .buttonBorderShape(.circle)
+                .help("Kontrol et (↩)")
+        }
+        .controlSize(.large)
+        .onAppear { answerFocused = true }
     }
 
     @ViewBuilder
-    private var gradeArea: some View {
+    private var gradeBar: some View {
         if case .revealed(let verdict) = session.phase {
-            VStack(spacing: 10) {
-                verdictLine(verdict)
-                HStack(spacing: 10) {
-                    gradeButton("Bilemedim", key: .leftArrow, known: false, prominent: verdict != .correct)
-                    gradeButton("Bildim", key: .rightArrow, known: true, prominent: verdict == .correct)
-                }
+            HStack(spacing: 10) {
+                gradeButton("Bilemedim", systemImage: "xmark", key: .leftArrow, known: false, prominent: verdict != .correct)
+                gradeButton("Bildim", systemImage: "checkmark", key: .rightArrow, known: true, prominent: verdict == .correct)
             }
         }
     }
 
-    private func verdictLine(_ verdict: StudySession.Verdict) -> some View {
-        let (text, icon, color): (String, String, Color) = switch verdict {
-        case .correct: ("Doğru!", "checkmark.circle.fill", .green)
-        case .incorrect: ("Tam tutmadı. Anlamca aynıysa “Bildim”i seç.", "xmark.circle.fill", .red)
-        case .peeked: ("Türkçesine baktın. Biliyor muydun?", "eye.fill", .secondary)
-        }
-        return Label(text, systemImage: icon)
-            .font(.callout.weight(.medium))
-            .foregroundStyle(color)
-            .frame(maxWidth: .infinity)
-    }
-
     @ViewBuilder
-    private func gradeButton(_ title: String, key: KeyEquivalent, known: Bool, prominent: Bool) -> some View {
+    private func gradeButton(_ title: String, systemImage: String, key: KeyEquivalent, known: Bool, prominent: Bool) -> some View {
         let button = Button {
             session.grade(known: known)
             answer = ""
             answerFocused = true
         } label: {
-            Text(title).frame(maxWidth: .infinity)
+            Label(title, systemImage: systemImage)
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
         }
         .controlSize(.large)
-        .tint(known ? .green : .red)
         .keyboardShortcut(key, modifiers: [])
-        .help(known ? "→" : "←")
+        .help(known ? "Bildim (→)" : "Bilemedim (←)")
+        // Mac'te renk verilen cam düğme de dolu görünüyor; öne çıkmayanın yalnızca yazısı renkli.
         if prominent {
-            button.buttonStyle(.borderedProminent)
+            button.buttonStyle(.glassProminent).tint(known ? .green : .red)
         } else {
-            button.buttonStyle(.bordered)
+            button.buttonStyle(.glass).foregroundStyle(known ? .green : .red)
         }
     }
 
@@ -199,24 +231,36 @@ struct MacStudyView: View {
 
     private var finished: some View {
         ContentUnavailableView {
-            Label(session.isPracticeAll ? "Tur bitti" : "Bugünlük bu kadar", systemImage: "checkmark.seal")
+            Label(session.isPracticeAll ? "Tur Bitti" : "Bugünlük Bu Kadar", systemImage: "checkmark.circle")
         } description: {
-            VStack(spacing: 6) {
-                if session.reviewedCount > 0 {
-                    Text("Bu turda \(session.reviewedCount) cevap verdin.")
-                }
-                if let next = words.map(\.dueDate).filter({ $0 > .now }).min() {
-                    Text("Sıradaki tekrar \(next.formatted(.relative(presentation: .named)))")
-                }
-                StatsLine(words: words)
-                    .padding(.top, 4)
-            }
+            Text(finishedDescription)
         } actions: {
-            Button("Yine de hepsini çalış") {
-                session.start(with: words, practiceAll: true)
+            VStack(spacing: 10) {
+                Button {
+                    session.start(with: words, practiceAll: true)
+                } label: {
+                    Text("Hepsini Çalış").frame(minWidth: 140)
+                }
+                .buttonStyle(.glassProminent)
+                Button(action: onAddTapped) {
+                    Text("Kelime Ekle").frame(minWidth: 140)
+                }
+                .buttonStyle(.glass)
             }
-            .buttonStyle(.borderedProminent)
-            Button("Kelime ekle", action: onAddTapped)
+            .controlSize(.large)
         }
+    }
+
+    private var finishedDescription: String {
+        var lines: [String] = []
+        if session.reviewedCount > 0 {
+            lines.append("Bu turda \(session.reviewedCount) cevap verdin.")
+        }
+        if let next = words.map(\.dueDate).filter({ $0 > .now }).min() {
+            let when = Leitner.dueDescription(for: next)
+            lines.append("Sıradaki tekrar: \(when.lowercased(with: Locale(identifier: "tr_TR"))).")
+        }
+        lines.append(DeckSummary.text(for: words))
+        return lines.joined(separator: "\n")
     }
 }

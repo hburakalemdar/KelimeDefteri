@@ -30,11 +30,17 @@ struct WordsWindow: View {
                 Text(word.source).foregroundStyle(.secondary)
             }
             TableColumn("Kutu", value: \.box) { word in
-                BoxDots(box: word.box)
+                HStack(spacing: 6) {
+                    BoxRing(box: word.box, size: 14)
+                    Text("\(word.box)/\(Leitner.maxBox)")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                .help(Leitner.boxDescription(word.box))
             }
-            .width(min: 50, ideal: 60, max: 70)
+            .width(min: 60, ideal: 70, max: 80)
             TableColumn("Sıradaki tekrar", value: \.dueDate) { word in
-                Text(word.isDue() ? "Şimdi" : word.dueDate.formatted(.relative(presentation: .named)))
+                Text(Leitner.dueDescription(for: word.dueDate))
                     .foregroundStyle(word.isDue() ? Color.accentColor : .secondary)
                     .monospacedDigit()
             }
@@ -89,11 +95,7 @@ struct WordsWindow: View {
         }
     }
 
-    private var subtitle: String {
-        let due = words.count { $0.isDue() }
-        let learned = words.count(where: \.isLearned)
-        return "\(words.count) kelime · \(due) sırada · \(learned) öğrenildi"
-    }
+    private var subtitle: String { DeckSummary.text(for: words) }
 
     private func word(for id: Word.ID?) -> Word? {
         guard let id else { return nil }

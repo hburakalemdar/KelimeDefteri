@@ -2,7 +2,7 @@
 
 Teknik kitap okurken karşılaşılan İngilizce kelimeleri kaydedip aralıklı tekrarla
 (Leitner sistemi) öğrenmek için iPhone, iPad ve Mac uygulaması. SwiftUI + SwiftData + CloudKit,
-iOS 18+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
+iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
 
 ## Özellikler
 
@@ -14,6 +14,9 @@ iOS 18+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
   karta dokunup Türkçesini görürsün. Telaffuzu dinleyebilirsin.
 - **Aralıklı tekrar:** Bilinen kelime üst kutuya çıkar ve 1 / 3 / 7 / 16 / 35 gün sonra tekrar
   sorulur; bilinmeyen başa döner ve aynı turda bir daha sorulur.
+- **Kelimelerim:** süzme (sırada / öğreniliyor / öğrenildi) ve sıralama; kelimeye dokununca anlamı,
+  cümlesi ve ilerlemesiyle ayrıntı sayfası.
+- **İlerleme:** Ayarlar › İlerleme'de kelimelerin kutulara dağılımı (grafik).
 - **Hoşgörülü kontrol:** Büyük/küçük harf, Türkçe karakter (ş/s, ı/i…) ve noktalama fark etmez.
 - **Paylaş menüsünden ekleme:** Books, Safari ya da PDF okuyucuda metni seç › Paylaş › Kelime Defteri.
   Cümle paylaşıldıysa kelimeleri düğme olarak gelir, bilinmeyene dokunulur; Apple Books'ta kitap adı
