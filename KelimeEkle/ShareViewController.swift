@@ -24,6 +24,7 @@ final class ShareViewController: UIViewController {
             }
         }
         .modelContainer(SharedStore.container)
+        .dismissesKeyboardOnTap()
         // Eklentinin kendi renk kataloğu yok; uygulamanın yeşilini kullan.
         .tint(Color(uiColor: UIColor { traits in
             traits.userInterfaceStyle == .dark

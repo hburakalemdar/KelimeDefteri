@@ -24,6 +24,7 @@ struct ContentView: View {
                 WordListView()
             }
         }
+        .dismissesKeyboardOnTap()
         .onChange(of: scenePhase) { _, phase in
             // Bildirim içerikleri planlandıkları anda sabitlenir; en güncel sayılarla yeniden kur.
             if phase == .background || phase == .active {
