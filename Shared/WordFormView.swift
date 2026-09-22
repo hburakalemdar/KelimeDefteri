@@ -290,7 +290,16 @@ struct WordFormView: View {
             english = draft.english
             example = draft.example
             source = draft.source ?? lastSource
-            focusedField = english.isEmpty && sentenceWords.count <= 1 ? .english : (english.isEmpty ? nil : .turkish)
+            if !english.isEmpty {
+                // Paylaşılan kelime geldi; sıra Türkçesinde.
+                focusedField = .turkish
+            } else if sentenceWords.count <= 1 {
+                // iPhone'da Ekle sekmesine geçmek klavyeyi açmasın; alana dokununca açılır.
+                // Mac'te yazmaya hemen başlanabilsin.
+                #if os(macOS)
+                focusedField = .english
+                #endif
+            }
         }
     }
 
