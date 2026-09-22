@@ -9,6 +9,7 @@ struct StudyView: View {
     @State private var answer = ""
     @State private var showSettings = false
     @AppStorage(ReminderSettings.enabledKey) private var reminderEnabled = false
+    @Environment(\.scenePhase) private var scenePhase
     @FocusState private var answerFocused: Bool
 
     var body: some View {
@@ -43,9 +44,10 @@ struct StudyView: View {
         }
         .onChange(of: words.count) {
             session.sync(with: words)
-            if session.current == nil && !session.isPracticeAll {
-                session.start(with: words, practiceAll: false)
-            }
+        }
+        // Gece yarısı geçince ya da uygulamaya dönülünce zamanı gelen kelimeler de sıraya girsin.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { session.sync(with: words) }
         }
     }
 

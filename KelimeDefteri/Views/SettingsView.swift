@@ -48,12 +48,23 @@ struct SettingsView: View {
             }
 
             Section {
-                LabeledContent("iCloud eşitleme") {
-                    switch iCloudStatus {
-                    case .available: Label("Açık", systemImage: "checkmark.icloud").foregroundStyle(.green)
-                    case nil: ProgressView()
-                    default: Label("Kapalı", systemImage: "xmark.icloud").foregroundStyle(.secondary)
+                // LabeledContent içinde Label/ProgressView satırı gereksiz uzatıyordu; düz HStack kullan.
+                HStack {
+                    Text("iCloud eşitleme")
+                    Spacer()
+                    Group {
+                        switch iCloudStatus {
+                        case .available:
+                            Image(systemName: "checkmark.icloud")
+                            Text("Açık")
+                        case nil:
+                            ProgressView().controlSize(.small)
+                        default:
+                            Image(systemName: "xmark.icloud")
+                            Text("Kapalı")
+                        }
                     }
+                    .foregroundStyle(iCloudStatus == .available ? .green : .secondary)
                 }
             } header: {
                 Text("Eşitleme")
@@ -86,12 +97,12 @@ struct SettingsView: View {
         }
         .onChange(of: reminderEnabled) { _, enabled in
             Task {
+                // İzin reddedilince anahtar kapanır; uyarı, kullanıcı sebebini görsün diye kalır
+                // (kapanmanın tetiklediği bu blok onu silmemeli).
                 if enabled {
                     let granted = await ReminderScheduler.requestPermission()
                     permissionDenied = !granted
                     if !granted { reminderEnabled = false }
-                } else {
-                    permissionDenied = false
                 }
                 await ReminderScheduler.refresh(context: context)
             }

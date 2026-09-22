@@ -161,6 +161,9 @@ struct WordFormView: View {
             }
             #endif
         }
+        // Kaydettikten sonra odak yeni kelimeye geçer ve klavye sekme çubuğunu örter;
+        // aşağı kaydırınca kapansın.
+        .scrollDismissesKeyboard(.interactively)
         .onAppear(perform: load)
         // Kullanıcı yeni kelime yazmaya başlayınca eski mesajı kaldır; kaydettikten sonra
         // alanın temizlenmesi "eklendi" mesajını silmesin.

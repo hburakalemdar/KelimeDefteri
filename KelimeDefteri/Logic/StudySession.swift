@@ -51,19 +51,27 @@ final class StudySession {
         word.dueDate = result.due
         word.reviewCount += 1
         if known { word.correctCount += 1 }
-        // Bilinmeyen kelime aynı turun sonunda bir kez daha sorulur.
+        // Bilinmeyen kelime turun sonunda, bilinene kadar yeniden sorulur.
         if !known { queue.append(word) }
         reviewedCount += 1
         advance()
     }
 
-    /// Kelime listesi dışarıda değiştiğinde (ör. silme) sırayı onunla uyumlu tutar.
-    func sync(with words: [Word]) {
+    /// Kelime listesi dışarıda değiştiğinde (silme, yeni kelime, iCloud'dan gelen değişiklik)
+    /// ya da gün döndüğünde sırayı onunla uyumlu tutar: silinenler çıkar, zamanı gelmiş
+    /// ama sırada olmayanlar sona eklenir. Tur bitmişse yeni gelenlerle devam eder.
+    func sync(with words: [Word], now: Date = .now) {
         let alive = Set(words.map(\.persistentModelID))
         queue.removeAll { !alive.contains($0.persistentModelID) }
-        if let current, !alive.contains(current.persistentModelID) {
-            advance()
-        }
+
+        // Bu turda "Bildim" denenlerin tarihi ileri alındığı için tekrar eklenmezler.
+        let queued = Set(queue.map(\.persistentModelID) + [current?.persistentModelID].compactMap { $0 })
+        queue += words
+            .filter { $0.isDue(at: now) && !queued.contains($0.persistentModelID) }
+            .sorted { $0.dueDate < $1.dueDate }
+
+        if let current, alive.contains(current.persistentModelID) { return }
+        advance()
     }
 
     private func advance() {

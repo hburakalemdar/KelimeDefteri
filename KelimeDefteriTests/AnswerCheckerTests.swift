@@ -21,6 +21,20 @@ struct AnswerCheckerTests {
         #expect(AnswerChecker.isCorrect("değişmeyen", expected: "etkisi değişmeyen"))
     }
 
+    @Test func acceptsWordStemAndExtraWords() {
+        #expect(AnswerChecker.isCorrect("kaydet", expected: "kaydetmek"))
+        #expect(AnswerChecker.isCorrect("yüksek verim", expected: "verim"))
+    }
+
+    @Test func rejectsPartialAnswerWithOppositeMeaning() {
+        #expect(!AnswerChecker.isCorrect("mümkün", expected: "mümkün değil, uygulanamaz"))
+        #expect(!AnswerChecker.isCorrect("güncel", expected: "güncel olmayan"))
+        #expect(!AnswerChecker.isCorrect("kayıt", expected: "kayıtsız"))
+        #expect(!AnswerChecker.isCorrect("etkisi", expected: "etkisi değişmeyen"))
+        #expect(!AnswerChecker.isCorrect("verim değil", expected: "verim"))
+        #expect(!AnswerChecker.isCorrect("kaydet", expected: "kaydetmemek"))
+    }
+
     @Test func rejectsShortPartialAnswer() {
         #expect(!AnswerChecker.isCorrect("iş", expected: "iş hacmi"))
     }
