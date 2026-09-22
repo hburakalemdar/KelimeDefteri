@@ -97,8 +97,8 @@ struct MacStudyView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(word.english)
                     .font(.system(size: 30, weight: .semibold, design: .serif))
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(2)
                     .textSelection(.enabled)
                 Spacer(minLength: 8)
                 Button("Telaffuzu dinle", systemImage: "speaker.wave.2.fill") {

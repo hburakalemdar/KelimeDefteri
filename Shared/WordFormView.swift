@@ -44,6 +44,7 @@ struct WordFormView: View {
     @State private var isTranslating = false
     @State private var showDictionary = false
     @State private var didLoad = false
+    @State private var selection: ClosedRange<Int>?
     @FocusState private var focusedField: Field?
 
     private enum Field { case english, turkish }
@@ -56,9 +57,17 @@ struct WordFormView: View {
     private var trimmedTurkish: String { turkish.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canSave: Bool { !trimmedEnglish.isEmpty && !trimmedTurkish.isEmpty }
 
-    /// Cümle yapıştırıldıysa kelimelerini seçilebilir düğmeler olarak göster.
+    /// Cümle yapıştırıldıysa kelimelerini seçilebilir düğmeler olarak göster (sırasıyla, tekrarlar dahil).
     private var sentenceWords: [String] {
-        editingWord == nil ? SharedTextParser.words(in: example) : []
+        editingWord == nil ? SharedTextParser.tokens(in: example) : []
+    }
+
+    /// Düğmelerle seçilen kelimeler; İngilizce alanı elle değiştirildiyse geçersiz sayılır.
+    private var validSelection: ClosedRange<Int>? {
+        guard let selection, selection.upperBound < sentenceWords.count,
+              AnswerChecker.fold(SharedTextParser.phrase(sentenceWords, selection)) == AnswerChecker.fold(english)
+        else { return nil }
+        return selection
     }
 
     var body: some View {
@@ -78,15 +87,11 @@ struct WordFormView: View {
             if sentenceWords.count > 1 {
                 Section {
                     FlowLayout(spacing: 8) {
-                        ForEach(sentenceWords, id: \.self) { word in
-                            let isSelected = AnswerChecker.fold(word) == AnswerChecker.fold(english)
-                            Button(word) {
-                                english = word.lowercased()
-                                focusedField = .turkish
-                            }
-                            .font(.system(.body, design: .serif))
-                            .buttonBorderShape(.capsule)
-                            .modifier(ChipStyle(isSelected: isSelected))
+                        ForEach(Array(sentenceWords.enumerated()), id: \.offset) { index, word in
+                            Button(word) { tapWord(at: index) }
+                                .font(.system(.body, design: .serif))
+                                .buttonBorderShape(.capsule)
+                                .modifier(ChipStyle(isSelected: validSelection?.contains(index) == true))
                         }
                     }
                     .padding(.vertical, 4)
@@ -97,9 +102,20 @@ struct WordFormView: View {
                     Text("Bilmediğin Kelimeye Dokun")
                     #endif
                 } footer: {
-                    if !source.isEmpty && onFinish != nil {
-                        Label(source, systemImage: "book.closed")
+                    VStack(alignment: .leading, spacing: 6) {
+                        #if os(macOS)
+                        Text("İki ya da daha fazla kelimelik ifade için ilk ve son kelimesine tıkla.")
+                        #else
+                        Text("İki ya da daha fazla kelimelik ifade için ilk ve son kelimesine dokun.")
+                        #endif
+                        if !source.isEmpty && onFinish != nil {
+                            Label(source, systemImage: "book.closed")
+                        }
                     }
+                    #if os(macOS)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    #endif
                 }
             }
 
@@ -433,6 +449,12 @@ struct WordFormView: View {
         }
     }
 
+    private func tapWord(at index: Int) {
+        selection = SharedTextParser.select(index, current: validSelection)
+        english = selection.map { SharedTextParser.phrase(sentenceWords, $0) } ?? ""
+        if selection != nil { focusedField = .turkish }
+    }
+
     private func save() {
         guard canSave else { return }
         let key = AnswerChecker.fold(trimmedEnglish)
@@ -474,6 +496,7 @@ struct WordFormView: View {
             turkish = ""
             definition = ""
             example = ""
+            selection = nil
             lastAdded = added
             savedCount += 1
             focusedField = .english
