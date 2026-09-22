@@ -156,7 +156,7 @@ struct StudyView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if verdict == .incorrect {
-                Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Bildim'e bas.")
+                Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Doğru Say'a bas.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -215,30 +215,28 @@ struct StudyView: View {
             .animation(.snappy(duration: 0.25), value: hasAnswer)
         case .revealed(let verdict):
             HStack(spacing: 12) {
-                gradeButton("Bilemedim", systemImage: "xmark", known: false, color: .red, prominent: verdict != .correct)
-                gradeButton("Bildim", systemImage: "checkmark", known: true, color: .green, prominent: verdict == .correct)
+                ForEach(verdict.gradeOptions) { gradeButton($0) }
             }
             .sensoryFeedback(verdict == .correct ? .success : .warning, trigger: verdict)
         }
     }
 
     @ViewBuilder
-    private func gradeButton(_ title: String, systemImage: String, known: Bool, color: Color, prominent: Bool) -> some View {
+    private func gradeButton(_ option: GradeOption) -> some View {
         let button = Button {
-            session.grade(known: known)
+            session.grade(known: option.known)
             answer = ""
         } label: {
-            Label(title, systemImage: systemImage)
+            Label(option.title, systemImage: option.systemImage)
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
         }
         .controlSize(.large)
-        .tint(color)
-        if prominent {
+        if option.isPrimary {
             button.buttonStyle(.glassProminent)
         } else {
-            button.buttonStyle(.glass)
+            button.buttonStyle(.glass).foregroundStyle(option.known ? .green : .red)
         }
     }
 

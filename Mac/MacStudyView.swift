@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 /// Menü çubuğu penceresindeki çalışma kartı; iOS'taki Çalış ekranının Mac karşılığı.
-/// Klavyeyle kullanılabilir: Return kontrol eder (boşken gösterir), ← Bilemedim, → Bildim.
+/// Klavyeyle kullanılabilir: Return kontrol eder (boşken gösterir) ve sonra devam eder; ← Bilemedim, → Bildim.
 struct MacStudyView: View {
     var onAddTapped: () -> Void
 
@@ -144,7 +144,7 @@ struct MacStudyView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if verdict == .incorrect {
-                Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Bildim'e bas.")
+                Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Doğru Say'a bas.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -198,31 +198,34 @@ struct MacStudyView: View {
     private var gradeBar: some View {
         if case .revealed(let verdict) = session.phase {
             HStack(spacing: 10) {
-                gradeButton("Bilemedim", systemImage: "xmark", key: .leftArrow, known: false, prominent: verdict != .correct)
-                gradeButton("Bildim", systemImage: "checkmark", key: .rightArrow, known: true, prominent: verdict == .correct)
+                ForEach(verdict.gradeOptions) { gradeButton($0) }
             }
         }
     }
 
+    /// Öne çıkan düğme Return ile, diğerleri ← (bilemedim) / → (bildim) ile basılır.
     @ViewBuilder
-    private func gradeButton(_ title: String, systemImage: String, key: KeyEquivalent, known: Bool, prominent: Bool) -> some View {
+    private func gradeButton(_ option: GradeOption) -> some View {
+        let shortcut: KeyboardShortcut = option.isPrimary
+            ? .defaultAction
+            : KeyboardShortcut(option.known ? .rightArrow : .leftArrow, modifiers: [])
         let button = Button {
-            session.grade(known: known)
+            session.grade(known: option.known)
             answer = ""
             answerFocused = true
         } label: {
-            Label(title, systemImage: systemImage)
+            Label(option.title, systemImage: option.systemImage)
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
         }
         .controlSize(.large)
-        .keyboardShortcut(key, modifiers: [])
-        .help(known ? "Bildim (→)" : "Bilemedim (←)")
+        .keyboardShortcut(shortcut)
+        .help(option.isPrimary ? "\(option.title) (↩)" : "\(option.title) (\(option.known ? "→" : "←"))")
         // Mac'te renk verilen cam düğme de dolu görünüyor; öne çıkmayanın yalnızca yazısı renkli.
-        if prominent {
-            button.buttonStyle(.glassProminent).tint(known ? .green : .red)
+        if option.isPrimary {
+            button.buttonStyle(.glassProminent)
         } else {
-            button.buttonStyle(.glass).foregroundStyle(known ? .green : .red)
+            button.buttonStyle(.glass).foregroundStyle(option.known ? .green : .red)
         }
     }
 
