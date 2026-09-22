@@ -4,6 +4,7 @@ import SwiftUI
 /// Bir kelimenin tüm bilgisi ve ilerlemesi; Kişiler'deki kart gibi. Düzenle formu açar.
 struct WordDetailView: View {
     let word: Word
+    @Query private var words: [Word]
     @State private var isEditing = false
 
     var body: some View {
@@ -56,6 +57,24 @@ struct WordDetailView: View {
             } else if !word.source.isEmpty {
                 Section("Kaynak") {
                     Label(word.source, systemImage: "book.closed")
+                }
+            }
+
+            let related = word.related(in: words)
+            if !related.isEmpty {
+                Section("İlişkili") {
+                    ForEach(related) { other in
+                        NavigationLink(value: other) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(other.english)
+                                    .font(.system(.body, design: .serif, weight: .semibold))
+                                Text(other.turkish)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
                 }
             }
 

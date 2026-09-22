@@ -32,7 +32,12 @@ struct StudyView: View {
                 .sensoryFeedback(.selection, trigger: session.reviewedCount)
         }
         .onAppear {
-            if session.current == nil { session.start(with: words, practiceAll: false) }
+            // Sekmeye dönünce sıraya yeni giren kelimeler (ör. "Yeniden Çalış") de gelsin.
+            if session.current == nil && !session.isPracticeAll {
+                session.start(with: words, practiceAll: false)
+            } else {
+                session.sync(with: words)
+            }
         }
         .onChange(of: words.count) {
             session.sync(with: words)
@@ -159,6 +164,16 @@ struct StudyView: View {
                 Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Doğru Say'a bas.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+            }
+            let related = word.related(in: words)
+            if !related.isEmpty {
+                Label {
+                    Text("İlişkili: ") + Text(related.prefix(3).map(\.english).joined(separator: ", ")).fontWeight(.medium)
+                } icon: {
+                    Image(systemName: "link")
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             }
         }
     }

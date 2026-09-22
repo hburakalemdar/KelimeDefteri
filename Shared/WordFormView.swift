@@ -30,8 +30,6 @@ struct WordFormView: View {
     @State private var definition = ""
     @State private var example = ""
     @State private var source = ""
-    /// Aynı kelime zaten defterdeyse onun adı; kaydetmeyi durdurur.
-    @State private var duplicate: String?
     /// Türkçe alanı doluyken gelen çeviri önerisi; "Kullan" ile alana yazılır.
     @State private var suggestion: String?
     /// Türkçe alanı çeviriyle dolduruldu; kullanıcıya kontrol etmesi hatırlatılır.
@@ -39,7 +37,8 @@ struct WordFormView: View {
     @State private var translationFailed = false
     /// Uygulamadaki Ekle sekmesinde kaydedince artar (titreşim ve "eklendi" satırı için).
     @State private var savedCount = 0
-    @State private var lastAdded: String?
+    /// Son kaydın sonucu: "“stale” eklendi", "“stale” güncellendi"…
+    @State private var savedMessage: String?
     @State private var translationConfig: TranslationSession.Configuration?
     @State private var isTranslating = false
     @State private var showDictionary = false
@@ -55,7 +54,27 @@ struct WordFormView: View {
 
     private var trimmedEnglish: String { english.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedTurkish: String { turkish.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var canSave: Bool { !trimmedEnglish.isEmpty && !trimmedTurkish.isEmpty }
+    private var canSave: Bool { !trimmedEnglish.isEmpty && !trimmedTurkish.isEmpty && existingMatch == nil }
+
+    /// Yazılan kelime defterde zaten varsa o kayıt (düzenlenen kelimenin kendisi hariç).
+    private var existingMatch: Word? {
+        guard !trimmedEnglish.isEmpty else { return nil }
+        return allWords.first {
+            $0.persistentModelID != editingWord?.persistentModelID && WordMatcher.isSame($0.english, trimmedEnglish)
+        }
+    }
+
+    /// Yazılan kelimenin kalıbı olan ya da kalıbın içinde geçen kayıtlar.
+    private var relatedWords: [Word] {
+        guard !trimmedEnglish.isEmpty else { return [] }
+        return allWords
+            .filter { $0.persistentModelID != editingWord?.persistentModelID && WordMatcher.isRelated($0.english, trimmedEnglish) }
+            .sorted { $0.english.count < $1.english.count }
+    }
+
+    private var cleanDefinition: String { definition.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var cleanExample: String { example.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var cleanSource: String { source.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     /// Cümle yapıştırıldıysa kelimelerini seçilebilir düğmeler olarak göster (sırasıyla, tekrarlar dahil).
     private var sentenceWords: [String] {
@@ -73,10 +92,10 @@ struct WordFormView: View {
     var body: some View {
         Form {
             #if os(macOS)
-            if let lastAdded, onFinish == nil {
+            if let savedMessage, onFinish == nil {
                 Section {
                     Label {
-                        Text("“\(lastAdded)” eklendi. Sıradaki kelime?")
+                        Text("\(savedMessage). Sıradaki kelime?")
                     } icon: {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                     }
@@ -153,10 +172,9 @@ struct WordFormView: View {
         // Kelime değişince ona ait uyarı ve öneriler geçersizleşir. Kaydettikten sonra
         // alanın temizlenmesi "eklendi" satırını silmesin.
         .onChange(of: english) { _, newValue in
-            duplicate = nil
             suggestion = nil
             translationFailed = false
-            if !newValue.isEmpty { lastAdded = nil }
+            if !newValue.isEmpty { savedMessage = nil }
         }
         .onChange(of: turkish) { _, newValue in
             if newValue.isEmpty { didAutofill = false }
@@ -187,10 +205,10 @@ struct WordFormView: View {
 
     @ViewBuilder
     private var iosFields: some View {
-        if let lastAdded, onFinish == nil {
+        if let savedMessage, onFinish == nil {
             Section {
                 Label {
-                    Text("“\(lastAdded)” eklendi")
+                    Text(savedMessage)
                 } icon: {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                 }
@@ -212,8 +230,16 @@ struct WordFormView: View {
                 suggestionRow
                     .font(.subheadline)
             }
+            if existingMatch == nil && !relatedWords.isEmpty {
+                relatedRow
+                    .font(.subheadline)
+            }
         } footer: {
             fieldFooter
+        }
+
+        if editingWord == nil, let existingMatch {
+            existingSection(existingMatch)
         }
 
         Section {
@@ -312,6 +338,9 @@ struct WordFormView: View {
             if suggestion != nil {
                 suggestionRow
             }
+            if existingMatch == nil && !relatedWords.isEmpty {
+                relatedRow
+            }
         } footer: {
             Group {
                 if translationFailed {
@@ -321,8 +350,12 @@ struct WordFormView: View {
                 }
             }
             .font(.caption)
-            .foregroundStyle(duplicate == nil ? .secondary : Color.red)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+        if editingWord == nil, let existingMatch {
+            existingSection(existingMatch)
         }
 
         Section("Ayrıntılar") {
@@ -411,14 +444,76 @@ struct WordFormView: View {
 
     @ViewBuilder
     private var fieldFooter: some View {
-        if let duplicate {
-            Text("“\(duplicate)” zaten defterinde.")
+        if editingWord != nil, let existingMatch {
+            Text("“\(existingMatch.english)” adında başka bir kayıt zaten var.")
                 .foregroundStyle(.red)
         } else if didAutofill {
             Text("Türkçesi makine çevirisinden geldi; teknik anlamı farklıysa düzelt.")
         } else {
             Text("Birden fazla anlamı virgülle ayır; çalışırken herhangi birini yazman yeterli.")
         }
+    }
+
+    /// Aynı kelime yeniden eklenirken mevcut kayıt ve ne yapılabileceği.
+    private func existingSection(_ word: Word) -> some View {
+        Section {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(word.english)
+                        .font(.system(.body, design: .serif, weight: .semibold))
+                    Spacer()
+                    BoxRing(box: word.box, size: 14)
+                    Text(Leitner.dueDescription(for: word.dueDate))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                Text(word.turkish)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            let canAbsorb = word.wouldAbsorb(
+                turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample, source: cleanSource
+            )
+            Button {
+                absorb(into: word, relearn: false)
+            } label: {
+                // Form düğmesi pasifken iOS 26'da siyah kalıyor; soluk rengi elle ver.
+                Label("Anlamları Ekle", systemImage: "plus.circle")
+                    .foregroundStyle(canAbsorb ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+            }
+            .disabled(!canAbsorb)
+            Button {
+                absorb(into: word, relearn: true)
+            } label: {
+                Label("Yeniden Çalış", systemImage: "arrow.counterclockwise")
+            }
+        } header: {
+            Text("Zaten Defterinde")
+        } footer: {
+            Text("Anlamları Ekle: yeni yazdığın anlamlar ve boş alanlar mevcut kayda eklenir, ilerleme korunur. Yeniden Çalış: aynısını yapar, kelime de başa döner ve hemen sorulur.")
+                #if os(macOS)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                #endif
+        }
+    }
+
+    /// Defterdeki ilişkili kelime ve kalıplar; kaydı engellemez, yalnızca hatırlatır.
+    private var relatedRow: some View {
+        Label {
+            Text("Defterinde ilişkili: ")
+                + Text(relatedWords.prefix(3).map { "\($0.english) (\(Self.firstMeaning($0.turkish)))" }.joined(separator: ", "))
+                .fontWeight(.medium)
+        } icon: {
+            Image(systemName: "link").foregroundStyle(.secondary)
+        }
+        .foregroundStyle(.secondary)
+    }
+
+    private static func firstMeaning(_ turkish: String) -> String {
+        turkish.split(whereSeparator: { ",;/".contains($0) }).first
+            .map { $0.trimmingCharacters(in: .whitespaces) } ?? turkish
     }
 
     // MARK: - İşlemler
@@ -457,23 +552,13 @@ struct WordFormView: View {
 
     private func save() {
         guard canSave else { return }
-        let key = AnswerChecker.fold(trimmedEnglish)
-        let duplicate = allWords.first {
-            AnswerChecker.fold($0.english) == key && $0.persistentModelID != editingWord?.persistentModelID
-        }
-        if duplicate != nil {
-            self.duplicate = trimmedEnglish
-            return
-        }
-
-        let cleanSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
         lastSource = cleanSource
 
         if let word = editingWord {
             word.english = trimmedEnglish
             word.turkish = trimmedTurkish
-            word.definition = definition.trimmingCharacters(in: .whitespacesAndNewlines)
-            word.example = example.trimmingCharacters(in: .whitespacesAndNewlines)
+            word.definition = cleanDefinition
+            word.example = cleanExample
             word.source = cleanSource
             try? context.save()
             dismiss()
@@ -481,26 +566,39 @@ struct WordFormView: View {
             context.insert(Word(
                 english: trimmedEnglish,
                 turkish: trimmedTurkish,
-                definition: definition.trimmingCharacters(in: .whitespacesAndNewlines),
-                example: example.trimmingCharacters(in: .whitespacesAndNewlines),
+                definition: cleanDefinition,
+                example: cleanExample,
                 source: cleanSource
             ))
-            // Eklenti hemen kapanabilir; otomatik kaydı beklemeden diske yaz.
-            try? context.save()
-            if let onFinish {
-                onFinish(true)
-                return
-            }
-            let added = trimmedEnglish
-            english = ""
-            turkish = ""
-            definition = ""
-            example = ""
-            selection = nil
-            lastAdded = added
-            savedCount += 1
-            focusedField = .english
+            finishAdding(message: "“\(trimmedEnglish)” eklendi")
         }
+    }
+
+    /// Aynı kelime yeniden eklenirken yeni bilgileri mevcut kayda katar.
+    private func absorb(into word: Word, relearn: Bool) {
+        lastSource = cleanSource
+        word.absorb(
+            turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample,
+            source: cleanSource, relearn: relearn
+        )
+        finishAdding(message: relearn ? "“\(word.english)” yeniden çalışılacak" : "“\(word.english)” güncellendi")
+    }
+
+    private func finishAdding(message: String) {
+        // Eklenti hemen kapanabilir; otomatik kaydı beklemeden diske yaz.
+        try? context.save()
+        if let onFinish {
+            onFinish(true)
+            return
+        }
+        english = ""
+        turkish = ""
+        definition = ""
+        example = ""
+        selection = nil
+        savedMessage = message
+        savedCount += 1
+        focusedField = .english
     }
 
     private func cancel() {

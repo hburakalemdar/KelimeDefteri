@@ -148,6 +148,16 @@ struct MacStudyView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            let related = word.related(in: words)
+            if !related.isEmpty {
+                Label {
+                    Text("İlişkili: ") + Text(related.prefix(3).map(\.english).joined(separator: ", ")).fontWeight(.medium)
+                } icon: {
+                    Image(systemName: "link")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
         }
     }
 
