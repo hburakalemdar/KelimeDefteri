@@ -49,6 +49,11 @@ gerçek defter yerine örnek kelimelerle açar; `-shareDemo` ek olarak Paylaş e
 Simülatör ekran görüntüsü: `xcrun simctl io booted screenshot x.png`. Testleri `-parallel-testing-enabled NO`
 ile koş; paralelde simülatör kopyaları açılamayıp testler 0 sn'de "failed" görünebiliyor.
 
+Uygulama simgesi Icon Composer biçiminde: `KelimeDefteri/AppIcon.icon` ve `Mac/AppIcon.icon` (aynı dosyanın
+iki kopyası; biri değişirse ötekini de güncelle). Katmanlar `Assets/` içinde 1024×1024 saydam PNG
+(arka kart, ön kart, "Aa"); cam, koyu ve renklendirilmiş görünümü sistem üretir. Kontrol için:
+`xcrun actool AppIcon.icon --compile out --platform iphoneos --minimum-deployment-target 26.0 --app-icon AppIcon --output-partial-info-plist out/p.plist`.
+
 ## Bilinen tuzaklar
 
 - SwiftData bellek içi depo (`isStoredInMemoryOnly`) iOS 27 simülatöründe kaydederken ara ara çöküyor
