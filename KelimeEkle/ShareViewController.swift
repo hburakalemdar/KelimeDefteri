@@ -25,12 +25,6 @@ final class ShareViewController: UIViewController {
         }
         .modelContainer(SharedStore.container)
         .dismissesKeyboardOnTap()
-        // Eklentinin kendi renk kataloğu yok; uygulamanın yeşilini kullan.
-        .tint(Color(uiColor: UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0x3D / 255, green: 0xB8 / 255, blue: 0xA6 / 255, alpha: 1)
-                : UIColor(red: 0x0E / 255, green: 0x6F / 255, blue: 0x63 / 255, alpha: 1)
-        }))
 
         let host = UIHostingController(rootView: root)
         addChild(host)

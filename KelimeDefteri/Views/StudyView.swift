@@ -11,6 +11,9 @@ struct StudyView: View {
     @AppStorage(ReminderSettings.enabledKey) private var reminderEnabled = false
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var answerFocused: Bool
+    @Namespace private var glassNamespace
+
+    private var hasAnswer: Bool { !answer.trimmingCharacters(in: .whitespaces).isEmpty }
 
     var body: some View {
         NavigationStack {
@@ -177,14 +180,9 @@ struct StudyView: View {
     private var bottomBar: some View {
         switch session.phase {
         case .asking:
+            // Mesajlar'daki gibi tek eylem düğmesi: alan boşken "Göster", yazınca "Kontrol et".
             GlassEffectContainer(spacing: 10) {
                 HStack(spacing: 10) {
-                    Button("Cevabı göster", systemImage: "eye") { reveal(withAnswer: false) }
-                        .labelStyle(.iconOnly)
-                        .font(.title3)
-                        .frame(width: 48, height: 48)
-                        .glassEffect(.regular.interactive(), in: .circle)
-
                     TextField("Türkçesi", text: $answer)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -195,14 +193,26 @@ struct StudyView: View {
                         .frame(height: 48)
                         .glassEffect(.regular.interactive(), in: .capsule)
 
-                    Button("Kontrol et", systemImage: "checkmark") { reveal(withAnswer: true) }
-                        .labelStyle(.iconOnly)
-                        .font(.title3.weight(.semibold))
-                        .frame(width: 48, height: 48)
-                        .foregroundStyle(.white)
-                        .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
+                    if hasAnswer {
+                        Button("Kontrol et", systemImage: "arrow.up") { reveal(withAnswer: true) }
+                            .labelStyle(.iconOnly)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 48, height: 48)
+                            .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
+                            .glassEffectID("action", in: glassNamespace)
+                    } else {
+                        Button("Göster") { reveal(withAnswer: false) }
+                            .font(.body.weight(.semibold))
+                            .padding(.horizontal, 18)
+                            .frame(height: 48)
+                            .glassEffect(.regular.interactive(), in: .capsule)
+                            .glassEffectID("action", in: glassNamespace)
+                            .accessibilityHint("Türkçesini gösterir")
+                    }
                 }
             }
+            .animation(.snappy(duration: 0.25), value: hasAnswer)
         case .revealed(let verdict):
             HStack(spacing: 12) {
                 gradeButton("Bilemedim", systemImage: "xmark", known: false, color: .red, prominent: verdict != .correct)

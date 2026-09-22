@@ -3,7 +3,7 @@
 Teknik kitaplardaki İngilizce kelimeleri Türkçesiyle kaydedip Leitner aralıklı tekrarıyla
 çalıştıran iPhone + Mac uygulaması. SwiftUI, SwiftData + CloudKit, Swift 6
 (varsayılan izolasyon MainActor). iOS 26+ (Liquid Glass: `.glass`/`.glassProminent`, `glassEffect`).
-Tasarım dili sistem parçaları; İngilizce kelimeler New York serif, vurgu rengi petrol yeşili. Kullanıcı Türkçe konuşur; arayüz metinleri Türkçe.
+Tasarım dili sistem parçaları; İngilizce kelimeler New York serif, vurgu rengi sistemin varsayılanı (iOS mavi, Mac kullanıcının seçtiği renk). Kullanıcı Türkçe konuşur; arayüz metinleri Türkçe.
 Ayrıntılı özellik listesi ve yapı: README.md.
 
 ## Hedefler (targets)

@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 /// Menü çubuğu penceresindeki çalışma kartı; iOS'taki Çalış ekranının Mac karşılığı.
-/// Klavyeyle kullanılabilir: Return kontrol eder, ⌘Return gösterir, ← Bilemedim, → Bildim.
+/// Klavyeyle kullanılabilir: Return kontrol eder (boşken gösterir), ← Bilemedim, → Bildim.
 struct MacStudyView: View {
     var onAddTapped: () -> Void
 
@@ -164,14 +164,9 @@ struct MacStudyView: View {
 
     // MARK: - Alt çubuk
 
+    /// iOS'taki gibi tek eylem düğmesi: alan boşken "Göster", yazınca "Kontrol et".
     private var askBar: some View {
         HStack(spacing: 8) {
-            Button("Cevabı göster", systemImage: "eye") { reveal(withAnswer: false) }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-                .keyboardShortcut(.return, modifiers: .command)
-                .help("Cevabı göster (⌘↩)")
             TextField("Türkçesi", text: $answer)
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
@@ -180,13 +175,22 @@ struct MacStudyView: View {
                 .padding(.horizontal, 12)
                 .frame(height: 30)
                 .glassEffect(.regular, in: .capsule)
-            Button("Kontrol et", systemImage: "checkmark") { reveal(withAnswer: true) }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glassProminent)
-                .buttonBorderShape(.circle)
-                .help("Kontrol et (↩)")
+            if answer.trimmingCharacters(in: .whitespaces).isEmpty {
+                Button("Göster") { reveal(withAnswer: false) }
+                    .buttonStyle(.glass)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .help("Türkçesini göster (↩)")
+            } else {
+                Button("Kontrol et", systemImage: "arrow.up") { reveal(withAnswer: true) }
+                    .labelStyle(.iconOnly)
+                    .fontWeight(.semibold)
+                    .buttonStyle(.glassProminent)
+                    .buttonBorderShape(.circle)
+                    .help("Kontrol et (↩)")
+            }
         }
         .controlSize(.large)
+        .animation(.snappy(duration: 0.2), value: answer.isEmpty)
         .onAppear { answerFocused = true }
     }
 
