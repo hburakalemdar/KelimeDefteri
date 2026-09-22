@@ -18,7 +18,7 @@
 			<key>NSMessage</key>
 			<string>addWord</string>
 			<key>NSPortName</key>
-			<string>KelimeDefteriHelper</string>
+			<string>$(PRODUCT_NAME)</string>
 			<key>NSRequiredContext</key>
 			<dict/>
 			<key>NSSendTypes</key>

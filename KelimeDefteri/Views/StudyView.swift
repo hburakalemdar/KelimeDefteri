@@ -82,7 +82,7 @@ struct StudyView: View {
                 }
 
                 if !word.example.isEmpty {
-                    Text(Self.highlight(word.english, in: word.example))
+                    Text(AttributedString(quoting: word.example, highlighting: word.english))
                         .font(.system(.body, design: .serif).italic())
                         .foregroundStyle(.secondary)
                 }
@@ -240,17 +240,6 @@ struct StudyView: View {
             }
         }
         .padding(.top, 60)
-    }
-
-    // MARK: - Yardımcı
-
-    static func highlight(_ word: String, in sentence: String) -> AttributedString {
-        var text = AttributedString("“\(sentence)”")
-        if let range = text.range(of: word, options: [.caseInsensitive, .diacriticInsensitive]) {
-            text[range].inlinePresentationIntent = .stronglyEmphasized
-            text[range].foregroundColor = .primary
-        }
-        return text
     }
 }
 

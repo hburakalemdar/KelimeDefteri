@@ -8,7 +8,7 @@ struct BoxDots: View {
         HStack(spacing: 3) {
             ForEach(1...Leitner.maxBox, id: \.self) { index in
                 Circle()
-                    .fill(index <= box ? Color.accentColor : Color(.systemFill))
+                    .fill(index <= box ? Color.accentColor : Color.emptyDot)
                     .frame(width: 7, height: 7)
             }
         }
@@ -36,5 +36,24 @@ struct StatsLine: View {
     private func stat(_ value: Int, _ label: String) -> some View {
         (Text("\(value) ").foregroundStyle(.primary).fontWeight(.semibold) + Text(label))
             .monospacedDigit()
+    }
+}
+
+private extension Color {
+    #if os(macOS)
+    static let emptyDot = Color(nsColor: .quaternaryLabelColor)
+    #else
+    static let emptyDot = Color(.systemFill)
+    #endif
+}
+
+extension AttributedString {
+    /// Kitaptaki cümleyi tırnak içinde, geçen kelimeyi kalın ve belirgin gösterir.
+    init(quoting sentence: String, highlighting word: String) {
+        self.init("“\(sentence)”")
+        if let range = range(of: word, options: [.caseInsensitive, .diacriticInsensitive]) {
+            self[range].inlinePresentationIntent = .stronglyEmphasized
+            self[range].foregroundColor = .primary
+        }
     }
 }

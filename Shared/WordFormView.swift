@@ -19,6 +19,9 @@ struct WordFormView: View {
 
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
+    #if os(macOS)
+    @Environment(\.openURL) private var openURL
+    #endif
     @Query private var allWords: [Word]
     @AppStorage("lastSource", store: SharedStore.defaults) private var lastSource = ""
 
@@ -75,95 +78,44 @@ struct WordFormView: View {
                     }
                     .padding(.vertical, 4)
                 } header: {
+                    #if os(macOS)
+                    Text("Bilmediğin kelimeye tıkla")
+                    #else
                     Text("Bilmediğin kelimeye dokun")
+                    #endif
                 }
             }
 
-            Section("İngilizce kelime") {
-                TextField("ör. idempotent", text: $english)
-                    .font(.system(.title3, design: .serif))
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .focused($focusedField, equals: .english)
-                    .submitLabel(.next)
-                    .onSubmit { focusedField = .turkish }
-                HStack {
-                    Button {
-                        translate()
-                    } label: {
-                        Label(isTranslating ? "Çevriliyor…" : "Türkçesini bul", systemImage: "character.book.closed")
-                    }
-                    .disabled(trimmedEnglish.isEmpty || isTranslating)
-                    Spacer()
-                    Button {
-                        showDictionary = true
-                    } label: {
-                        Label("Sözlük", systemImage: "book")
-                    }
-                    .disabled(trimmedEnglish.isEmpty)
-                }
-                .buttonStyle(.borderless)
-                .font(.subheadline)
-            }
-
-            Section {
-                TextField("ör. tekrarlanabilir, etkisi değişmeyen", text: $turkish)
-                    .focused($focusedField, equals: .turkish)
-            } header: {
-                Text("Türkçesi")
-            } footer: {
-                Text("Birden fazla anlamı virgülle ayır; çalışırken herhangi birini yazman yeterli.")
-            }
-
-            Section("İngilizce anlamı (isteğe bağlı)") {
-                TextField("ör. same result no matter how many times it runs", text: $definition, axis: .vertical)
-                    .lineLimit(1...3)
-            }
-
-            Section("Kitaptaki cümle (isteğe bağlı)") {
-                TextField("Kelimeyi gördüğün cümle", text: $example, axis: .vertical)
-                    .lineLimit(2...5)
-            }
-
-            Section("Kaynak (isteğe bağlı)") {
-                TextField("ör. Designing Data-Intensive Applications", text: $source)
-            }
-
-            // Mac'te pencere araç çubuğundaki düğmenin etkin hâli form değişince güncellenmediği
-            // için orada kaydet düğmesi yok; bu düğme her platformda çalışır (⌘S).
-            Section {
-                Button(action: save) {
-                    Text(editingWord == nil ? "Kaydet" : "Güncelle")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .keyboardShortcut("s", modifiers: .command)
-                .disabled(!canSave)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-            }
+            #if os(macOS)
+            macFields
+            #else
+            iosFields
+            #endif
         }
         .navigationTitle(editingWord == nil ? "Kelime ekle" : "Düzenle")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(editingWord == nil ? .large : .inline)
+        #else
+        .formStyle(.grouped)
+        #endif
+        #if os(iOS)
         .toolbar {
             if editingWord != nil || onFinish != nil {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Vazgeç") {
-                        if let onFinish { onFinish(false) } else { dismiss() }
-                    }
+                    Button("Vazgeç", action: cancel)
                 }
             }
-            #if !targetEnvironment(macCatalyst)
             ToolbarItem(placement: .confirmationAction) {
                 Button(editingWord == nil ? "Kaydet" : "Güncelle", action: save)
                     .disabled(!canSave)
             }
-            #endif
         }
         // Kaydettikten sonra odak yeni kelimeye geçer ve klavye sekme çubuğunu örter;
         // aşağı kaydırınca kapansın.
         .scrollDismissesKeyboard(.interactively)
+        #else
+        .safeAreaInset(edge: .bottom, spacing: 0) { macActionBar }
+        #endif
         .onAppear(perform: load)
         // Kullanıcı yeni kelime yazmaya başlayınca eski mesajı kaldır; kaydettikten sonra
         // alanın temizlenmesi "eklendi" mesajını silmesin.
@@ -178,11 +130,150 @@ struct WordFormView: View {
                 applyTranslation(nil)
             }
         }
+        #if os(iOS)
         .sheet(isPresented: $showDictionary) {
             DictionaryView(term: trimmedEnglish)
                 .ignoresSafeArea()
         }
+        #endif
     }
+
+    // MARK: - Alanlar
+
+    #if os(iOS)
+    @ViewBuilder
+    private var iosFields: some View {
+                Section("İngilizce kelime") {
+                    TextField("ör. idempotent", text: $english)
+                        .font(.system(.title3, design: .serif))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($focusedField, equals: .english)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .turkish }
+                    HStack {
+                        Button {
+                            translate()
+                        } label: {
+                            Label(isTranslating ? "Çevriliyor…" : "Türkçesini bul", systemImage: "character.book.closed")
+                        }
+                        .disabled(trimmedEnglish.isEmpty || isTranslating)
+                        Spacer()
+                        Button {
+                            showDictionary = true
+                        } label: {
+                            Label("Sözlük", systemImage: "book")
+                        }
+                        .disabled(trimmedEnglish.isEmpty)
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.subheadline)
+                }
+
+                Section {
+                    TextField("ör. tekrarlanabilir, etkisi değişmeyen", text: $turkish)
+                        .focused($focusedField, equals: .turkish)
+                } header: {
+                    Text("Türkçesi")
+                } footer: {
+                    Text("Birden fazla anlamı virgülle ayır; çalışırken herhangi birini yazman yeterli.")
+                }
+
+                Section("İngilizce anlamı (isteğe bağlı)") {
+                    TextField("ör. same result no matter how many times it runs", text: $definition, axis: .vertical)
+                        .lineLimit(1...3)
+                }
+
+                Section("Kitaptaki cümle (isteğe bağlı)") {
+                    TextField("Kelimeyi gördüğün cümle", text: $example, axis: .vertical)
+                        .lineLimit(2...5)
+                }
+
+                Section("Kaynak (isteğe bağlı)") {
+                    TextField("ör. Designing Data-Intensive Applications", text: $source)
+                }
+
+                // Araç çubuğundaki düğmenin yanında formun sonunda da kaydet düğmesi (⌘S).
+                Section {
+                    Button(action: save) {
+                        Text(editingWord == nil ? "Kaydet" : "Güncelle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .keyboardShortcut("s", modifiers: .command)
+                    .disabled(!canSave)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                }
+    }
+    #else
+    /// Mac'te Ayarlar tarzı düzen: solda etiket, sağda alan; araçlar alanın yanında.
+    @ViewBuilder
+    private var macFields: some View {
+        Section {
+            LabeledContent("İngilizce") {
+                HStack(spacing: 6) {
+                    TextField("İngilizce", text: $english, prompt: Text("idempotent"))
+                        .labelsHidden()
+                        .autocorrectionDisabled()
+                        .focused($focusedField, equals: .english)
+                        .onSubmit { focusedField = .turkish }
+                    Button(action: translate) {
+                        Image(systemName: isTranslating ? "ellipsis" : "character.book.closed")
+                    }
+                    .help("Türkçesini bul")
+                    .disabled(trimmedEnglish.isEmpty || isTranslating)
+                    Button(action: lookUpInDictionary) {
+                        Image(systemName: "book")
+                    }
+                    .help("Sözlük'te aç")
+                    .disabled(trimmedEnglish.isEmpty)
+                }
+                .buttonStyle(.borderless)
+            }
+            TextField("Türkçesi", text: $turkish, prompt: Text("tekrarlanabilir, etkisi değişmeyen"))
+                .focused($focusedField, equals: .turkish)
+                .onSubmit(save)
+        } footer: {
+            Text("Birden fazla anlamı virgülle ayır; çalışırken herhangi birini yazman yeterli.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+
+        Section("İsteğe bağlı") {
+            TextField("Anlamı", text: $definition, prompt: Text("same result however many times it runs"), axis: .vertical)
+                .lineLimit(1...3)
+            TextField("Cümle", text: $example, prompt: Text("Kelimeyi gördüğün cümle"), axis: .vertical)
+                .lineLimit(1...4)
+            TextField("Kaynak", text: $source, prompt: Text("Kitap adı"))
+        }
+    }
+
+    /// Mac'te pencerenin sağ altında Vazgeç / Kaydet.
+    private var macActionBar: some View {
+        HStack {
+            Spacer()
+            if editingWord != nil || onFinish != nil {
+                Button("Vazgeç", action: cancel)
+                    .keyboardShortcut(.cancelAction)
+            }
+            Button(editingWord == nil ? "Kaydet" : "Güncelle", action: save)
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut("s", modifiers: .command)
+                .help("⌘S")
+                .disabled(!canSave)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+    }
+
+    /// Mac'te Sözlük uygulamasında açar.
+    private func lookUpInDictionary() {
+        let term = trimmedEnglish.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? ""
+        if let url = URL(string: "dict://" + term) { openURL(url) }
+    }
+    #endif
 
     // MARK: - İşlemler
 
@@ -247,6 +338,10 @@ struct WordFormView: View {
             message = "“\(added)” eklendi. Sıradaki kelime?"
             focusedField = .english
         }
+    }
+
+    private func cancel() {
+        if let onFinish { onFinish(false) } else { dismiss() }
     }
 
     private func translate() {

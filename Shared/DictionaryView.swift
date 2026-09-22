@@ -1,3 +1,4 @@
+#if os(iOS)
 import SwiftUI
 import UIKit
 
@@ -11,3 +12,4 @@ struct DictionaryView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: UIReferenceLibraryViewController, context: Context) {}
 }
+#endif

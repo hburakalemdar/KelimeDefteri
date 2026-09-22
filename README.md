@@ -2,7 +2,7 @@
 
 Teknik kitap okurken karşılaşılan İngilizce kelimeleri kaydedip aralıklı tekrarla
 (Leitner sistemi) öğrenmek için iPhone, iPad ve Mac uygulaması. SwiftUI + SwiftData + CloudKit,
-iOS 18+ / Mac Catalyst (macOS 26+).
+iOS 18+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
 
 ## Özellikler
 
@@ -19,26 +19,28 @@ iOS 18+ / Mac Catalyst (macOS 26+).
   Cümle paylaşıldıysa kelimeleri düğme olarak gelir, bilinmeyene dokunulur; Apple Books'ta kitap adı
   kaynak olarak otomatik dolar.
 - **iCloud eşitleme:** Kelimeler iCloud'da yedeklenir; iPhone ve Mac'te aynı defter.
-  Mac'te Önizleme'den (PDF) seç › sağ tık › Paylaş › Kelime Defteri; kelime saniyeler içinde telefona gelir
-  (Mac uygulaması açıkken — eşitlemeyi eklenti değil ana uygulama yapar).
+- **Mac: menü çubuğu uygulaması.** Dock'ta görünmez; menü çubuğundaki kitap simgesi sıradaki kelime
+  sayısını gösterir. Tıklayınca Çalış / Ekle penceresi açılır (klavyeyle: Return kontrol, ← Bilemedim,
+  → Bildim). Kelimelerim penceresinde sıralanabilir tablo, arama, çift tıkla düzenleme, ⌫ ile silme.
+  Ayarlar'da oturum açılınca başlatma ve hatırlatma.
 - **Mac kısayolu ⇧⌘E:** Önizleme'de (veya herhangi bir uygulamada) metni seç, ⇧⌘E'ye bas ya da
-  sağ tık › Servisler › Kelime Defteri'ne Ekle. Uygulama kapalıysa kendisi açılır.
+  sağ tık › Servisler › Kelime Defteri'ne Ekle. Uygulama kapalıysa kendisi açılır; kelime ayrı bir
+  pencerede eklenir ve saniyeler içinde telefona gelir.
 - **Günlük hatırlatma:** Seçilen saatte sırada kelime varsa bildirim; ikonda sıradaki kelime sayısı.
 
 ## Proje yapısı
 
 ```
-KelimeDefteri/        Uygulama
+KelimeDefteri/        iPhone/iPad uygulaması
   App/                Giriş noktası
-  Logic/              StudySession, hatırlatma planlama/zamanlama, Speaker
   Views/              SwiftUI ekranları
-Shared/               Uygulama + paylaşım eklentisinde ortak: Word modeli, SharedStore
+Mac/                  Yerel macOS menü çubuğu uygulaması: MenuBarExtra, Kelimelerim tablosu,
+                      Ayarlar, ⇧⌘E servisi (AppDelegate)
+Shared/               iOS, Mac ve paylaşım eklentisinde ortak: Word modeli, SharedStore
                       (App Group veritabanı), Leitner, AnswerChecker, SharedTextParser, WordFormView
-KelimeEkle/           Paylaş menüsü eklentisi (Share Extension)
-MacHelper/            Mac'te ⇧⌘E servisini sağlayan görünmez AppKit yardımcısı; metni
-                      kelimedefteri://add?text=… ile ana uygulamaya iletir (Catalyst uygulamaları
-                      servis tarafından soğuk başlatılınca çöktüğü için ayrı yardımcı gerekli)
-Config/               Entitlements (App Group, iCloud; -mac dosyaları Mac Catalyst için)
+  Logic/              StudySession, hatırlatma planlama/zamanlama, Speaker
+KelimeEkle/           iOS Paylaş menüsü eklentisi (Share Extension)
+Config/               Entitlements ve Info.plist'ler (KelimeDefteriMac-* Mac uygulaması için)
 KelimeDefteriTests/   Swift Testing birim testleri
 ```
 
@@ -55,7 +57,7 @@ klasöründe durur, böylece paylaşım eklentisinin eklediği kelimeyi uygulama
 4. İlk seferde iPhone'da **Ayarlar › Gizlilik ve Güvenlik › Geliştirici Modu**'nu aç.
 5. **⌘R** ile çalıştır.
 
-**Mac'te:** Xcode'da cihaz olarak **My Mac (Mac Catalyst)** seçip ⌘R. iCloud şeması şu an geliştirme
+**Mac'te:** Xcode'da **KelimeDefteriMac** şemasını ve **My Mac**'i seçip ⌘R. iCloud şeması şu an geliştirme
 ortamında; TestFlight/App Store'a çıkmadan önce CloudKit Console'dan üretime aktarılmalı.
 
 Testler: Xcode'da **⌘U**, ya da
@@ -67,6 +69,7 @@ xcodebuild test -project KelimeDefteri.xcodeproj -scheme KelimeDefteri -destinat
 ## Yol haritası
 
 - [x] iCloud eşitleme (SwiftData + CloudKit), iPad/Mac'te de aynı defter
+- [x] Mac'te menü çubuğu uygulaması
 - [x] Günlük tekrar hatırlatma bildirimi
 - [x] Paylaş menüsünden kelime ekleme
 - [ ] Ters yön: Türkçeden İngilizceye çalışma
