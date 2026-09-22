@@ -372,7 +372,9 @@ struct WordFormView: View {
         }
     }
 
-    /// Mac'te pencerenin sağ altında Vazgeç / Kaydet.
+    /// Mac'te pencerenin sağ altında Vazgeç / Kaydet. Kelime zaten defterdeyse Kaydet'in yerine
+    /// Yeniden Çalış / Anlamları Ekle gelir; o an yapılabilir olan öne çıkar ve ⌘S ile basılır.
+    @ViewBuilder
     private var macActionBar: some View {
         HStack {
             Spacer()
@@ -380,14 +382,37 @@ struct WordFormView: View {
                 Button("Vazgeç", action: cancel)
                     .keyboardShortcut(.cancelAction)
             }
-            Button(editingWord == nil ? "Kaydet" : "Güncelle", action: save)
-                .buttonStyle(.borderedProminent)
-                .keyboardShortcut("s", modifiers: .command)
-                .help("⌘S")
-                .disabled(!canSave)
+            if editingWord == nil, let existing = existingMatch {
+                let canAbsorb = canAbsorb(into: existing)
+                macButton("Yeniden Çalış", prominent: !canAbsorb) { absorb(into: existing, relearn: true) }
+                    .help("Anlamlar eklenir, kelime başa döner ve hemen sorulur.")
+                macButton("Anlamları Ekle", prominent: canAbsorb) { absorb(into: existing, relearn: false) }
+                    .disabled(!canAbsorb)
+                    .help("Yeni anlamlar mevcut kayda eklenir; ilerleme korunur.")
+            } else {
+                Button(editingWord == nil ? "Kaydet" : "Güncelle", action: save)
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut("s", modifiers: .command)
+                    .help("⌘S")
+                    .disabled(!canSave)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+        // Form kaydırılınca içerik çubuğun altından geçsin, üstüne binmesin.
+        .background(.bar)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    @ViewBuilder
+    private func macButton(_ title: String, prominent: Bool, action: @escaping () -> Void) -> some View {
+        if prominent {
+            Button(title, action: action)
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut("s", modifiers: .command)
+        } else {
+            Button(title, action: action)
+        }
     }
 
     /// Mac'te Sözlük uygulamasında açar.
@@ -455,49 +480,76 @@ struct WordFormView: View {
     }
 
     /// Aynı kelime yeniden eklenirken mevcut kayıt ve ne yapılabileceği.
+    /// iPhone'da seçenekler bu bölümde satır olarak, Mac'te pencerenin eylem çubuğundadır.
     private func existingSection(_ word: Word) -> some View {
         Section {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(word.english)
                         .font(.system(.body, design: .serif, weight: .semibold))
-                    Spacer()
-                    BoxRing(box: word.box, size: 14)
-                    Text(Leitner.dueDescription(for: word.dueDate))
-                        .font(.footnote)
+                    Text(word.turkish)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                Text(word.turkish)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 4) {
+                    BoxRing(box: word.box, size: 16)
+                    Text(Leitner.dueDescription(for: word.dueDate))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
-            let canAbsorb = word.wouldAbsorb(
-                turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample, source: cleanSource
-            )
-            Button {
-                absorb(into: word, relearn: false)
-            } label: {
-                // Form düğmesi pasifken iOS 26'da siyah kalıyor; soluk rengi elle ver.
-                Label("Anlamları Ekle", systemImage: "plus.circle")
-                    .foregroundStyle(canAbsorb ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
-            }
-            .disabled(!canAbsorb)
-            Button {
-                absorb(into: word, relearn: true)
-            } label: {
-                Label("Yeniden Çalış", systemImage: "arrow.counterclockwise")
-            }
+            .padding(.vertical, 2)
+            #if os(iOS)
+            existingOption(
+                "Anlamları Ekle", detail: "Yeni anlamlar mevcut kayda eklenir; ilerleme korunur.",
+                systemImage: "plus.circle.fill", enabled: canAbsorb(into: word)
+            ) { absorb(into: word, relearn: false) }
+            existingOption(
+                "Yeniden Çalış", detail: "Anlamlar eklenir, kelime başa döner ve hemen sorulur.",
+                systemImage: "arrow.counterclockwise.circle.fill", enabled: true
+            ) { absorb(into: word, relearn: true) }
+            #endif
         } header: {
             Text("Zaten Defterinde")
         } footer: {
-            Text("Anlamları Ekle: yeni yazdığın anlamlar ve boş alanlar mevcut kayda eklenir, ilerleme korunur. Yeniden Çalış: aynısını yapar, kelime de başa döner ve hemen sorulur.")
-                #if os(macOS)
+            #if os(macOS)
+            Text("Yeni anlamları mevcut kayda ekleyebilir ya da kelimeyi baştan çalışmak için sıraya alabilirsin.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                #endif
+            #endif
         }
     }
+
+    private func canAbsorb(into word: Word) -> Bool {
+        word.wouldAbsorb(turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample, source: cleanSource)
+    }
+
+    #if os(iOS)
+    /// Ayarlar'daki gibi başlık ve kısa açıklamalı seçenek satırı.
+    private func existingOption(
+        _ title: String, detail: String, systemImage: String, enabled: Bool, action: @escaping () -> Void
+    ) -> some View {
+        // Form düğmenin içindeki .secondary'yi de vurgu rengine boyuyor; gri tonlar sabit renkle.
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(enabled ? Color.accentColor : Color(.tertiaryLabel))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .foregroundStyle(enabled ? Color.accentColor : Color(.secondaryLabel))
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(enabled ? Color(.secondaryLabel) : Color(.tertiaryLabel))
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .disabled(!enabled)
+    }
+    #endif
 
     /// Defterdeki ilişkili kelime ve kalıplar; kaydı engellemez, yalnızca hatırlatır.
     private var relatedRow: some View {
