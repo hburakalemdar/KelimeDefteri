@@ -9,6 +9,7 @@ struct LettersGameView: View {
     @Query private var words: [Word]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @State private var round = GameRound(mode: .letters)
     @State private var puzzles: [LetterPuzzle] = []
     @State private var didStart = false
@@ -32,6 +33,7 @@ struct LettersGameView: View {
         }
         .pausesClock { round.pauseClock() } resume: { round.resumeClock() }
         .onAppear { if !didStart { startRound() } }
+        .onChange(of: words.aliveIDs) { skipDeletedWords() }
     }
 
     @ViewBuilder
@@ -43,12 +45,13 @@ struct LettersGameView: View {
                 onAgain: startRound,
                 onDone: close
             )
-        } else if puzzles.indices.contains(round.index), let word = round.current {
+        } else if puzzles.indices.contains(round.index), let word = round.current, !word.isGone(from: words.aliveIDs) {
+            let index = round.index
             LettersQuestionView(
                 word: word,
                 puzzle: puzzles[round.index],
                 onAnswer: { round.record(word, grade: $0) },
-                onNext: { round.advance() }
+                onNext: { advance(from: index) }
             )
             .id(round.index)
         }
@@ -59,6 +62,21 @@ struct LettersGameView: View {
         round.start(with: playable, count: Self.questionCount)
         puzzles = round.words.map { word in round.random { LetterPuzzle(word: word.english, using: &$0) } }
         didStart = true
+    }
+
+    /// Soru `index`'teyken sıradakine geçer. Soru bu arada (ör. silinen kelime atlanınca) değiştiyse bir şey yapmaz.
+    private func advance(from index: Int) {
+        guard round.index == index else { return }
+        round.advance()
+        skipDeletedWords()
+        // Doğru cevaptan sonraki otomatik geçiş arka planda olduysa yeni sorunun saati de dursun.
+        if scenePhase != .active { round.pauseClock() }
+    }
+
+    /// Tur sürerken silinen kelimenin sorusu atlanır.
+    private func skipDeletedWords() {
+        let alive = words.aliveIDs
+        while let word = round.current, word.isGone(from: alive) { round.advance() }
     }
 
     private func close() {

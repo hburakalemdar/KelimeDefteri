@@ -9,6 +9,12 @@ struct QuickMixGameView: View {
         case choice(Word, options: [String], correct: Int)
         case blank(Word, cloze: ClozeSentence, options: [String], correct: Int)
         case letters(Word, LetterPuzzle)
+
+        var word: Word {
+            switch self {
+            case .recall(let word, _), .choice(let word, _, _), .blank(let word, _, _, _), .letters(let word, _): word
+            }
+        }
     }
 
     /// Hatırlama sorularının oturumu önceki turun ilk kelimesini değiştirmesin diye ayrı ayar deposu kullanır.
@@ -17,6 +23,7 @@ struct QuickMixGameView: View {
     @Query private var words: [Word]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
     @State private var round = GameRound(mode: .quickRound)
     @State private var questions: [Question] = []
     @State private var recallSession: StudySession?
@@ -50,6 +57,9 @@ struct QuickMixGameView: View {
             recallSession?.resumeClock()
         }
         .onAppear { if !didStart { startRound() } }
+        .onChange(of: words.aliveIDs) {
+            if skipDeletedWords() { prepareRecall() }
+        }
     }
 
     @ViewBuilder
@@ -61,20 +71,20 @@ struct QuickMixGameView: View {
                 onAgain: startRound,
                 onDone: close
             )
-        } else if questions.indices.contains(round.index) {
-            question(questions[round.index])
+        } else if questions.indices.contains(round.index), !questions[round.index].word.isGone(from: words.aliveIDs) {
+            question(questions[round.index], at: round.index)
                 .id(round.index)
         }
     }
 
     @ViewBuilder
-    private func question(_ question: Question) -> some View {
+    private func question(_ question: Question, at index: Int) -> some View {
         switch question {
         case .recall:
             if let recallSession {
                 RecallQuestionView(session: recallSession, words: words) {
                     if let entry = recallSession.roundEntries.first { round.adopt(entry) }
-                    next()
+                    next(from: index)
                 }
             }
         case .choice(let word, let options, let correct):
@@ -82,7 +92,7 @@ struct QuickMixGameView: View {
                 options: options,
                 correctIndex: correct,
                 onAnswer: { round.record(word, grade: .recognition(correct: $0), mode: .multipleChoice) },
-                onNext: next
+                onNext: { next(from: index) }
             ) { _ in
                 GameWordCard(word: word)
             }
@@ -92,7 +102,7 @@ struct QuickMixGameView: View {
                 correctIndex: correct,
                 optionFont: .system(.body, design: .serif, weight: .semibold),
                 onAnswer: { round.record(word, grade: .recognition(correct: $0), mode: .fillBlank) },
-                onNext: next
+                onNext: { next(from: index) }
             ) { revealed in
                 ClozeCard(word: word, cloze: cloze, revealed: revealed)
             }
@@ -101,7 +111,7 @@ struct QuickMixGameView: View {
                 word: word,
                 puzzle: puzzle,
                 onAnswer: { round.record(word, grade: $0, mode: .letters) },
-                onNext: next
+                onNext: { next(from: index) }
             )
         }
     }
@@ -154,12 +164,31 @@ struct QuickMixGameView: View {
         let session = StudySession(defaults: Self.scratchDefaults)
         session.mode = reverse ? .reverse : .quickRound
         session.start(with: [word], plan: reverse ? .reverse : .quick)
+        // Doğru cevaptan sonraki otomatik geçiş arka planda olduysa oturum duraklatılmış başlasın;
+        // öne gelince `resumeClock` sürdürür.
+        if scenePhase != .active { session.pauseClock() }
         recallSession = session
     }
 
-    private func next() {
+    /// Soru `index`'teyken sıradakine geçer. Soru bu arada (ör. silinen kelime atlanınca) değiştiyse bir şey yapmaz.
+    private func next(from index: Int) {
+        guard round.index == index else { return }
         round.advance()
+        skipDeletedWords()
+        if scenePhase != .active { round.pauseClock() }
         prepareRecall()
+    }
+
+    /// Tur sürerken silinen kelimenin sorusu atlanır. Soru değiştiyse `true`.
+    @discardableResult
+    private func skipDeletedWords() -> Bool {
+        let alive = words.aliveIDs
+        var skipped = false
+        while questions.indices.contains(round.index), questions[round.index].word.isGone(from: alive) {
+            round.advance()
+            skipped = true
+        }
+        return skipped
     }
 
     private func close() {

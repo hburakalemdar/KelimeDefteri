@@ -10,13 +10,21 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var context
     @Query private var words: [Word]
+    /// Hafıza zamanla azaldığı için rozet her dakika tazelenir (Çalış ekranı gibi).
+    @State private var now = Date.now
+
+    /// Rozet: Günlük Tekrar'ın soracağı kelime sayısı.
+    private var badgeCount: Int {
+        let count = StudySession.dailyCount(words, now: now)
+        return count.weak + count.new
+    }
 
     var body: some View {
         TabView(selection: $selection) {
             Tab("Çalış", systemImage: "rectangle.stack", value: AppTab.study) {
                 StudyView(onAddTapped: { selection = .add })
             }
-            .badge(words.count { $0.isWeak })
+            .badge(badgeCount)
             Tab("Ekle", systemImage: "plus.circle", value: AppTab.add) {
                 NavigationStack {
                     WordFormView(mode: .add)
@@ -39,9 +47,13 @@ struct ContentView: View {
             }
         }
         #endif
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { now = $0 }
         .onChange(of: scenePhase) { _, phase in
             // Bildirim içerikleri planlandıkları anda sabitlenir; en güncel sayılarla yeniden kur.
-            if phase == .active { MemoryMigration.migrateIfNeeded(context: context) }
+            if phase == .active {
+                MemoryMigration.migrateIfNeeded(context: context)
+                now = .now
+            }
             if phase == .background || phase == .active {
                 try? context.save()
                 Task { await ReminderScheduler.refresh(context: context) }

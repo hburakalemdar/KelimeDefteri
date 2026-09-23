@@ -42,7 +42,8 @@ struct RecallGameView: View {
         .onAppear {
             if !didStart { startRound() }
         }
-        .onChange(of: words.count) {
+        // Kelime eklenince ya da silinince (ör. başka cihazdan) sıra güncellenir; silinen kelime atlanır.
+        .onChange(of: words.aliveIDs) {
             session.sync(with: words)
         }
     }
@@ -92,12 +93,15 @@ struct RecallQuestionView: View {
 
     @State private var answer = ""
     @FocusState private var answerFocused: Bool
+    /// Klavyenin en son kapandığı an; karta dokunuş klavyeyi kapatmak için miydi, anlamak için.
+    @State private var keyboardHiddenAt = Date.distantPast
     @Namespace private var glassNamespace
 
     private var hasAnswer: Bool { !answer.trimmingCharacters(in: .whitespaces).isEmpty }
 
     var body: some View {
-        if let word = session.current {
+        // Silinmiş kelime çizilmez; oyun kimlik kümesi değişince onu atlar.
+        if let word = session.current, !word.isGone(from: words.aliveIDs) {
             ScrollView {
                 card(for: word)
                     .padding(.horizontal)
@@ -113,6 +117,11 @@ struct RecallQuestionView: View {
             .animation(.snappy, value: session.phase)
             // Yazarak cevaplamak asıl yol: klavye her kartta açık gelir. Bakmak isteyen "Göster"e basar.
             .onAppear { answerFocused = true }
+            // Kelime silinip sıra kendiliğinden ilerlerse önceki kelimeye yazılan cevap yeni kartta kalmasın.
+            .onChange(of: session.current.map(ObjectIdentifier.init)) { answer = "" }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                keyboardHiddenAt = .now
+            }
             .sensoryFeedback(trigger: session.phase) { _, phase in
                 guard case .revealed(let verdict) = phase else { return nil }
                 return switch verdict {
@@ -161,7 +170,14 @@ struct RecallQuestionView: View {
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
         .contentShape(.rect(cornerRadius: 26, style: .continuous))
         .onTapGesture {
-            if session.phase == .asking { reveal(withAnswer: false) }
+            guard session.phase == .asking else { return }
+            // Klavye açıkken karta dokunmak yalnızca klavyeyi kapatır. Pencerenin genel dokunuşu
+            // (`dismissesKeyboardOnTap`) klavyeyi bu dokunuştan önce kapatmış olabilir; ona da bakılır.
+            if answerFocused || Date.now.timeIntervalSince(keyboardHiddenAt) < 0.4 {
+                answerFocused = false
+            } else {
+                reveal(withAnswer: false)
+            }
         }
         .accessibilityAddTraits(session.phase == .asking ? .isButton : [])
         .accessibilityHint(session.phase == .asking ? (session.isReverse ? "İngilizcesini göster" : "Türkçesini göster") : "")
@@ -197,7 +213,7 @@ struct RecallQuestionView: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
                 .padding(.bottom, 4)
-            verdictLabel(verdict, word: word)
+            verdictLabel(verdict)
             if session.isReverse {
                 englishHeadline(word, font: .system(.title, design: .serif, weight: .semibold))
                     .foregroundStyle(.tint)
@@ -234,10 +250,10 @@ struct RecallQuestionView: View {
         }
     }
 
-    private func verdictLabel(_ verdict: StudySession.Verdict, word: Word) -> some View {
+    private func verdictLabel(_ verdict: StudySession.Verdict) -> some View {
         let (text, icon, color): (String, String, Color) = switch verdict {
         case .correct: ("Doğru", "checkmark.circle.fill", .green)
-        case .almost: ("Neredeyse: doğrusu “\(word.english)”", "checkmark.circle.fill", .orange)
+        case .almost: ("Neredeyse", "checkmark.circle.fill", .orange)
         case .incorrect: ("Tam tutmadı", "xmark.circle.fill", .red)
         case .peeked: ("Cevaba baktın. Biliyor muydun?", "eye.fill", .secondary)
         }
@@ -260,7 +276,10 @@ struct RecallQuestionView: View {
                         .autocorrectionDisabled()
                         .submitLabel(.done)
                         .focused($answerFocused)
-                        .onSubmit { reveal(withAnswer: true) }
+                        // Alan boşken "Bitti" yalnızca klavyeyi kapatır; bakmak için "Göster" var.
+                        .onSubmit {
+                            if hasAnswer { reveal(withAnswer: true) } else { answerFocused = false }
+                        }
                         .padding(.horizontal, 18)
                         .frame(height: 48)
                         .glassEffect(.regular.interactive(), in: .capsule)

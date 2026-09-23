@@ -48,14 +48,14 @@ extension GameMode {
     /// Oyun merkezinde kartı gösterilen oyunlar, sırasıyla. Her oyun yapıldıkça buraya eklenir.
     static let hubGames: [GameMode] = [.quickRound, .multipleChoice, .match, .fillBlank, .letters, .reverse]
 
-    /// Kartın altındaki tek satırlık açıklama.
+    /// Kartın altındaki kısa açıklama; dar kartta bir satıra sığsın diye kısa tutulur.
     var cardDetail: String {
         switch self {
         case .dailyReview: "Zayıflayan kelimeler"
         case .quickRound: "5 kelime, 1 dakika"
         case .multipleChoice: "4 seçenekten doğrusu"
-        case .match: "Kelimeleri anlamlarıyla eşle"
-        case .fillBlank: "Kitaptaki cümleyi tamamla"
+        case .match: "Anlamıyla eşle"
+        case .fillBlank: "Cümleyi tamamla"
         case .letters: "Harflerden kelimeyi kur"
         case .reverse: "Türkçeden İngilizceye"
         }
