@@ -229,3 +229,70 @@ struct RepeatAnswerTests {
         #expect(word.correctAnswerCount == 7)
     }
 }
+
+/// Uygulama cevap açıkken arka plana geçince (kapatılabilir) cevap kaydedilir, kart yerinde kalır.
+struct CommitPendingAnswerTests {
+    private func makeContext() throws -> ModelContext {
+        let url = URL.temporaryDirectory.appending(path: "test-\(UUID().uuidString).store")
+        let container = try ModelContainer(
+            for: SharedStore.schema,
+            configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none)
+        )
+        return ModelContext(container)
+    }
+
+    private func setUp() throws -> (ModelContext, Word, StudySession) {
+        let context = try makeContext()
+        let word = Word(english: "stale", turkish: "eskimiş")
+        context.insert(word)
+        let session = StudySession(seed: 1, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        session.start(with: [word], plan: .daily)
+        return (context, word, session)
+    }
+
+    @Test func commitRecordsOnceAndKeepsTheCard() throws {
+        let (context, word, session) = try setUp()
+        session.reveal(answer: "eskimiş")
+        session.commitPendingAnswer()
+        session.commitPendingAnswer()
+        #expect(word.reviewCount == 1)
+        #expect(session.current === word)
+        #expect(session.phase == .revealed(.correct))
+        #expect(try context.fetch(FetchDescriptor<ReviewLog>()).count == 1)
+
+        // Döndüğünde "Devam": yeniden kaydetmeden ilerler.
+        session.grade(known: true)
+        #expect(session.current == nil)
+        #expect(word.reviewCount == 1)
+        #expect(session.reviewedCount == 1)
+        #expect(session.roundEntries.count == 1)
+        #expect(try context.fetch(FetchDescriptor<ReviewLog>()).count == 1)
+    }
+
+    @Test func differentChoiceAfterCommitReplacesTheRecord() throws {
+        let (context, word, session) = try setUp()
+        let reference = Word(english: "stale", turkish: "eskimiş")
+        ReviewRecorder.record(reference, grade: .good, mode: .dailyReview, responseTime: 0)
+
+        session.reveal(answer: "bayat")
+        session.commitPendingAnswer()
+        #expect(word.correctCount == 0)
+        // Döndüğünde "Doğru Say": yanlış kaydı geri alınır, doğru olarak yazılır.
+        session.grade(known: true)
+        try context.save()
+        let logs = try context.fetch(FetchDescriptor<ReviewLog>())
+        #expect(logs.map(\.correct) == [true])
+        #expect(word.reviewCount == 1)
+        #expect(word.correctCount == 1)
+        #expect(word.stability == reference.stability)
+        #expect(session.roundEntries.map(\.firstCorrect) == [true])
+    }
+
+    @Test func peekedAnswerIsNotCommitted() throws {
+        let (context, word, session) = try setUp()
+        session.reveal(answer: nil)
+        session.commitPendingAnswer()
+        #expect(word.reviewCount == 0)
+        #expect(try context.fetch(FetchDescriptor<ReviewLog>()).isEmpty)
+    }
+}

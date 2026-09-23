@@ -292,5 +292,7 @@ Oyunlaştırma işinin eleştirel incelemesinde bulunan sorunlardan 1–8 düzel
   kaydı test ediliyor; `WordPickerTests`'teki yanıltıcı "art arda" kontrolü kaldırıldı. Yeni: `RepeatAnswerTests` (2).
   120 testin hepsi geçti.
 
-**Bilinen eksik**
-- Uygulama cevap açıkken tamamen kapatılırsa (✕'e basmadan) o cevap kaydedilmez.
+- Cevap açıkken uygulama kapatılırsa da cevap kaybolmuyor: arka plana geçerken (Mac'te pencere kapanınca ya da
+  uygulamadan çıkılınca) sonucu belli cevap öne çıkan düğmeyle hemen kaydedilir, kart yerinde kalır
+  (`StudySession.commitPendingAnswer`). Dönünce aynı düğmeye basılırsa yalnızca ilerlenir; başka düğmeye basılırsa
+  (ör. "Doğru Say") ilk kayıt geri alınıp yenisi yazılır. Testler: `CommitPendingAnswerTests` (3). 123 testin hepsi geçti.

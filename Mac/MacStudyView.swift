@@ -37,12 +37,22 @@ struct MacStudyView: View {
             // Pencere her açıldığında gün dönmüş olabilir; zamanı gelenleri sıraya al.
             refresh()
         }
-        .onDisappear { session.pauseClock() }
+        .onDisappear { saveOpenAnswer() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            saveOpenAnswer()
+        }
         .onChange(of: words.count) { refresh() }
         .onChange(of: session.current == nil) { _, ended in
             // iOS'taki Günlük Tekrar gibi tur en fazla 20 kelime (5'i yeni); zayıf kelime kaldıysa yenisi başlar.
             if ended && session.plan == .daily { startDailyIfNeeded() }
         }
+    }
+
+    /// Pencere kapanınca ya da uygulamadan çıkılınca açık cevap kaydedilir; kart olduğu gibi kalır.
+    private func saveOpenAnswer() {
+        session.pauseClock()
+        session.commitPendingAnswer()
+        try? context.save()
     }
 
     private func refresh() {

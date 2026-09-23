@@ -69,6 +69,13 @@ final class StudySession {
     private var responseTime: Double = 0
     private var pausedAt: Date?
 
+    /// Arka plana geçerken kaydedilmiş, henüz ilerlenmemiş cevap ve kaydı geri alan işlem.
+    private struct Committed {
+        let known: Bool
+        let undo: () -> Void
+    }
+    private var committed: Committed?
+
     /// Önceki turun ilk kelimesi; yeni tur onunla başlamasın diye saklanır.
     static let lastFirstWordKey = "StudySession.lastFirstWord"
 
@@ -153,9 +160,31 @@ final class StudySession {
     /// Sonucu belli olan ama düğmesine basılmamış cevabı öne çıkan düğmeyle kaydeder (ör. ✕ ile kapatılınca).
     /// Yalnızca cevaba bakıldıysa ne bilindiği belli olmadığı için kaydedilmez.
     func gradePendingAnswer(now: Date = .now) {
-        guard case .revealed(let verdict) = phase, verdict != .peeked,
-              let option = verdict.gradeOptions.first(where: \.isPrimary) else { return }
-        grade(known: option.known, now: now)
+        guard let known = pendingKnown else { return }
+        grade(known: known, now: now)
+    }
+
+    /// Uygulama arka plana geçerken (kapatılabilir) sonucu belli cevabı hemen kaydeder ama karttan
+    /// ilerlemez; kullanıcı döndüğünde aynı ekranı görür. Sonra aynı düğmeye basarsa yalnızca ilerlenir,
+    /// başka düğmeye basarsa (ör. "Doğru Say") bu kayıt geri alınıp yenisi yazılır.
+    func commitPendingAnswer(now: Date = .now) {
+        guard committed == nil, let word = current, let known = pendingKnown else { return }
+        let before = (word.stability, word.difficulty, word.dueDate, word.lastReviewedAt, word.reviewCount, word.correctCount)
+        let entryCount = roundEntries.count
+        let finishedBefore = finishedAt
+        let log = record(word, known: known, now: now)
+        committed = Committed(known: known) { [weak self] in
+            (word.stability, word.difficulty, word.dueDate, word.lastReviewedAt, word.reviewCount, word.correctCount) = before
+            if let log { log.modelContext?.delete(log) }
+            self?.roundEntries.removeSubrange(entryCount...)
+            self?.finishedAt = finishedBefore
+        }
+    }
+
+    /// Öne çıkan düğmenin anlamı: doğru cevap bilinmiş, yanlış cevap bilinmemiş. Cevaba bakıldıysa `nil`.
+    private var pendingKnown: Bool? {
+        guard case .revealed(let verdict) = phase, verdict != .peeked else { return nil }
+        return verdict.gradeOptions.first(where: \.isPrimary)?.known
     }
 
     /// Uygulama arka plandayken geçen süre cevap süresine sayılmaz.
@@ -171,6 +200,24 @@ final class StudySession {
 
     func grade(known: Bool, now: Date = .now) {
         guard let word = current else { return }
+        if let committed {
+            self.committed = nil
+            if committed.known != known {
+                committed.undo()
+                record(word, known: known, now: now)
+            }
+        } else {
+            record(word, known: known, now: now)
+        }
+        // Bilinmeyen kelime bilinene kadar yeniden sorulur; hemen arkasından değil,
+        // arada en az iki kelime olacak şekilde.
+        if !known { queue.insert(word, at: WordPicker.reinsertionIndex(queueCount: queue.count)) }
+        reviewedCount += 1
+        advance(now: now)
+    }
+
+    @discardableResult
+    private func record(_ word: Word, known: Bool, now: Date) -> ReviewLog? {
         let verdict: Verdict = if case .revealed(let verdict) = phase { verdict } else { .peeked }
         let grade = AnswerGrade.recall(verdict: verdict, known: known, responseTime: responseTime)
         // Hafızayı turdaki ilk cevap değiştirir; sonrakiler yalnızca geçmişe yazılır.
@@ -179,12 +226,9 @@ final class StudySession {
             roundEntries.append(RoundEntry(word: word, memoryBefore: word.memory(at: now), firstCorrect: grade.isCorrect))
         }
         finishedAt = now
-        ReviewRecorder.record(word, grade: grade, mode: mode, responseTime: responseTime, updatesMemory: isFirstAnswer, now: now)
-        // Bilinmeyen kelime bilinene kadar yeniden sorulur; hemen arkasından değil,
-        // arada en az iki kelime olacak şekilde.
-        if !known { queue.insert(word, at: WordPicker.reinsertionIndex(queueCount: queue.count)) }
-        reviewedCount += 1
-        advance(now: now)
+        return ReviewRecorder.record(
+            word, grade: grade, mode: mode, responseTime: responseTime, updatesMemory: isFirstAnswer, now: now
+        )
     }
 
     /// Kelime listesi dışarıda değiştiğinde (silme, yeni kelime, iCloud'dan gelen değişiklik)
@@ -229,6 +273,7 @@ final class StudySession {
         phase = .asking
         shownAt = now
         pausedAt = nil
+        committed = nil
         responseTime = 0
     }
 }

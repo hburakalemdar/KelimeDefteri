@@ -42,6 +42,9 @@ struct QuickMixGameView: View {
         .pausesClock {
             round.pauseClock()
             recallSession?.pauseClock()
+            // Uygulama arka planda kapatılabilir; açık cevap kaybolmasın.
+            recallSession?.commitPendingAnswer()
+            try? context.save()
         } resume: {
             round.resumeClock()
             recallSession?.resumeClock()

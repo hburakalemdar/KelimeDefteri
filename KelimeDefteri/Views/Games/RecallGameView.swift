@@ -31,7 +31,14 @@ struct RecallGameView: View {
                 }
                 .sensoryFeedback(.selection, trigger: session.reviewedCount)
         }
-        .pausesClock { session.pauseClock() } resume: { session.resumeClock() }
+        .pausesClock {
+            session.pauseClock()
+            // Uygulama arka planda kapatılabilir; açık cevap kaybolmasın.
+            session.commitPendingAnswer()
+            try? context.save()
+        } resume: {
+            session.resumeClock()
+        }
         .onAppear {
             if !didStart { startRound() }
         }
