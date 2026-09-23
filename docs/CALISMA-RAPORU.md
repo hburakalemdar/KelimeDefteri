@@ -129,4 +129,19 @@
 - Mac menü penceresi değişmedi (spec: oyunlar Mac'e sonra gelecek); karışık sıra ve `ReviewLog` orada da çalışıyor.
 
 **Bilinen eksikler**
-- iPhone bu turda bağlı değildi (`devicectl`: unavailable); kurulum atlandı, sonraki görevde yeniden denenecek.
+- iPhone bu turda bağlı değildi (`devicectl`: unavailable); C2 ile birlikte kuruldu.
+
+### C2 · Çoktan Seçmeli (23 Eylül 2026)
+- `ChoiceGameView`: 10 soru (defterde daha az kelime varsa hepsi), üstte serif kelime + telaffuz + cümle, altta 4 tam
+  genişlik cam düğme. Doğru: yeşil + ✓, 0,8 sn sonra geçer. Yanlış: seçilen kırmızı + ✕, doğrusu yeşil, altta **Devam**.
+  Titreşim doğruda `.success`, yanlışta `.warning`. Kayıt tanıma notuyla (`good`/`again`, ağırlık 0.6).
+- `ChoiceQuiz` (saf, testli): ilk anlam, seçenek üretimi (önce aynı kaynak, aynı katlanmış anlam asla yanlış seçenek olmaz).
+- `GameRound`: soru soru ilerleyen oyunların ortak turu (ağırlıklı seçim, önceki turun ilk kelimesinden kaçınma, kayıt,
+  özet girdileri). Sonraki oyunlar da bunu kullanacak. Ortak parçalar: `GameWordCard`, `ChoiceButtons`, `ContinueButton`.
+- Testler: `ChoiceQuizTests` (5), `GameRoundTests` (2). 89 testin hepsi geçti. iPhone (C1 ile birlikte) ve Mac'e kuruldu.
+
+**Verilen kararlar**
+- Defterde 10'dan az kelime varsa tur o kadar soru sorar.
+- Aynı katlanmış anlamı taşıyan iki kelime varsa seçeneklerde yalnızca biri çıkar; farklı seçenek yetmezse 4'ten az seçenek gösterilir
+  (en az 4 kelime koşulu olduğundan pratikte nadir).
+- Düğme yüksekliği ilk denemede fazla geldi; dikey boşluk azaltıldı.

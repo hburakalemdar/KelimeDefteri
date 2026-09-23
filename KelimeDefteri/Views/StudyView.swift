@@ -81,6 +81,7 @@ struct StudyView: View {
         case .extraPractice: RecallGameView(plan: .extraPractice, mode: .dailyReview)
         case .mode(let mode):
             switch mode {
+            case .multipleChoice: ChoiceGameView()
             default: RecallGameView(plan: .quick, mode: .quickRound)
             }
         }
