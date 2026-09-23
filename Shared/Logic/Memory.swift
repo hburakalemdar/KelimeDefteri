@@ -66,6 +66,21 @@ nonisolated enum Memory {
         )
     }
 
+    /// Yanlış cevaptan sonra gösterilen en yüksek hafıza.
+    static let lapseMemory = 0.5
+
+    /// Yanlış cevaptan sonraki tekrar zamanı: geçmişe konur, kelime doğru bilinene kadar zayıf sayılır.
+    ///
+    /// Tarih, hafıza o andan sayıldığında (bkz. `Word.memory(at:)`) cevaptan önceki hafızayı
+    /// ama en fazla %50'yi verecek şekilde seçilir. Böylece yanlış cevap hafızayı hiç yükseltmez;
+    /// dayanıklılık (S) ve son tekrar zamanı motorun kendi değerleri olarak kalır.
+    static func lapseDue(stability: Double, memoryBefore: Double?, now: Date) -> Date {
+        let target = min(memoryBefore ?? lapseMemory, lapseMemory)
+        // R(t, S) = target  →  t = S · 81/19 · (target^−2 − 1)
+        let elapsed = stability * 81.0 / 19.0 * (pow(target, -2) - 1)
+        return now.addingTimeInterval((stability - elapsed) * dayLength)
+    }
+
     /// Nota göre zorluk değişir, sonra 5'e doğru %5 yaklaşır ve 1…10 içinde kalır.
     static func nextDifficulty(_ difficulty: Double, grade: AnswerGrade) -> Double {
         let delta = switch grade {

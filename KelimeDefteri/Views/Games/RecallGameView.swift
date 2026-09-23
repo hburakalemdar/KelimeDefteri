@@ -25,7 +25,7 @@ struct RecallGameView: View {
                                 .accessibilityLabel("Kapat")
                         }
                         ToolbarItem(placement: .principal) {
-                            GameProgressHeader(done: session.reviewedCount, total: total)
+                            GameProgressHeader(done: session.finishedWordCount, total: session.wordCount)
                         }
                     }
                 }
@@ -62,9 +62,6 @@ struct RecallGameView: View {
             )
         }
     }
-
-    /// Turdaki toplam kart; bilinmeyen kelime sıraya yeniden girdiği için tur içinde büyüyebilir.
-    private var total: Int { session.reviewedCount + session.remaining + (session.current == nil ? 0 : 1) }
 
     private func startRound() {
         session.mode = mode
@@ -114,6 +111,8 @@ struct RecallQuestionView: View {
                     .padding(.vertical, 12)
             }
             .animation(.snappy, value: session.phase)
+            // Yazarak cevaplamak asıl yol: klavye her kartta açık gelir. Bakmak isteyen "Göster"e basar.
+            .onAppear { answerFocused = true }
             .sensoryFeedback(trigger: session.phase) { _, phase in
                 guard case .revealed(let verdict) = phase else { return nil }
                 return switch verdict {
@@ -299,6 +298,7 @@ struct RecallQuestionView: View {
             session.grade(known: option.known)
             answer = ""
             onGraded()
+            if session.current != nil { answerFocused = true }
         } label: {
             Label(option.title, systemImage: option.systemImage)
                 .font(.body.weight(.semibold))

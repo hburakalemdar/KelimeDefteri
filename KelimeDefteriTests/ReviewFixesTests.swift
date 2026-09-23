@@ -296,3 +296,99 @@ struct CommitPendingAnswerTests {
         #expect(try context.fetch(FetchDescriptor<ReviewLog>()).isEmpty)
     }
 }
+
+/// Yanlış bilinen kelime doğru bilinene kadar zayıf kalır; yanlış cevap hafızayı hiç yükseltmez.
+struct LapseTests {
+    private let now = Date(timeIntervalSince1970: 1_790_000_000)
+
+    private func strongWord() -> Word {
+        let word = Word(english: "coalesce", turkish: "birleştirmek")
+        word.reviewCount = 3
+        word.stability = 20
+        word.difficulty = 5
+        word.lastReviewedAt = now.addingTimeInterval(-2 * Memory.dayLength)
+        word.dueDate = word.lastReviewedAt!.addingTimeInterval(20 * Memory.dayLength)
+        return word
+    }
+
+    @Test func wrongAnswerMakesAStrongWordWeakRightAway() {
+        let word = strongWord()
+        let before = word.memory(at: now)!
+        #expect(before > 0.97)
+        ReviewRecorder.record(word, grade: .again, mode: .match, responseTime: 0, now: now)
+        let after = word.memory(at: now)!
+        #expect(abs(after - Memory.lapseMemory) < 1e-9)
+        #expect(word.isWeak(at: now))
+        #expect(word.isDue(at: now))
+        // Zaman geçtikçe düşmeye devam eder.
+        #expect(word.memory(at: now.addingTimeInterval(Memory.dayLength))! < after)
+    }
+
+    @Test func wrongAnswerNeverRaisesAWeakWordsMemory() {
+        let word = strongWord()
+        word.lastReviewedAt = now.addingTimeInterval(-400 * Memory.dayLength)
+        word.dueDate = word.lastReviewedAt!.addingTimeInterval(20 * Memory.dayLength)
+        let before = word.memory(at: now)!
+        #expect(before < Memory.lapseMemory)
+        ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
+        #expect(abs(word.memory(at: now)! - before) < 1e-9)
+    }
+
+    @Test func newWordAnsweredWrongStartsWeak() {
+        let word = Word(english: "quorum", turkish: "yeter sayı")
+        ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
+        #expect(!word.isNew)
+        #expect(abs(word.memory(at: now)! - Memory.lapseMemory) < 1e-9)
+        #expect(word.isWeak(at: now))
+    }
+
+    @Test func correctAnswerClearsTheLapse() {
+        let word = strongWord()
+        ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
+        let later = now.addingTimeInterval(3_600)
+        ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: later)
+        #expect(word.memory(at: later)! > 0.99)
+        #expect(!word.isWeak(at: later))
+        #expect(word.dueDate == later.addingTimeInterval(word.stability * Memory.dayLength))
+    }
+
+    @Test func wrongThenRightInTheSameRoundClearsTheLapse() {
+        let word = strongWord()
+        ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
+        let stability = word.stability
+        ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, updatesMemory: false,
+                              now: now.addingTimeInterval(60))
+        #expect(word.stability == stability)
+        #expect(word.dueDate == now.addingTimeInterval(stability * Memory.dayLength))
+        #expect(!word.isWeak(at: now.addingTimeInterval(120)))
+    }
+
+    @Test func normalScheduleIsUnchanged() {
+        let word = strongWord()
+        let elapsed = 2.0
+        #expect(word.memory(at: now) == Memory.retrievability(elapsedDays: elapsed, stability: 20))
+    }
+}
+
+/// Tur ilerlemesi kelime sayısıyla gösterilir; bilinmeyen kelimenin tekrarı toplamı büyütmez.
+struct RoundProgressTests {
+    @Test func progressCountsWordsNotAnswers() {
+        let words = (0..<4).map { index -> Word in
+            let word = Word(english: "w\(index)", turkish: "anlam")
+            word.reviewCount = 1
+            word.stability = 1
+            word.lastReviewedAt = Date.now.addingTimeInterval(-5 * 86_400)
+            word.dueDate = word.lastReviewedAt!.addingTimeInterval(86_400)
+            return word
+        }
+        let session = StudySession(seed: 1, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        session.start(with: words, plan: .daily)
+        #expect(session.wordCount == 4)
+        session.grade(known: false)
+        #expect(session.wordCount == 4)
+        #expect(session.finishedWordCount == 0)
+        while session.current != nil { session.grade(known: true) }
+        #expect(session.finishedWordCount == 4)
+        #expect(session.reviewedCount == 5)
+    }
+}

@@ -51,6 +51,10 @@ final class StudySession {
     private(set) var phase: Phase = .asking
     private(set) var plan: Plan = .weak
     private(set) var reviewedCount = 0
+    /// Turdaki farklı kelime sayısı ve bilinip turdan çıkanlar. Bilinmeyen kelime sıraya yeniden
+    /// girdiği için cevap sayısı büyür ama ilerleme bunlarla gösterilir: "3/5" beşten öteye geçmez.
+    private(set) var wordCount = 0
+    private(set) var finishedWordCount = 0
     private(set) var roundEntries: [RoundEntry] = []
     private(set) var startedAt: Date = .now
     /// Son cevabın verildiği an; tur süresi buna kadar sayılır.
@@ -116,6 +120,8 @@ final class StudySession {
         if let first = queue.first {
             defaults.set(Self.key(for: first), forKey: Self.lastFirstWordKey)
         }
+        wordCount = queue.count
+        finishedWordCount = 0
         advance(now: now)
     }
 
@@ -211,7 +217,11 @@ final class StudySession {
         }
         // Bilinmeyen kelime bilinene kadar yeniden sorulur; hemen arkasından değil,
         // arada en az iki kelime olacak şekilde.
-        if !known { queue.insert(word, at: WordPicker.reinsertionIndex(queueCount: queue.count)) }
+        if known {
+            finishedWordCount += 1
+        } else {
+            queue.insert(word, at: WordPicker.reinsertionIndex(queueCount: queue.count))
+        }
         reviewedCount += 1
         advance(now: now)
     }
@@ -238,15 +248,21 @@ final class StudySession {
     /// Yalnızca `.weak` turunda yeni zayıflayanlar eklenir; diğer turların kelimeleri baştan bellidir.
     func sync(with words: [Word], now: Date = .now) {
         let alive = Set(words.map(\.persistentModelID))
+        let queuedBefore = queue.count
         queue.removeAll { !alive.contains($0.persistentModelID) }
+        wordCount -= queuedBefore - queue.count
+        let currentDeleted = current.map { !alive.contains($0.persistentModelID) } ?? false
+        if currentDeleted { wordCount -= 1 }
         guard plan == .weak else {
-            if let current, !alive.contains(current.persistentModelID) { advance(now: now) }
+            if currentDeleted { advance(now: now) }
             return
         }
 
         // Bu turda bilinenlerin hafızası güçlendiği için tekrar eklenmezler.
         let queued = Set(queue.map(\.persistentModelID) + [current?.persistentModelID].compactMap { $0 })
-        queue += ordered(words.filter { $0.isWeak(at: now) && !queued.contains($0.persistentModelID) }, now: now)
+        let added = ordered(words.filter { $0.isWeak(at: now) && !queued.contains($0.persistentModelID) }, now: now)
+        queue += added
+        wordCount += added.count
 
         if let current, alive.contains(current.persistentModelID) { return }
         advance(now: now)

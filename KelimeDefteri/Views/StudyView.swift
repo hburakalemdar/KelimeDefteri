@@ -30,7 +30,6 @@ struct StudyView: View {
             content
                 .background(Color(.systemGroupedBackground))
                 .navigationTitle("Çalış")
-                .navigationSubtitle(subtitle)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Ayarlar", systemImage: "gearshape") { showSettings = true }
@@ -98,14 +97,6 @@ struct StudyView: View {
 
     private var deck: GameDeck {
         GameDeck(entries: words.map { ($0.english, $0.example) })
-    }
-
-    private var subtitle: String {
-        guard !words.isEmpty else { return "" }
-        guard let averageMemory else { return "\(words.count) yeni kelime" }
-        // Günlük Tekrar'ın 20 sınırı burada yok: kaç kelimenin zayıfladığı olduğu gibi söylenir.
-        let weak = words.count { !$0.isNew && $0.isWeak(at: now) }
-        return "Hafıza \(MemoryStats.text(averageMemory)) · " + (weak > 0 ? "\(weak) kelime zayıfladı" : "hepsi güçlü")
     }
 
     // MARK: - Günlük Tekrar

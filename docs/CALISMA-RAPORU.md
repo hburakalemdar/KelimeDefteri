@@ -296,3 +296,22 @@ Oyunlaştırma işinin eleştirel incelemesinde bulunan sorunlardan 1–8 düzel
   uygulamadan çıkılınca) sonucu belli cevap öne çıkan düğmeyle hemen kaydedilir, kart yerinde kalır
   (`StudySession.commitPendingAnswer`). Dönünce aynı düğmeye basılırsa yalnızca ilerlenir; başka düğmeye basılırsa
   (ör. "Doğru Say") ilk kayıt geri alınıp yenisi yazılır. Testler: `CommitPendingAnswerTests` (3). 123 testin hepsi geçti.
+
+### iPhone düzeltmeleri (23 Eylül 2026)
+- Kelimelerim'de sola kaydırınca çıkan silme düğmesi yalnızca simge (altındaki "Sil" yazısı kalktı; VoiceOver adı duruyor).
+  Satırın kaydırılırken köşelerinin yuvarlanması iOS 26'nın kendi animasyonu, değiştirilmedi.
+- Karar: **yanlış bilinen kelime doğru bilinene kadar zayıf sayılır.** Önceden hafıza "şu an hatırlama ihtimali" olduğu için
+  yanlış cevaptan hemen sonra da %99 görünüyordu: yanlış yapınca defterin ortalaması yükseliyor, kelime günlerce
+  Günlük Tekrar'a gelmiyordu. Şimdi yanlış cevapta sıradaki tekrar geçmişe konur (`Memory.lapseDue`); hafıza oradan
+  sayılır ve cevaptan önceki değeri, en fazla %50'yi gösterir (`Word.isLapsed`). Kelime hemen zayıf, rozete ve Günlük
+  Tekrar'a girer. Doğru cevapla (aynı turda olsa da) tekrar zamanı normale döner. Dayanıklılık ve son tekrar zamanı motorun
+  kendi değerleri olarak kalır; yeni alan yok, CloudKit şeması değişmedi.
+- Karar: tur özetinde "sonra" sütunu hafıza yüzdesi yerine sıradaki tekrarı gösterir ("%59 → 35 gün sonra",
+  yanlışta kırmızı "Şimdi"). Cevaptan hemen sonra hafıza hep ~%100 olduğu için ikinci yüzde bir şey anlatmıyordu.
+- Testler: `LapseTests` (6). 129 testin hepsi geçti.
+- Çalış başlığının altındaki "Hafıza %85 · 2 kelime zayıfladı" satırı kaldırıldı; aynı bilgi hemen altındaki Günlük Tekrar kartında.
+- Tur ilerlemesi kelime sayısıyla gösterilir (`StudySession.wordCount`, `finishedWordCount`): bilinmeyen kelime sıraya
+  yeniden girse de "1/4" "2/5" olmaz; kelime bilinince ilerler.
+- Hatırlama sorularında klavye her kartta açık gelir; yazmadan bakmak için "Göster" duruyor.
+- Eşleştir'de yanlış çiftte yalnızca soldaki (anlamı aranan) kelime yanlış sayılır; anlamı yanlış yere verilen kelime sayılmaz.
+- Testler: `RoundProgressTests` (1), `MatchBoardTests` güncellendi. 130 testin hepsi geçti.

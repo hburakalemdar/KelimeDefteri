@@ -12,7 +12,8 @@ nonisolated struct MatchBoard: Equatable {
     /// Sağ sütun sırası: anlamı hangi kelimeye ait.
     let right: [Int]
     private(set) var matched: Set<Int> = []
-    /// Eşleşmeden önce yanlış bir çifte girmiş kelimeler.
+    /// Eşleşmeden önce yanlış bir anlamla eşleştirilmeye çalışılmış kelimeler. Yanlış çiftte yalnızca
+    /// soldaki kelime sayılır: anlamı seçilen kelimeyi kullanıcı yanlış bilmiş değildir.
     private(set) var mistaken: Set<Int> = []
     private(set) var errors = 0
 
@@ -34,11 +35,10 @@ nonisolated struct MatchBoard: Equatable {
         }
         errors += 1
         if !matched.contains(leftID) { mistaken.insert(leftID) }
-        if !matched.contains(rightID) { mistaken.insert(rightID) }
         return .mismatched(left: leftID, right: rightID)
     }
 
-    /// Eşleşen kelimenin notu: hiç yanlış çifte girmediyse `good`, girdiyse `again`.
+    /// Eşleşen kelimenin notu: hiç yanlış anlamla eşleştirilmediyse `good`, eşleştirildiyse `again`.
     func grade(for id: Int) -> AnswerGrade {
         mistaken.contains(id) ? .again : .good
     }

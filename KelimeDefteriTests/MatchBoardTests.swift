@@ -12,14 +12,15 @@ struct MatchBoardTests {
         }
     }
 
-    @Test func wrongPairMarksBothWordsAndCountsError() {
+    @Test func wrongPairMarksOnlyTheChosenWordAndCountsError() {
         var generator = SeededGenerator(seed: 1)
         var board = MatchBoard(count: 4, using: &generator)
         #expect(board.pick(left: 0, right: 2) == .mismatched(left: 0, right: 2))
         #expect(board.errors == 1)
         #expect(board.pick(left: 1, right: 1) == .matched(1))
         #expect(board.grade(for: 0) == .again)
-        #expect(board.grade(for: 2) == .again)
+        // 2'nin anlamı yanlış kelimeye verildi; 2'yi yanlış bilmiş sayılmaz.
+        #expect(board.grade(for: 2) == .good)
         #expect(board.grade(for: 1) == .good)
         #expect(!board.isComplete)
         for id in [0, 2, 3] { _ = board.pick(left: id, right: id) }

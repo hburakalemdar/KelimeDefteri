@@ -1,6 +1,8 @@
 import SwiftUI
 
-/// Bütün oyunlarda ortak tur özeti: kaç doğru, ne kadar sürdü, her kelimenin hafızası nasıl değişti.
+/// Bütün oyunlarda ortak tur özeti: kaç doğru, ne kadar sürdü, her kelimenin önceki hafızası ve
+/// cevaptan sonra sıradaki tekrarın ne zaman olduğu. (Cevaptan hemen sonra hafıza hep ~%100 olduğu
+/// için ikinci bir yüzde bir şey anlatmaz.)
 struct RoundSummaryView: View {
     struct Entry: Identifiable {
         let word: Word
@@ -80,9 +82,13 @@ struct RoundSummaryView: View {
             }
             Spacer(minLength: 8)
             HStack(spacing: 6) {
-                Text("\(MemoryStats.text(entry.before)) →")
+                MemoryRing(memory: entry.before, size: 14, text: .trailing)
                     .foregroundStyle(.secondary)
-                MemoryRing(memory: entry.word.memory(), size: 14, text: .trailing)
+                Text("→")
+                    .foregroundStyle(.secondary)
+                let due = entry.word.dueDate
+                Text(Leitner.dueDescription(for: due))
+                    .foregroundStyle(due > .now ? Color.primary : Color.red)
             }
             .font(.footnote.weight(.medium))
             .monospacedDigit()

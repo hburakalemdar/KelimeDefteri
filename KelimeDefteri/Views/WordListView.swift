@@ -71,8 +71,12 @@ struct WordListView: View {
                     WordRow(word: word)
                 }
                 .swipeActions {
-                    Button("Sil", systemImage: "trash", role: .destructive) {
+                    // Sistem uygulamalarındaki gibi yalnızca simge; "Sil" adı VoiceOver için kalır.
+                    Button(role: .destructive) {
                         context.delete(word)
+                    } label: {
+                        Label("Sil", systemImage: "trash")
+                            .labelStyle(.iconOnly)
                     }
                 }
                 .contextMenu {

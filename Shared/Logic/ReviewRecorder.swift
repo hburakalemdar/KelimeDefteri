@@ -18,6 +18,7 @@ enum ReviewRecorder {
         now: Date = .now
     ) -> ReviewLog? {
         MemoryMigration.migrate(word)
+        let memoryBefore = word.memory(at: now)
         if updatesMemory {
             let result = Memory.review(
                 stability: word.stability,
@@ -31,6 +32,13 @@ enum ReviewRecorder {
             word.difficulty = result.difficulty
             word.dueDate = result.due
             word.lastReviewedAt = now
+        }
+        if !grade.isCorrect {
+            // Yanlış bilinen kelime doğru bilinene kadar zayıf kalır (Günlük Tekrar'a hemen girer).
+            word.dueDate = Memory.lapseDue(stability: word.stability, memoryBefore: memoryBefore, now: now)
+        } else if !updatesMemory, let last = word.lastReviewedAt {
+            // Turda önce yanlış sonra doğru bilindi: tekrar zamanı motorun hesabına döner.
+            word.dueDate = last.addingTimeInterval(word.stability * Memory.dayLength)
         }
         word.reviewCount += 1
         if grade.isCorrect { word.correctCount += 1 }

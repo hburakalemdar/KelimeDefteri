@@ -56,10 +56,21 @@ extension Word {
 
     /// Şu anki hatırlama ihtimali (0…1); yeni kelimede `nil`.
     /// Son tekrar zamanı bilinmiyorsa eklendiği andan sayılır.
+    ///
+    /// Yanlış cevaptan sonra tekrar zamanı son tekrarın da gerisine konur (`Memory.lapseDue`);
+    /// hafıza doğru bilinene kadar oradan sayılır ve düşük görünür.
     func memory(at date: Date = .now) -> Double? {
         guard !isNew else { return nil }
-        let elapsed = date.timeIntervalSince(lastReviewedAt ?? createdAt) / Memory.dayLength
+        let start = isLapsed ? dueDate.addingTimeInterval(-stability * Memory.dayLength) : (lastReviewedAt ?? createdAt)
+        let elapsed = date.timeIntervalSince(start) / Memory.dayLength
         return Memory.retrievability(elapsedDays: elapsed, stability: stability)
+    }
+
+    /// Son cevap yanlıştı ve kelime henüz doğru bilinmedi. Normalde sıradaki tekrar son tekrardan
+    /// sonradır; yanlış cevaptan sonra ondan önceye konur.
+    var isLapsed: Bool {
+        guard let lastReviewedAt, dueDate > .distantPast else { return false }
+        return dueDate < lastReviewedAt
     }
 
     /// Tekrara ihtiyacı olan kelime: yeni ya da hatırlama ihtimali %90'ın altına inmiş.
