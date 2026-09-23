@@ -23,12 +23,10 @@ nonisolated enum WordPicker {
     /// Hiçbir kelime tamamen dışarıda kalmasın diye her ağırlığa eklenen pay.
     static let baseWeight = 0.1
 
-    /// Geçici ağırlık (hafıza motoru gelene kadar): tekrar zamanını ne kadar geçtiği.
-    /// Bir haftadan fazla geciken kelime en yüksek ağırlığı alır.
-    static func delayWeight(dueDate: Date, isNew: Bool, now: Date) -> Double {
-        if isNew { return newWeight }
-        let overdueDays = max(0, now.timeIntervalSince(dueDate) / 86_400)
-        return min(1, overdueDays / 7) + baseWeight
+    /// Kelimenin ağırlığı: yeni kelime (`memory == nil`) 1.0, diğerleri unutma ihtimali + 0.1.
+    static func weight(memory: Double?) -> Double {
+        guard let memory else { return newWeight }
+        return (1 - min(max(memory, 0), 1)) + baseWeight
     }
 
     /// Ağırlıklı, tekrarsız sıra (Efraimidis–Spirakis): her kelimeye `u^(1/w)` anahtarı

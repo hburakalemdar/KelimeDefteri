@@ -45,12 +45,12 @@ enum WindowID {
     static let words = "words"
 }
 
-/// Menü çubuğundaki simge; sırada kelime varsa sayısını da gösterir.
+/// Menü çubuğundaki simge; zayıf kelime varsa sayısını da gösterir.
 private struct MenuBarLabel: View {
     @Query private var words: [Word]
 
     var body: some View {
-        let due = words.count { $0.isDue() }
+        let due = words.count { $0.isWeak }
         if due > 0 {
             Label("\(due)", systemImage: "character.book.closed")
                 .labelStyle(.titleAndIcon)

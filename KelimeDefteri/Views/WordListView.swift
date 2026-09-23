@@ -9,7 +9,7 @@ struct WordListView: View {
         var title: String {
             switch self {
             case .all: "Tümü"
-            case .due: "Sırada"
+            case .due: "Zayıf"
             case .learning: "Öğreniliyor"
             case .learned: "Öğrenildi"
             }
@@ -18,7 +18,7 @@ struct WordListView: View {
         func includes(_ word: Word) -> Bool {
             switch self {
             case .all: true
-            case .due: word.isDue()
+            case .due: word.isWeak
             case .learning: !word.isLearned
             case .learned: word.isLearned
             }
@@ -140,10 +140,9 @@ private struct WordRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            Text(Leitner.dueDescription(for: word.dueDate))
+            MemoryRing(memory: word.memory(), size: 18, text: .trailing)
                 .font(.footnote)
-                .foregroundStyle(word.isDue() ? AnyShapeStyle(.tint) : AnyShapeStyle(.secondary))
-            BoxRing(box: word.box)
+                .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
     }

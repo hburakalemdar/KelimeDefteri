@@ -47,7 +47,7 @@ extension Word {
     }
 
     /// Aynı kelime yeniden eklenirken yeni bilgileri bu kayda katar: yeni anlamlar eklenir,
-    /// boş alanlar doldurulur. İlerleme (kutu, sıradaki tekrar) değişmez.
+    /// boş alanlar doldurulur. İlerleme (hafıza, sıradaki tekrar) değişmez.
     func absorb(turkish: String, definition: String, example: String, source: String) {
         self.turkish = WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish)
         if self.definition.isEmpty { self.definition = definition }

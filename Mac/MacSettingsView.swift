@@ -56,7 +56,7 @@ struct MacSettingsView: View {
             } header: {
                 Text("Hatırlatma")
             } footer: {
-                Text("Sırada kelime olan günlerde, seçtiğin saatte kaç kelimenin beklediğini söyleyen bir bildirim gelir.")
+                Text("Zayıflayan kelime olan günlerde, seçtiğin saatte kaç kelimenin tekrar beklediğini söyleyen bir bildirim gelir.")
             }
 
             Section {

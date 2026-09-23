@@ -273,7 +273,7 @@ kısa bir satırla ne yapıldığını rapora ekle, commit + push.
 - [x] **B1 · Kayıt modeli ve geçiş.** §1. Testler: geçiş değerleri, ikinci çalıştırmada değişiklik yok,
       `ReviewLog` ilişkisi (kelime silinince logları da silinir).
 - [x] **B2 · Hafıza motoru.** §2, bütün zorunlu testlerle.
-- [ ] **B3 · Motoru bağla.** Her cevap `AnswerGrade` çıkarır, motoru uygular, `ReviewLog` yazar
+- [x] **B3 · Motoru bağla.** Her cevap `AnswerGrade` çıkarır, motoru uygular, `ReviewLog` yazar
       (`ReviewRecorder`, testli). `WordPicker` R ağırlığına geçer. `MemoryRing` her yerde, "Kutu" hiçbir yerde (§4, §5.10).
       Rozet ve bildirim zayıf kelime sayısıyla. iOS ve Mac.
 - [ ] **B4 · Kelime istatistiği.** §5.10 ayrıntı sayfası ve Kelimelerim süzgeç/sıralama.

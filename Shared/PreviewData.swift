@@ -18,7 +18,7 @@ enum PreviewData {
         let today = Calendar.current.startOfDay(for: now)
         func day(_ offset: Int) -> Date { Calendar.current.date(byAdding: .day, value: offset, to: today)! }
 
-        // (kelime, box, sıradaki tekrar, eklenme, tekrar, doğru)
+        // (kelime, eski kutu, sıradaki tekrar, eklenme, tekrar, doğru); hafıza değerleri geçişle hesaplanır.
         let samples: [(Word, Int, Date, Date, Int, Int)] = [
             (Word(english: "idempotent", turkish: "tekrarlanabilir, etkisi değişmeyen",
                   definition: "gives the same result no matter how many times it is applied",
@@ -30,7 +30,7 @@ enum PreviewData {
             (Word(english: "stale", turkish: "eskimiş, güncel olmayan",
                   definition: "no longer fresh or up to date",
                   example: "A follower replica may return stale data.", source: ddia),
-             2, day(0), day(-10), 5, 4),
+             2, day(-20), day(-30), 5, 4),
             (Word(english: "quorum", turkish: "yeter sayı, çoğunluk",
                   example: "Writes must be acknowledged by a quorum of nodes.", source: ddia),
              3, day(4), day(-20), 6, 5),

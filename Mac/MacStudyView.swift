@@ -87,9 +87,7 @@ struct MacStudyView: View {
                         .lineLimit(1)
                 }
                 Spacer(minLength: 10)
-                BoxRing(box: word.box, size: 10)
-                Text("Kutu \(word.box)/\(Leitner.maxBox)")
-                    .monospacedDigit()
+                MemoryRing(memory: word.memory(), size: 10, text: .trailing)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -248,7 +246,7 @@ struct MacStudyView: View {
 
     private var finished: some View {
         ContentUnavailableView {
-            Label(session.isPracticeAll ? "Tur Bitti" : "Bugünlük Bu Kadar", systemImage: "checkmark.circle")
+            Label(session.isPracticeAll ? "Tur Bitti" : "Hepsi Güçlü", systemImage: "checkmark.circle")
         } description: {
             Text(finishedDescription)
         } actions: {
@@ -256,7 +254,7 @@ struct MacStudyView: View {
                 Button {
                     session.start(with: words, practiceAll: true)
                 } label: {
-                    Text("Hepsini Çalış").frame(minWidth: 140)
+                    Text("Yine de Çalış").frame(minWidth: 140)
                 }
                 .buttonStyle(.glassProminent)
                 Button(action: onAddTapped) {

@@ -1,32 +1,95 @@
 import SwiftUI
 
-/// Kelimenin Leitner kutusunu küçük bir ilerleme halkası olarak gösterir.
-struct BoxRing: View {
-    let box: Int
+/// Kelimenin hafıza gücünü (hatırlama ihtimalini) halka olarak gösterir.
+///
+/// Halka hafıza oranında dolar; %85 ve üstü yeşil, %60–85 turuncu, altı kırmızı.
+/// Yeni kelimede kesik çizgili gri boş halka. İstenirse yanında ya da ortasında "%62" / "Yeni" yazar.
+struct MemoryRing: View {
+    enum TextPlacement {
+        case none, trailing, center
+    }
+
+    /// 0…1 arası hatırlama ihtimali; yeni kelimede `nil`.
+    let memory: Double?
     var size: CGFloat = 18
+    var text: TextPlacement = .none
 
     var body: some View {
-        let progress = Double(max(box, 0)) / Double(Leitner.maxBox)
-        ZStack {
-            Circle()
-                .stroke(.quaternary, lineWidth: size / 6)
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(.tint, style: StrokeStyle(lineWidth: size / 6, lineCap: .round))
-                .rotationEffect(.degrees(-90))
+        switch text {
+        case .none:
+            ring
+        case .trailing:
+            HStack(spacing: size / 3) {
+                ring
+                Text(MemoryStats.text(memory))
+                    .monospacedDigit()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityText)
+        case .center:
+            ring
+                .overlay {
+                    Text(MemoryStats.text(memory))
+                        .font(.system(size: size * 0.28, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.6)
+                        .padding(size / 6)
+                }
         }
+    }
+
+    private var lineWidth: CGFloat { max(2, size / 7) }
+
+    private var color: Color {
+        memory.map { MemoryStats.Level($0).color } ?? .secondary
+    }
+
+    private var ring: some View {
+        ZStack {
+            if let memory {
+                Circle()
+                    .stroke(color.opacity(0.2), lineWidth: lineWidth)
+                Circle()
+                    .trim(from: 0, to: max(memory, 0.02))
+                    .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            } else {
+                Circle()
+                    .stroke(.tertiary, style: StrokeStyle(lineWidth: lineWidth, dash: [lineWidth * 0.9, lineWidth * 1.1]))
+            }
+        }
+        .padding(lineWidth / 2)
         .frame(width: size, height: size)
         .accessibilityElement()
-        .accessibilityLabel("Kutu \(box) / \(Leitner.maxBox)")
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var accessibilityText: String {
+        memory == nil ? "Yeni kelime" : "Hafıza \(MemoryStats.text(memory))"
     }
 }
 
-/// Defterin tek satırlık özeti: "48 kelime · 12 sırada · 9 öğrenildi".
+extension MemoryStats.Level {
+    var color: Color {
+        switch self {
+        case .strong: .green
+        case .fading: .orange
+        case .weak: .red
+        }
+    }
+}
+
+extension Word {
+    /// Sıralama için: yeni kelime en başta (−1), sonra zayıftan güçlüye.
+    var memorySortValue: Double { memory() ?? -1 }
+}
+
+/// Defterin tek satırlık özeti: "48 kelime · 12 zayıf · 9 öğrenildi".
 enum DeckSummary {
     static func text(for words: [Word], now: Date = .now) -> String {
-        let due = words.count { $0.isDue(at: now) }
+        let weak = words.count { $0.isWeak(at: now) }
         let learned = words.count(where: \.isLearned)
-        return "\(words.count) kelime · \(due) sırada · \(learned) öğrenildi"
+        return "\(words.count) kelime · \(weak) zayıf · \(learned) öğrenildi"
     }
 }
 

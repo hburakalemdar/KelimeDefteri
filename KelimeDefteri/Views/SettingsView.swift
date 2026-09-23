@@ -47,7 +47,7 @@ struct SettingsView: View {
             } footer: {
                 Text(permissionDenied
                      ? "Bildirim izni kapalı. Hatırlatma için iPhone ayarlarından Kelime Defteri'ne bildirim izni ver."
-                     : "Sırada kelime olan günlerde, seçtiğin saatte kaç kelimenin beklediğini söyleyen bir bildirim gelir. Uygulama simgesinde de sıradaki kelime sayısı görünür.")
+                     : "Zayıflayan kelime olan günlerde, seçtiğin saatte kaç kelimenin tekrar beklediğini söyleyen bir bildirim gelir. Uygulama simgesinde de zayıf kelime sayısı görünür.")
             }
 
             Section {

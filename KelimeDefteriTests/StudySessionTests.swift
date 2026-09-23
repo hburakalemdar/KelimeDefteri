@@ -9,13 +9,22 @@ struct StudySessionTests {
         StudySession(seed: seed, defaults: defaults ?? UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
     }
 
+    /// `days > 0`: hafızası güçlü kelime (zayıflamasına o kadar gün var gibi düşünülebilir);
+    /// `days ≤ 0`: çalışılmış ama zayıflamış kelime, sayı küçüldükçe daha zayıf.
     private func word(_ english: String, dueIn days: Double) -> Word {
         let word = Word(english: english, turkish: "anlam")
-        word.dueDate = Date.now.addingTimeInterval(days * 86_400)
+        word.reviewCount = 1
+        if days > 0 {
+            word.stability = 10
+            word.lastReviewedAt = .now
+        } else {
+            word.stability = 1
+            word.lastReviewedAt = Date.now.addingTimeInterval((days - 2) * 86_400)
+        }
         return word
     }
 
-    @Test func dueModeAsksOnlyDueWords() {
+    @Test func dueModeAsksOnlyWeakWords() {
         let session = makeSession()
         let later = word("later", dueIn: 2)
         let older = word("older", dueIn: -3)
@@ -28,8 +37,9 @@ struct StudySessionTests {
     }
 
     @Test func sameSeedGivesSameOrder() {
-        let words = (0..<8).map { word("w\($0)", dueIn: -Double($0)) }
+        // Cevaplar kelimelerin hafızasını değiştirdiği için her çalıştırma taze kelimelerle başlar.
         func order(seed: UInt64) -> [String] {
+            let words = (0..<8).map { word("w\($0)", dueIn: -Double($0)) }
             let session = makeSession(seed: seed)
             session.start(with: words, practiceAll: true)
             var result: [String] = []
@@ -40,7 +50,7 @@ struct StudySessionTests {
             return result
         }
         #expect(order(seed: 42) == order(seed: 42))
-        #expect(Set(order(seed: 42)) == Set(words.map(\.english)))
+        #expect(Set(order(seed: 42)) == Set((0..<8).map { "w\($0)" }))
     }
 
     @Test func newRoundDoesNotStartWithPreviousFirstWord() {
@@ -88,8 +98,10 @@ struct StudySessionTests {
         #expect(session.phase == .revealed(.correct))
 
         session.grade(known: true)
-        #expect(target.box == 1)
+        #expect(target.stability > 1)
         #expect(target.correctCount == 1)
+        #expect(target.reviewCount == 2)
+        #expect(!target.isWeak)
         #expect(session.current == nil)
     }
 
@@ -135,7 +147,7 @@ struct StudySessionTests {
         try context.save()
         session.sync(with: [first, later, added])
 
-        // "first" bilindiği için tarihi ileri alındı; "later" henüz zamanı gelmedi.
+        // "first" bilindiği için hafızası güçlendi; "later" zaten güçlü.
         #expect(session.current?.english == "added")
         #expect(session.remaining == 0)
     }
@@ -169,5 +181,47 @@ struct StudySessionTests {
         #expect(session.current !== missed)
         session.grade(known: true)
         #expect(session.current === missed)
+    }
+
+    @Test func newWordCountsAsWeak() {
+        let session = makeSession()
+        session.start(with: [Word(english: "fresh", turkish: "taze"), word("strong", dueIn: 3)], practiceAll: false)
+        #expect(session.current?.english == "fresh")
+        #expect(session.remaining == 0)
+    }
+
+    @Test func practiceAllTakesTheWeakestTen() {
+        let session = makeSession()
+        let strong = (0..<12).map { word("s\($0)", dueIn: Double($0 + 1)) }
+        let weak = word("weak", dueIn: -5)
+        session.start(with: strong + [weak], practiceAll: true)
+        var asked: [String] = []
+        while let current = session.current {
+            asked.append(current.english)
+            session.grade(known: true)
+        }
+        #expect(asked.count == 10)
+        #expect(asked.contains("weak"))
+    }
+
+    @Test func answerIsRecordedWithGradeModeAndTime() throws {
+        let target = word("stale", dueIn: -1)
+        target.turkish = "eskimiş"
+        let context = try insert(target)
+        let session = makeSession()
+        session.mode = .quickRound
+        let start = Date.now
+        session.start(with: [target], practiceAll: false, now: start)
+        session.reveal(answer: "eskimis", now: start.addingTimeInterval(6))
+        session.grade(known: true, now: start.addingTimeInterval(8))
+
+        let logs = try context.fetch(FetchDescriptor<ReviewLog>())
+        #expect(logs.count == 1)
+        #expect(logs.first?.mode == "quick")
+        #expect(logs.first?.grade == AnswerGrade.good.rawValue)
+        #expect(logs.first?.correct == true)
+        #expect(logs.first?.responseTime == 6)
+        #expect(logs.first?.word === target)
+        #expect(target.lastReviewedAt == start.addingTimeInterval(8))
     }
 }

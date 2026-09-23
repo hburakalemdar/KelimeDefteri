@@ -65,12 +65,11 @@ struct WordPickerTests {
         #expect(ids.filter { $0 < 15 }.count == 5)
     }
 
-    @Test func delayWeightGrowsWithOverdueDays() {
-        let day = 86_400.0
-        #expect(WordPicker.delayWeight(dueDate: now, isNew: true, now: now) == 1)
-        #expect(WordPicker.delayWeight(dueDate: now.addingTimeInterval(day), isNew: false, now: now) == 0.1)
-        #expect(abs(WordPicker.delayWeight(dueDate: now.addingTimeInterval(-3.5 * day), isNew: false, now: now) - 0.6) < 1e-9)
-        #expect(WordPicker.delayWeight(dueDate: now.addingTimeInterval(-30 * day), isNew: false, now: now) == 1.1)
+    @Test func weightGrowsAsMemoryFades() {
+        #expect(WordPicker.weight(memory: nil) == 1)
+        #expect(WordPicker.weight(memory: 1) == 0.1)
+        #expect(abs(WordPicker.weight(memory: 0.6) - 0.5) < 1e-9)
+        #expect(WordPicker.weight(memory: 0) == 1.1)
     }
 
     @Test func missedWordReturnsAfterTwoOthers() {

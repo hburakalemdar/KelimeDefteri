@@ -16,7 +16,7 @@ struct ContentView: View {
             Tab("Çalış", systemImage: "rectangle.stack", value: AppTab.study) {
                 StudyView(onAddTapped: { selection = .add })
             }
-            .badge(words.count { $0.isDue() })
+            .badge(words.count { $0.isWeak })
             Tab("Ekle", systemImage: "plus.circle", value: AppTab.add) {
                 NavigationStack {
                     WordFormView(mode: .add)

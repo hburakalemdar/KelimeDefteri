@@ -527,7 +527,7 @@ struct WordFormView: View {
             #if os(macOS)
             // Sistem Ayarları'ndaki gibi: satırda bilgi solda, eylem sağda standart düğme.
             HStack(alignment: .center, spacing: 10) {
-                BoxRing(box: word.box, size: 16)
+                MemoryRing(memory: word.memory(), size: 16)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(word.english)
                         .font(.system(.body, design: .serif, weight: .semibold))
@@ -554,10 +554,11 @@ struct WordFormView: View {
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 4) {
-                    BoxRing(box: word.box, size: 16)
-                    Text(Leitner.dueDescription(for: word.dueDate))
+                    MemoryRing(memory: word.memory(), size: 16)
+                    Text(MemoryStats.text(word.memory()))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .monospacedDigit()
                 }
             }
             .padding(.vertical, 2)

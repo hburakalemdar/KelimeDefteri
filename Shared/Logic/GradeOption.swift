@@ -36,3 +36,25 @@ extension StudySession.Verdict {
         }
     }
 }
+
+extension AnswerGrade {
+    /// Hatırlama oyunlarında (Günlük Tekrar, Hızlı Tur, Ters Yön) cevaptan çıkarılan not.
+    ///
+    /// Yazarak doğru bilinen kelimede hız belirleyicidir; cevaba bakıp "Bildim" denmesi
+    /// zorlanarak hatırlamak sayılır; "Doğru Say" kontrolün tanımadığı doğru cevaptır.
+    static func recall(verdict: StudySession.Verdict, known: Bool, responseTime: Double) -> AnswerGrade {
+        guard known else { return .again }
+        switch verdict {
+        case .peeked: return .hard
+        case .incorrect: return .good
+        case .correct:
+            if responseTime > 12 { return .hard }
+            return responseTime > 4 ? .good : .easy
+        }
+    }
+
+    /// Tanıma oyunlarında (Çoktan Seçmeli, Eşleştir, Boşluğu Doldur) doğru cevap hiçbir zaman `easy` değildir.
+    static func recognition(correct: Bool) -> AnswerGrade {
+        correct ? .good : .again
+    }
+}

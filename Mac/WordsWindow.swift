@@ -29,19 +29,15 @@ struct WordsWindow: View {
             TableColumn("Kaynak", value: \.source) { word in
                 Text(word.source).foregroundStyle(.secondary)
             }
-            TableColumn("Kutu", value: \.box) { word in
-                HStack(spacing: 6) {
-                    BoxRing(box: word.box, size: 14)
-                    Text("\(word.box)/\(Leitner.maxBox)")
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-                .help(Leitner.boxDescription(word.box))
+            TableColumn("Hafıza", value: \.memorySortValue) { word in
+                MemoryRing(memory: word.memory(), size: 14, text: .trailing)
+                    .foregroundStyle(.secondary)
+                    .help(word.isNew ? "Henüz çalışılmadı" : "Şu an hatırlama ihtimali")
             }
             .width(min: 60, ideal: 70, max: 80)
             TableColumn("Sıradaki tekrar", value: \.dueDate) { word in
                 Text(Leitner.dueDescription(for: word.dueDate))
-                    .foregroundStyle(word.isDue() ? Color.accentColor : .secondary)
+                    .foregroundStyle(word.isWeak ? Color.accentColor : .secondary)
                     .monospacedDigit()
             }
             .width(min: 90, ideal: 110)

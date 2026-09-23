@@ -79,11 +79,8 @@ struct WordDetailView: View {
             }
 
             Section("İlerleme") {
-                LabeledContent("Kutu") {
-                    HStack(spacing: 8) {
-                        Text("\(word.box)/\(Leitner.maxBox) · \(Leitner.boxDescription(word.box))")
-                        BoxRing(box: word.box)
-                    }
+                LabeledContent("Hafıza") {
+                    MemoryRing(memory: word.memory(), size: 18, text: .trailing)
                 }
                 LabeledContent("Sıradaki tekrar", value: Leitner.dueDescription(for: word.dueDate))
                 LabeledContent("Tekrar sayısı", value: "\(word.reviewCount)")

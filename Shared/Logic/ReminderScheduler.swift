@@ -38,7 +38,7 @@ enum ReminderScheduler {
         let enabled = defaults.bool(forKey: ReminderSettings.enabledKey)
         let authorized = await center.notificationSettings().authorizationStatus == .authorized
 
-        try? await center.setBadgeCount(enabled && authorized ? dueDates.count { $0 <= now } : 0)
+        try? await center.setBadgeCount(enabled && authorized ? words.count { $0.isWeak(at: now) } : 0)
         guard enabled, authorized else { return }
 
         let hour = defaults.object(forKey: ReminderSettings.hourKey) as? Int ?? ReminderSettings.defaultHour

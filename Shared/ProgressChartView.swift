@@ -2,59 +2,68 @@ import Charts
 import SwiftData
 import SwiftUI
 
-/// Kelimelerin Leitner kutularına dağılımı: grafik ve kutu kutu sayılar.
+/// Kelimelerin hafıza gücüne göre dağılımı: grafik, dilim dilim sayılar ve ortalama.
 struct ProgressChartView: View {
     @Query private var words: [Word]
 
-    private struct Bucket: Identifiable {
-        let box: Int
+    private struct Slice: Identifiable {
+        let bucket: MemoryStats.Bucket
         let count: Int
-        var id: Int { box }
+        var id: Int { bucket.id }
     }
 
-    private var buckets: [Bucket] {
-        (0...Leitner.maxBox).map { box in
-            Bucket(box: box, count: words.count { min(max($0.box, 0), Leitner.maxBox) == box })
+    private var slices: [Slice] {
+        let now = Date.now
+        let buckets = words.map { MemoryStats.Bucket($0.memory(at: now)) }
+        return MemoryStats.Bucket.allCases.map { bucket in
+            Slice(bucket: bucket, count: buckets.count { $0 == bucket })
         }
+    }
+
+    private var average: Double? {
+        let now = Date.now
+        return MemoryStats.average(words.map { $0.memory(at: now) })
     }
 
     var body: some View {
         Form {
             Section {
-                Chart(buckets) { bucket in
+                Chart(slices) { slice in
                     BarMark(
-                        x: .value("Kutu", "\(bucket.box)"),
-                        y: .value("Kelime", bucket.count)
+                        x: .value("Hafıza", slice.bucket.title),
+                        y: .value("Kelime", slice.count)
                     )
-                    .foregroundStyle(Color.accentColor.opacity(0.35 + 0.65 * Double(bucket.box) / Double(Leitner.maxBox)))
+                    .foregroundStyle(Self.color(for: slice.bucket))
                     .cornerRadius(5)
                     .annotation(position: .top, spacing: 4) {
-                        if bucket.count > 0 {
-                            Text("\(bucket.count)")
+                        if slice.count > 0 {
+                            Text("\(slice.count)")
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
                 .chartYAxis(.hidden)
-                .chartXAxisLabel("Kutu", alignment: .center)
                 .frame(height: 200)
                 .padding(.vertical, 8)
+            } header: {
+                if let average {
+                    Text("Ortalama hafıza \(MemoryStats.text(average))")
+                }
             } footer: {
-                Text("Bildiğin kelime bir üst kutuya çıkar ve daha seyrek sorulur; bilemediğin kelime yeni kutusuna döner.")
+                Text("Hafıza, bir kelimeyi şu an hatırlama ihtimalin. Zamanla azalır; %90'ın altına inen kelime tekrara gelir. Unutmaya yakınken hatırlamak onu en çok güçlendirir.")
             }
 
-            Section("Kutular") {
-                ForEach(buckets) { bucket in
+            Section("Dağılım") {
+                ForEach(slices) { slice in
                     LabeledContent {
-                        Text("\(bucket.count)")
+                        Text("\(slice.count)")
                             .monospacedDigit()
                     } label: {
                         HStack(spacing: 10) {
-                            BoxRing(box: bucket.box)
-                            Text("Kutu \(bucket.box)")
-                            Text(Leitner.boxDescription(bucket.box))
-                                .foregroundStyle(.secondary)
+                            MemoryRing(memory: slice.bucket.representative)
+                            Text(slice.bucket.title)
+                                .monospacedDigit()
                         }
                     }
                 }
@@ -62,6 +71,10 @@ struct ProgressChartView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("İlerleme")
+    }
+
+    private static func color(for bucket: MemoryStats.Bucket) -> Color {
+        bucket.representative.map { MemoryStats.Level($0).color } ?? .gray.opacity(0.5)
     }
 }
 
