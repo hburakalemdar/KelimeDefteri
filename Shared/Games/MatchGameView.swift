@@ -72,11 +72,13 @@ struct MatchGameView: View {
                     statusRow(board)
                     HStack(alignment: .top, spacing: 12) {
                         VStack(spacing: tileSpacing) {
+                            columnHeader("İngilizce")
                             ForEach(board.left.filter { !gone.contains($0) }, id: \.self) { id in
                                 tile(id: id, isLeft: true, board: board)
                             }
                         }
                         VStack(spacing: tileSpacing) {
+                            columnHeader("Türkçe")
                             ForEach(board.right.filter { !gone.contains($0) }, id: \.self) { id in
                                 tile(id: id, isLeft: false, board: board)
                             }
@@ -87,6 +89,15 @@ struct MatchGameView: View {
                 .gamePagePadding()
             }
         }
+    }
+
+    /// Sütunun dilini söyleyen başlık (liste bölüm başlığı gibi); kartlar arasında sıra zorunlu değil.
+    private func columnHeader(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
     }
 
     /// Süre (mm:ss) ve hata sayısı.
