@@ -34,6 +34,10 @@ iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
   sağ tık › Servisler › Kelime Defteri'ne Ekle. Uygulama kapalıysa kendisi açılır; kelime ayrı bir
   pencerede eklenir ve saniyeler içinde telefona gelir.
 - **Günlük hatırlatma:** Seçilen saatte zayıflayan kelime varsa bildirim; ikonda zayıf kelime sayısı.
+  Bildirimde bir kelime sorulur; basılı tutunca 4 Türkçe seçenek çıkar, cevap uygulama açılmadan yazılır.
+- **Widget'lar (iPhone):** Ana ekranda (ve StandBy'da) soru widget'ı: kelime ve 4 seçenek, dokununca
+  cevap hafızaya yazılır, doğru/yanlış görünür, sıradaki soru gelir. Kilit ekranında "Hafıza %78 · 6 kelime
+  zayıfladı" özeti; dokununca Hızlı Tur. Denetim Merkezi / Eylem düğmesi için "Hızlı Tur" düğmesi.
 
 ## Proje yapısı
 
@@ -50,6 +54,7 @@ Shared/               iOS, Mac ve paylaşım eklentisinde ortak: Word modeli, Sh
                       oyun mantıkları (ChoiceQuiz, MatchBoard, ClozeSentence, LetterPuzzle, ReverseChecker,
                       QuickMix), hatırlatma, Speaker
 KelimeEkle/           iOS Paylaş menüsü eklentisi (Share Extension)
+KelimeWidget/         iOS widget eklentisi: soru widget'ı, kilit ekranı özeti, Hızlı Tur denetimi
 Config/               Entitlements ve Info.plist'ler (KelimeDefteriMac-* Mac uygulaması için)
 KelimeDefteriTests/   Swift Testing birim testleri
 ```

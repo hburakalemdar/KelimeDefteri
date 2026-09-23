@@ -12,6 +12,9 @@ struct ContentView: View {
     @Query private var words: [Word]
     /// Hafıza zamanla azaldığı için rozet her dakika tazelenir (Çalış ekranı gibi).
     @State private var now = Date.now
+    /// Kilit ekranı widget'ı ya da Denetim Merkezi'nden istenen Hızlı Tur.
+    @State private var showQuickRound = false
+    private let router = GlanceRouter.shared
 
     /// Rozet: Günlük Tekrar'ın soracağı kelime sayısı.
     private var badgeCount: Int {
@@ -47,6 +50,17 @@ struct ContentView: View {
             }
         }
         #endif
+        .fullScreenCover(isPresented: $showQuickRound) {
+            QuickMixGameView()
+        }
+        .onOpenURL { url in
+            if Glance.isQuickRound(url) { openQuickRound() }
+        }
+        .onChange(of: router.quickRoundRequested, initial: true) { _, requested in
+            guard requested else { return }
+            router.quickRoundRequested = false
+            openQuickRound()
+        }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { now = $0 }
         .onChange(of: scenePhase) { _, phase in
             // Bildirim içerikleri planlandıkları anda sabitlenir; en güncel sayılarla yeniden kur.
@@ -60,7 +74,16 @@ struct ContentView: View {
                 context.saveLogging()
                 Task { await ReminderScheduler.refresh(context: context) }
             }
+            // Uygulamada verilen cevaplar ve eklenen kelimeler widget'lara yansısın.
+            if phase == .background { Glance.reloadWidgets() }
         }
+    }
+
+    /// Çalış sekmesine geçip Hızlı Tur'u açar; defter boşsa yalnızca Çalış sekmesi görünür.
+    private func openQuickRound() {
+        selection = .study
+        guard !words.isEmpty, !showQuickRound else { return }
+        showQuickRound = true
     }
 }
 
