@@ -220,7 +220,7 @@ struct MatchGameView: View {
     }
 
     private func close() {
-        try? context.save()
+        context.saveLogging()
         dismiss()
     }
 }

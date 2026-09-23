@@ -46,7 +46,7 @@ struct MenuBarView: View {
         .frame(width: 380)
         .onDisappear {
             // Pencere kapanınca değişiklikleri yaz ve hatırlatmaları güncel sayılarla kur.
-            try? context.save()
+            context.saveLogging()
             Task { await ReminderScheduler.refresh(context: context) }
         }
     }

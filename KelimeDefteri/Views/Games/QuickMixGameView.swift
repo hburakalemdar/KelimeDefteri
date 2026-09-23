@@ -51,7 +51,7 @@ struct QuickMixGameView: View {
             recallSession?.pauseClock()
             // Uygulama arka planda kapatılabilir; açık cevap kaybolmasın.
             recallSession?.commitPendingAnswer()
-            try? context.save()
+            context.saveLogging()
         } resume: {
             round.resumeClock()
             recallSession?.resumeClock()
@@ -193,7 +193,7 @@ struct QuickMixGameView: View {
 
     private func close() {
         recallSession?.gradePendingAnswer()
-        try? context.save()
+        context.saveLogging()
         dismiss()
     }
 }

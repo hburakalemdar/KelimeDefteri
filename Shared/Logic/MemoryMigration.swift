@@ -34,7 +34,7 @@ extension MemoryMigration {
         let descriptor = FetchDescriptor<Word>(predicate: #Predicate { $0.stability == 0 && $0.reviewCount > 0 })
         guard let words = try? context.fetch(descriptor), !words.isEmpty else { return }
         for word in words { migrate(word) }
-        try? context.save()
+        context.saveLogging()
     }
 
     /// Kelime eski biçimdeyse hafıza değerlerini kutusundan çıkarır. Cevap kaydedilmeden önce de

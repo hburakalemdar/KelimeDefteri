@@ -9,6 +9,8 @@ import SwiftData
 final class Word {
     var english: String = ""
     var turkish: String = ""
+    /// İngilizce tanım. Artık kullanılmıyor (elle yazılması gerekiyordu, pratikte boş kalıyordu);
+    /// CloudKit şemasından alan silinemediği için duruyor.
     var definition: String = ""
     var example: String = ""
     /// Kaynak kitap. Artık kullanılmıyor (kitaplar çoğunlukla PDF'ten okunuyor, ad hiç dolmuyordu);
@@ -34,13 +36,11 @@ final class Word {
     init(
         english: String,
         turkish: String,
-        definition: String = "",
         example: String = "",
         createdAt: Date = .now
     ) {
         self.english = english
         self.turkish = turkish
-        self.definition = definition
         self.example = example
         self.createdAt = createdAt
     }

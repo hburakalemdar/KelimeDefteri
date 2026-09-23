@@ -35,7 +35,7 @@ struct RecallGameView: View {
             session.pauseClock()
             // Uygulama arka planda kapatılabilir; açık cevap kaybolmasın.
             session.commitPendingAnswer()
-            try? context.save()
+            context.saveLogging()
         } resume: {
             session.resumeClock()
         }
@@ -76,7 +76,7 @@ struct RecallGameView: View {
 
     private func close() {
         session.gradePendingAnswer()
-        try? context.save()
+        context.saveLogging()
         dismiss()
     }
 }
@@ -217,12 +217,6 @@ struct RecallQuestionView: View {
                 Text(word.turkish)
                     .font(.title2.weight(.semibold))
                     .foregroundStyle(.tint)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if !word.definition.isEmpty {
-                Text(word.definition)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if verdict == .incorrect {

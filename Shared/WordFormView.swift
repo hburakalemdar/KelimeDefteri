@@ -26,7 +26,6 @@ struct WordFormView: View {
 
     @State private var english = ""
     @State private var turkish = ""
-    @State private var definition = ""
     @State private var example = ""
     /// Türkçe alanı doluyken gelen çeviri önerisi; "Kullan" ile alana yazılır.
     @State private var suggestion: String?
@@ -42,6 +41,8 @@ struct WordFormView: View {
     /// Süren çeviri isteğinin İngilizce terimi; kelime değişince geç gelen sonuç atılır.
     @State private var translatingTerm: String?
     @State private var confirmDiscard = false
+    /// Son kaydetme diske yazılamadı; uyarı gösterilir, form açık kalır.
+    @State private var saveFailed = false
     #if os(iOS)
     /// "Bugün Eklenenler"den dokunulup düzenlenen kelime.
     @State private var editingToday: Word?
@@ -64,13 +65,15 @@ struct WordFormView: View {
     /// Düzenlenen kelimenin alanları yüklenen değerlerden farklı; kapatmadan önce sorulur.
     private var hasChanges: Bool {
         guard let word = editingWord, didLoad else { return false }
-        return english != word.english || turkish != word.turkish || definition != word.definition
-            || example != word.example
+        return english != word.english || turkish != word.turkish || example != word.example
     }
 
     /// Yazılan kelime defterde zaten varsa o kayıt (düzenlenen kelimenin kendisi hariç).
+    /// Düzenlemede İngilizce değişmediyse aranmaz: iki cihazda eşitlenmeden eklenen çift kayıt
+    /// düzenlemeyi engellemesin (çiftler uygulama öne gelince birleştirilir).
     private var existingMatch: Word? {
         guard !trimmedEnglish.isEmpty else { return nil }
+        if let editingWord, WordMatcher.isSame(editingWord.english, trimmedEnglish) { return nil }
         return allWords.first {
             $0.persistentModelID != editingWord?.persistentModelID && WordMatcher.isSame($0.english, trimmedEnglish)
         }
@@ -84,7 +87,6 @@ struct WordFormView: View {
             .sorted { $0.english.count < $1.english.count }
     }
 
-    private var cleanDefinition: String { definition.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var cleanExample: String { example.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     /// Cümle yapıştırıldıysa kelimelerini seçilebilir düğmeler olarak göster (sırasıyla, tekrarlar dahil).
@@ -216,6 +218,11 @@ struct WordFormView: View {
                 applyTranslation(nil, for: term)
             }
         }
+        .alert("Kaydedilemedi", isPresented: $saveFailed) {
+            Button("Tamam", role: .cancel) {}
+        } message: {
+            Text("Kelime deftere yazılamadı. Biraz sonra tekrar dene.")
+        }
         .confirmationDialog("Değişiklikleri at?", isPresented: $confirmDiscard, titleVisibility: .visible) {
             Button("Değişiklikleri At", role: .destructive) { dismiss() }
             Button("Düzenlemeye Devam Et", role: .cancel) {}
@@ -313,8 +320,6 @@ struct WordFormView: View {
         }
 
         Section("Ayrıntılar") {
-            TextField("İngilizce anlamı", text: $definition, axis: .vertical)
-                .lineLimit(1...3)
             TextField("Kitaptaki cümle", text: $example, axis: .vertical)
                 .lineLimit(1...5)
         }
@@ -415,8 +420,6 @@ struct WordFormView: View {
         }
 
         Section("Ayrıntılar") {
-            TextField("Anlamı", text: $definition, prompt: Text("same result however many times it runs"), axis: .vertical)
-                .lineLimit(1...3)
             TextField("Cümle", text: $example, prompt: Text("Kelimeyi gördüğün cümle"), axis: .vertical)
                 .lineLimit(1...4)
         }
@@ -583,7 +586,7 @@ struct WordFormView: View {
     }
 
     private func canAbsorb(into word: Word) -> Bool {
-        word.wouldAbsorb(turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample)
+        word.wouldAbsorb(turkish: trimmedTurkish, example: cleanExample)
     }
 
     #if os(iOS)
@@ -636,7 +639,6 @@ struct WordFormView: View {
         if let word = editingWord {
             english = word.english
             turkish = word.turkish
-            definition = word.definition
             example = word.example
         } else {
             english = draft.english
@@ -668,15 +670,13 @@ struct WordFormView: View {
         if let word = editingWord {
             word.english = trimmedEnglish
             word.turkish = trimmedTurkish
-            word.definition = cleanDefinition
             word.example = cleanExample
-            try? context.save()
+            guard commit() else { return }
             dismiss()
         } else {
             context.insert(Word(
                 english: trimmedEnglish,
                 turkish: trimmedTurkish,
-                definition: cleanDefinition,
                 example: cleanExample
             ))
             finishAdding(message: "“\(trimmedEnglish)” eklendi")
@@ -685,26 +685,35 @@ struct WordFormView: View {
 
     /// Aynı kelime yeniden eklenirken yeni bilgileri mevcut kayda katar.
     private func absorb(into word: Word) {
-        word.absorb(turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample)
+        word.absorb(turkish: trimmedTurkish, example: cleanExample)
         finishAdding(message: "“\(word.english)” güncellendi")
     }
 
     private func finishAdding(message: String) {
         // Eklenti hemen kapanabilir; otomatik kaydı beklemeden diske yaz.
-        try? context.save()
+        // Yazılamazsa kaydedilmiş sayılmaz: eklenti kapanmaz, form doluyken uyarı çıkar.
+        guard commit() else { return }
         if let onFinish {
             onFinish(true)
             return
         }
         english = ""
         turkish = ""
-        definition = ""
         example = ""
         selection = nil
         resetTranslation()
         savedMessage = message
         savedCount += 1
         focusedField = .english
+    }
+
+    /// Değişiklikleri diske yazar. Olmazsa bekleyen değişiklikleri geri alır (yeniden denemede
+    /// kelime iki kez eklenmesin, otomatik kayıt yarım işi sonra yazmasın) ve uyarı gösterir.
+    private func commit() -> Bool {
+        if context.saveLogging() { return true }
+        context.rollback()
+        saveFailed = true
+        return false
     }
 
     private func cancel() {

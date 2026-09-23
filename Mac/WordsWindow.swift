@@ -99,7 +99,7 @@ struct WordsWindow: View {
         for word in words where ids.contains(word.id) {
             context.delete(word)
         }
-        try? context.save()
+        context.saveLogging()
         selection.subtract(ids)
     }
 }

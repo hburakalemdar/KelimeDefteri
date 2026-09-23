@@ -20,14 +20,12 @@ enum PreviewData {
         // (kelime, eski kutu, sıradaki tekrar, eklenme, tekrar, doğru); hafıza değerleri geçişle hesaplanır.
         let samples: [(Word, Int, Date, Date, Int, Int)] = [
             (Word(english: "idempotent", turkish: "tekrarlanabilir, etkisi değişmeyen",
-                  definition: "gives the same result no matter how many times it is applied",
                   example: "Retries are safe only if the operation is idempotent."),
              1, day(-1), day(-6), 4, 2),
             (Word(english: "throughput", turkish: "iş hacmi, verim",
                   example: "Batching requests increased throughput but also latency."),
              0, .distantPast, now, 0, 0),
             (Word(english: "stale", turkish: "eskimiş, güncel olmayan",
-                  definition: "no longer fresh or up to date",
                   example: "A follower replica may return stale data."),
              2, day(-20), day(-30), 5, 4),
             (Word(english: "quorum", turkish: "yeter sayı, çoğunluk",
@@ -40,7 +38,6 @@ enum PreviewData {
                   example: "Without backpressure, a fast producer overwhelms the consumer."),
              1, day(1), day(-2), 1, 1),
             (Word(english: "tombstone", turkish: "silinme işareti",
-                  definition: "a marker indicating that a record was deleted",
                   example: "Deletions are recorded as tombstones until compaction."),
              4, day(12), day(-30), 7, 6),
             (Word(english: "linearizable", turkish: "doğrusallaştırılabilir",

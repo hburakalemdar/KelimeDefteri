@@ -25,7 +25,12 @@ struct MacStudyView: View {
                         .buttonStyle(.glassProminent)
                 }
             } else if let word = session.current {
-                studyPage(for: word)
+                // Silinmiş kelime (ör. başka cihazdan) çizilmez; kimlik kümesi değişince tur onu atlar.
+                if word.isGone(from: words.aliveIDs) {
+                    Color.clear
+                } else {
+                    studyPage(for: word)
+                }
             } else {
                 finished
             }
@@ -48,7 +53,8 @@ struct MacStudyView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             saveOpenAnswer()
         }
-        .onChange(of: words.count) { refresh() }
+        // Sayı değil kimlik kümesi: aynı anda biri silinip biri eklenince de sıra güncellensin.
+        .onChange(of: words.aliveIDs) { refresh() }
         .onChange(of: session.current == nil) { _, ended in
             // iOS'taki Günlük Tekrar gibi tur en fazla 20 kelime (5'i yeni). Tur bitince yeni tur yalnızca
             // çalışılmış zayıf kelime kaldıysa kendiliğinden başlar; yalnızca yeni kelime kaldıysa "Hepsi Güçlü"
@@ -62,7 +68,7 @@ struct MacStudyView: View {
     private func saveOpenAnswer() {
         session.pauseClock()
         session.commitPendingAnswer()
-        try? context.save()
+        context.saveLogging()
     }
 
     private func refresh() {
@@ -174,12 +180,6 @@ struct MacStudyView: View {
                 .foregroundStyle(.tint)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-            if !word.definition.isEmpty {
-                Text(word.definition)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
             if verdict == .incorrect {
                 Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Doğru Say'a bas.")
                     .font(.caption)

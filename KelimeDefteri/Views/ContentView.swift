@@ -55,7 +55,7 @@ struct ContentView: View {
                 now = .now
             }
             if phase == .background || phase == .active {
-                try? context.save()
+                context.saveLogging()
                 Task { await ReminderScheduler.refresh(context: context) }
             }
         }

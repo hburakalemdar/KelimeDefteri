@@ -48,16 +48,14 @@ extension Word {
 
     /// Aynı kelime yeniden eklenirken yeni bilgileri bu kayda katar: yeni anlamlar eklenir,
     /// boş alanlar doldurulur. İlerleme (hafıza, sıradaki tekrar) değişmez.
-    func absorb(turkish: String, definition: String, example: String) {
+    func absorb(turkish: String, example: String) {
         self.turkish = WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish)
-        if self.definition.isEmpty { self.definition = definition }
         if self.example.isEmpty { self.example = example }
     }
 
     /// `absorb` bu kayıtta bir şey değiştirir mi.
-    func wouldAbsorb(turkish: String, definition: String, example: String) -> Bool {
+    func wouldAbsorb(turkish: String, example: String) -> Bool {
         WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish) != self.turkish.trimmingCharacters(in: .whitespaces)
-            || (self.definition.isEmpty && !definition.isEmpty)
             || (self.example.isEmpty && !example.isEmpty)
     }
 }

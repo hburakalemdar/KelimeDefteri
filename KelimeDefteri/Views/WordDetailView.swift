@@ -32,13 +32,6 @@ struct WordDetailView: View {
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 8, trailing: 4))
             }
 
-            if !word.definition.isEmpty {
-                Section("Anlamı") {
-                    Text(word.definition)
-                        .textSelection(.enabled)
-                }
-            }
-
             if !word.example.isEmpty {
                 Section("Kitaptaki Cümle") {
                     Text(AttributedString(quoting: word.example, highlighting: word.english))

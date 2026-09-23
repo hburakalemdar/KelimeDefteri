@@ -33,12 +33,11 @@ struct WordMatcherTests {
         let due = Date.now.addingTimeInterval(86_400 * 5)
         word.dueDate = due
 
-        #expect(word.wouldAbsorb(turkish: "bayat", definition: "", example: ""))
-        #expect(!word.wouldAbsorb(turkish: "Eskimiş", definition: "", example: "New sentence."))
+        #expect(word.wouldAbsorb(turkish: "bayat", example: ""))
+        #expect(!word.wouldAbsorb(turkish: "Eskimiş", example: "New sentence."))
 
-        word.absorb(turkish: "bayat", definition: "not fresh", example: "New sentence.")
+        word.absorb(turkish: "bayat", example: "New sentence.")
         #expect(word.turkish == "eskimiş, bayat")
-        #expect(word.definition == "not fresh")
         #expect(word.example == "Old cache.")
         #expect(word.box == 3)
         #expect(word.dueDate == due)
