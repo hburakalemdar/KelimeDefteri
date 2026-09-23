@@ -24,7 +24,7 @@ final class StudySession {
         case weak
         /// Günlük Tekrar: zayıf kelimeler, en fazla 20, bunların en fazla 5'i yeni.
         case daily
-        /// Hepsi güçlüyken "Yine de Çalış": en zayıf 10 kelime.
+        /// Hepsi güçlüyken "Yine de Çalış": önce son günlerde zorlanılanlar, kalan yere en zayıflar; toplam 10.
         case extraPractice
         /// Hızlı Tur: bütün defterden ağırlıklı 5 kelime.
         case quick
@@ -123,7 +123,7 @@ final class StudySession {
             // Önce çalışılmış zayıflar, kalan yere yeniler; kartta yazan dağılımla aynı olsun diye.
             dailyWords(words, now: now, avoidingFirst: previousFirst)
         case .extraPractice:
-            ordered(Self.weakest(words, count: Self.extraPracticeCount, now: now), now: now, avoidingFirst: previousFirst)
+            extraPracticeWords(words, now: now, avoidingFirst: previousFirst)
         case .quick:
             ordered(words, now: now, avoidingFirst: previousFirst, limit: Self.quickCount)
         case .reverse:
@@ -142,6 +142,35 @@ final class StudySession {
         let weak = ordered(words.filter { !$0.isNew && $0.isWeak(at: now) }, now: now, limit: count.weak)
         let new = ordered(words.filter(\.isNew), now: now, limit: count.new)
         return ordered(weak + new, now: now, avoidingFirst: previousFirst)
+    }
+
+    /// Zorlanılan kelimeler ağırlıklı karışık sırayla önde; kalan yer hafızası en düşüklerle dolar.
+    private func extraPracticeWords(_ words: [Word], now: Date, avoidingFirst previousFirst: String?) -> [Word] {
+        let struggling = ordered(
+            words.filter { Self.isStruggling($0, now: now) }, now: now,
+            avoidingFirst: previousFirst, limit: Self.extraPracticeCount
+        )
+        let taken = Set(struggling.map(ObjectIdentifier.init))
+        let rest = Self.weakest(
+            words.filter { !taken.contains(ObjectIdentifier($0)) },
+            count: Self.extraPracticeCount - struggling.count, now: now
+        )
+        return struggling + ordered(rest, now: now, avoidingFirst: struggling.isEmpty ? previousFirst : nil)
+    }
+
+    /// "Yine de Çalış"ta zorlanılan sayılan kelimeler için bakılan süre (gün).
+    static let strugglingWindow = 14.0
+    static let strugglingMinimumAnswers = 2
+    static let strugglingErrorRate = 0.4
+
+    /// Son 14 günde en az 2 cevabı olup en az %40'ı yanlış ya da bu süredeki son cevabı yanlış olan kelime.
+    static func isStruggling(_ word: Word, now: Date) -> Bool {
+        let since = now.addingTimeInterval(-strugglingWindow * Memory.dayLength)
+        let recent = (word.logs ?? []).filter { $0.date >= since && $0.date <= now }
+        guard let last = recent.max(by: { $0.date < $1.date }) else { return false }
+        if !last.correct { return true }
+        guard recent.count >= strugglingMinimumAnswers else { return false }
+        return Double(recent.count { !$0.correct }) / Double(recent.count) >= strugglingErrorRate
     }
 
     /// Hafızası en düşük kelimeler; yeniler en başta.

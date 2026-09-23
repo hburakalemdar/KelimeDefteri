@@ -8,6 +8,10 @@ import SwiftData
 /// değişmez; cevap yalnızca sayaçlara ve geçmişe yazılır. Yoksa turda birkaç kez bilinmeyen kelimenin
 /// dayanıklılığı her yanlışta yeniden düşerdi.
 ///
+/// Aynı takvim gününde hafızayı yalnızca ilk cevap değiştirir (`lastReviewedAt` bugünse `updatesMemory`
+/// yok sayılır): gün içindeki tekrarlar dayanıklılığı şişirmez ya da her yanlışta yeniden düşürmez.
+/// Sonraki cevaplar sayaçlara ve geçmişe yazılır; yanlışsa kelime yine zayıf işaretlenir (S/D değişmez).
+///
 /// `clearsLapse` false ise (yanlış bilinen kelime hemen arkasından, arada başka kart olmadan doğru
 /// bilindi) sonraki doğru cevap kelimeyi zayıflıktan çıkarmaz: az önce görülen cevap yazılmıştır.
 enum ReviewRecorder {
@@ -19,12 +23,16 @@ enum ReviewRecorder {
         responseTime: Double,
         updatesMemory: Bool = true,
         clearsLapse: Bool = true,
-        now: Date = .now
+        now: Date = .now,
+        calendar: Calendar = .current
     ) -> ReviewLog? {
         // Başka yerde (ör. öteki cihazdan) silinmiş kelimeye cevap yazılmaz.
         guard !word.isDeleted else { return nil }
         MemoryMigration.migrate(word)
         let memoryBefore = word.memory(at: now)
+        // Bugün zaten cevaplanmış kelimenin hafızası bugün bir daha değişmez.
+        let answeredToday = word.lastReviewedAt.map { calendar.isDate($0, inSameDayAs: now) } ?? false
+        let updatesMemory = updatesMemory && !answeredToday
         if updatesMemory {
             let result = Memory.review(
                 stability: word.stability,
@@ -43,7 +51,7 @@ enum ReviewRecorder {
             // Yanlış bilinen kelime doğru bilinene kadar zayıf kalır (Günlük Tekrar'a hemen girer).
             word.dueDate = Memory.lapseDue(stability: word.stability, memoryBefore: memoryBefore, now: now)
         } else if !updatesMemory, clearsLapse, let last = word.lastReviewedAt {
-            // Turda önce yanlış sonra doğru bilindi: tekrar zamanı motorun hesabına döner.
+            // Bugün önce yanlış sonra doğru bilindi: tekrar zamanı motorun hesabına döner.
             word.dueDate = last.addingTimeInterval(word.stability * Memory.dayLength)
         }
         word.reviewCount += 1

@@ -345,7 +345,8 @@ struct LapseTests {
     @Test func correctAnswerClearsTheLapse() {
         let word = strongWord()
         ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
-        let later = now.addingTimeInterval(3_600)
+        // Ertesi gün: aynı gün sonraki cevap hafızayı değiştirmez (bkz. SameDayMemoryTests).
+        let later = now.addingTimeInterval(Memory.dayLength)
         ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: later)
         #expect(word.memory(at: later)! > 0.99)
         #expect(!word.isWeak(at: later))
