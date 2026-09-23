@@ -18,7 +18,6 @@ struct FillBlankGameView: View {
     @Environment(\.modelContext) private var context
     @State private var round = GameRound(mode: .fillBlank)
     @State private var questions: [Question] = []
-    @State private var selected: Int?
     @State private var didStart = false
 
     var body: some View {
@@ -52,69 +51,17 @@ struct FillBlankGameView: View {
             )
         } else if questions.indices.contains(round.index) {
             let question = questions[round.index]
-            ScrollView {
-                VStack(spacing: 20) {
-                    sentenceCard(question)
-                    ChoiceButtons(
-                        options: question.options,
-                        correctIndex: question.correctIndex,
-                        selected: selected,
-                        font: .system(.body, design: .serif, weight: .semibold)
-                    ) { choose($0, in: question) }
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
+            ChoiceQuestionView(
+                options: question.options,
+                correctIndex: question.correctIndex,
+                optionFont: .system(.body, design: .serif, weight: .semibold),
+                onAnswer: { round.record(question.word, grade: .recognition(correct: $0)) },
+                onNext: { round.advance() }
+            ) { revealed in
+                ClozeCard(word: question.word, cloze: question.cloze, revealed: revealed)
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if let selected, selected != question.correctIndex {
-                    ContinueButton { next() }
-                        .padding(.horizontal)
-                        .padding(.vertical, 12)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .animation(.snappy, value: selected)
             .id(round.index)
         }
-    }
-
-    private func sentenceCard(_ question: Question) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(sentence(question))
-                .font(.system(.title3, design: .serif))
-                .fixedSize(horizontal: false, vertical: true)
-                .contentTransition(.opacity)
-            Label(ChoiceQuiz.firstMeaning(question.word.turkish), systemImage: "lightbulb")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            if !question.word.source.isEmpty {
-                Label(question.word.source, systemImage: "book.closed")
-                    .font(.footnote)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
-    }
-
-    /// Cevap açılmadan boşluk, açılınca kelime (vurgu rengi, kalın).
-    private func sentence(_ question: Question) -> AttributedString {
-        var result = AttributedString("“" + question.cloze.before)
-        var gap: AttributedString
-        if selected == nil {
-            gap = AttributedString(ClozeSentence.blank)
-            gap.foregroundColor = .secondary
-        } else {
-            gap = AttributedString(question.cloze.match)
-            gap.foregroundColor = .accentColor
-            gap.inlinePresentationIntent = .stronglyEmphasized
-        }
-        result += gap
-        result += AttributedString(question.cloze.after + "”")
-        return result
     }
 
     private func startRound() {
@@ -127,30 +74,56 @@ struct FillBlankGameView: View {
             let result = round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
             return Question(word: word, cloze: cloze, options: result.options, correctIndex: result.correctIndex)
         }
-        selected = nil
         didStart = true
-    }
-
-    private func choose(_ index: Int, in question: Question) {
-        guard selected == nil else { return }
-        selected = index
-        let correct = index == question.correctIndex
-        round.record(question.word, grade: .recognition(correct: correct))
-        if correct {
-            Task {
-                try? await Task.sleep(for: .seconds(0.8))
-                next()
-            }
-        }
-    }
-
-    private func next() {
-        selected = nil
-        round.advance()
     }
 
     private func close() {
         try? context.save()
         dismiss()
+    }
+}
+
+/// Boşluğu Doldur kartı: cümle, kelimenin yeri boş; altında Türkçe ipucu ve kitap adı.
+/// Cevap açılınca boşluk kelimeyle dolar (vurgu rengi, kalın).
+struct ClozeCard: View {
+    let word: Word
+    let cloze: ClozeSentence
+    let revealed: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(sentence)
+                .font(.system(.title3, design: .serif))
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+            Label(ChoiceQuiz.firstMeaning(word.turkish), systemImage: "lightbulb")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if !word.source.isEmpty {
+                Label(word.source, systemImage: "book.closed")
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
+    }
+
+    private var sentence: AttributedString {
+        var result = AttributedString("“" + cloze.before)
+        var gap: AttributedString
+        if revealed {
+            gap = AttributedString(cloze.match)
+            gap.foregroundColor = .accentColor
+            gap.inlinePresentationIntent = .stronglyEmphasized
+        } else {
+            gap = AttributedString(ClozeSentence.blank)
+            gap.foregroundColor = .secondary
+        }
+        result += gap
+        result += AttributedString(cloze.after + "”")
+        return result
     }
 }

@@ -17,7 +17,6 @@ struct ChoiceGameView: View {
     @Environment(\.modelContext) private var context
     @State private var round = GameRound(mode: .multipleChoice)
     @State private var questions: [Question] = []
-    @State private var selected: Int?
     @State private var didStart = false
 
     var body: some View {
@@ -51,29 +50,14 @@ struct ChoiceGameView: View {
             )
         } else if questions.indices.contains(round.index) {
             let question = questions[round.index]
-            ScrollView {
-                VStack(spacing: 20) {
-                    GameWordCard(word: question.word)
-                    ChoiceButtons(
-                        options: question.options,
-                        correctIndex: question.correctIndex,
-                        selected: selected,
-                        font: .body.weight(.semibold)
-                    ) { choose($0, in: question) }
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
+            ChoiceQuestionView(
+                options: question.options,
+                correctIndex: question.correctIndex,
+                onAnswer: { round.record(question.word, grade: .recognition(correct: $0)) },
+                onNext: { round.advance() }
+            ) { _ in
+                GameWordCard(word: question.word)
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if let selected, selected != question.correctIndex {
-                    ContinueButton { next() }
-                        .padding(.horizontal)
-                        .padding(.vertical, 12)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .animation(.snappy, value: selected)
             .id(round.index)
         }
     }
@@ -88,26 +72,7 @@ struct ChoiceGameView: View {
             let result = round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
             return Question(word: word, options: result.options, correctIndex: result.correctIndex)
         }
-        selected = nil
         didStart = true
-    }
-
-    private func choose(_ index: Int, in question: Question) {
-        guard selected == nil else { return }
-        selected = index
-        let correct = index == question.correctIndex
-        round.record(question.word, grade: .recognition(correct: correct))
-        if correct {
-            Task {
-                try? await Task.sleep(for: .seconds(0.8))
-                next()
-            }
-        }
-    }
-
-    private func next() {
-        selected = nil
-        round.advance()
     }
 
     private func close() {
@@ -117,6 +82,58 @@ struct ChoiceGameView: View {
 }
 
 // MARK: - Ortak parçalar
+
+/// Tek bir seçmeli soru: üstte soru kartı, altında seçenekler. Doğru seçim 0,8 sn sonra kendiliğinden
+/// geçer; yanlışta doğrusu gösterilir ve "Devam" belirir. Çoktan Seçmeli, Boşluğu Doldur ve karışık
+/// Hızlı Tur kullanır; soru değişince `.id` ile yenilenmeli.
+struct ChoiceQuestionView<Prompt: View>: View {
+    let options: [String]
+    let correctIndex: Int
+    var optionFont: Font = .body.weight(.semibold)
+    /// Seçim yapılınca bir kez, doğru olup olmadığıyla çağrılır.
+    var onAnswer: (Bool) -> Void
+    var onNext: () -> Void
+    /// Soru kartı; parametre cevabın açılıp açılmadığı.
+    @ViewBuilder var prompt: (Bool) -> Prompt
+
+    @State private var selected: Int?
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                prompt(selected != nil)
+                ChoiceButtons(options: options, correctIndex: correctIndex, selected: selected, font: optionFont) { index in
+                    choose(index)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let selected, selected != correctIndex {
+                ContinueButton(action: onNext)
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.snappy, value: selected)
+    }
+
+    private func choose(_ index: Int) {
+        guard selected == nil else { return }
+        selected = index
+        let correct = index == correctIndex
+        onAnswer(correct)
+        if correct {
+            Task {
+                try? await Task.sleep(for: .seconds(0.8))
+                onNext()
+            }
+        }
+    }
+}
 
 /// Oyunlarda sorulan İngilizce kelimenin kartı: serif kelime, telaffuz, varsa kitaptaki cümle.
 struct GameWordCard: View {

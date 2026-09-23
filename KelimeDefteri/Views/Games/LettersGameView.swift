@@ -11,8 +11,6 @@ struct LettersGameView: View {
     @Environment(\.modelContext) private var context
     @State private var round = GameRound(mode: .letters)
     @State private var puzzles: [LetterPuzzle] = []
-    @State private var solved = false
-    @State private var shakes = 0
     @State private var didStart = false
 
     var body: some View {
@@ -31,8 +29,6 @@ struct LettersGameView: View {
                         }
                     }
                 }
-                .sensoryFeedback(.warning, trigger: shakes)
-                .sensoryFeedback(.success, trigger: solved) { _, new in new }
         }
         .onAppear { if !didStart { startRound() } }
     }
@@ -47,42 +43,79 @@ struct LettersGameView: View {
                 onDone: close
             )
         } else if puzzles.indices.contains(round.index), let word = round.current {
-            let puzzle = puzzles[round.index]
-            ScrollView {
-                VStack(spacing: 28) {
-                    meaningCard(word)
-                    slotsView(puzzle)
-                        .modifier(ShakeEffect(trigger: shakes))
-                    tilesView(puzzle)
-                }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Group {
-                    if puzzle.isRevealed {
-                        ContinueButton { next() }
-                    } else {
-                        Button {
-                            reveal()
-                        } label: {
-                            Label("Göster", systemImage: "eye")
-                                .font(.body.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 6)
-                        }
-                        .buttonStyle(.glass)
-                        .controlSize(.large)
-                        .disabled(solved)
-                    }
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 12)
-            }
-            .animation(.snappy(duration: 0.2), value: puzzle)
+            LettersQuestionView(
+                word: word,
+                puzzle: puzzles[round.index],
+                onAnswer: { round.record(word, grade: $0) },
+                onNext: { round.advance() }
+            )
             .id(round.index)
         }
+    }
+
+    private func startRound() {
+        let playable = words.filter { (1...GameDeck.maxLetters).contains(GameDeck.letterCount($0.english)) }
+        round.start(with: playable, count: Self.questionCount)
+        puzzles = round.words.map { word in round.random { LetterPuzzle(word: word.english, using: &$0) } }
+        didStart = true
+    }
+
+    private func close() {
+        try? context.save()
+        dismiss()
+    }
+}
+
+/// Tek bir Harfleri Diz sorusu. Harfleri Diz ve karışık Hızlı Tur kullanır; soru değişince `.id` ile yenilenmeli.
+struct LettersQuestionView: View {
+    let word: Word
+    /// Sorunun başlangıç hâli (karışık taşlar).
+    let puzzle: LetterPuzzle
+    /// Çözülünce ya da cevap açılınca bir kez, notla çağrılır.
+    var onAnswer: (AnswerGrade) -> Void
+    var onNext: () -> Void
+
+    @State private var state: LetterPuzzle?
+    @State private var solved = false
+    @State private var shakes = 0
+
+    var body: some View {
+        let puzzle = state ?? self.puzzle
+        ScrollView {
+            VStack(spacing: 28) {
+                meaningCard(word)
+                slotsView(puzzle)
+                    .modifier(ShakeEffect(trigger: shakes))
+                tilesView(puzzle)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 24)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Group {
+                if puzzle.isRevealed {
+                    ContinueButton(action: onNext)
+                } else {
+                    Button {
+                        reveal()
+                    } label: {
+                        Label("Göster", systemImage: "eye")
+                            .font(.body.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.large)
+                    .disabled(solved)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 12)
+        }
+        .animation(.snappy(duration: 0.2), value: puzzle)
+        .sensoryFeedback(.warning, trigger: shakes)
+        .sensoryFeedback(.success, trigger: solved) { _, new in new }
     }
 
     private func meaningCard(_ word: Word) -> some View {
@@ -170,22 +203,22 @@ struct LettersGameView: View {
     // MARK: - Akış
 
     private func update(_ change: (inout LetterPuzzle) -> Void) {
-        guard puzzles.indices.contains(round.index) else { return }
-        change(&puzzles[round.index])
+        var puzzle = state ?? self.puzzle
+        change(&puzzle)
+        state = puzzle
     }
 
     private func place(_ tile: Int) {
         update { $0.place(tile: tile) }
-        guard let puzzle = puzzles[safe: round.index], puzzle.isFull, let word = round.current else { return }
-        var checked = puzzle
-        let correct = checked.check()
-        puzzles[round.index] = checked
+        guard var puzzle = state, puzzle.isFull else { return }
+        let correct = puzzle.check()
+        state = puzzle
         if correct {
             solved = true
-            round.record(word, grade: checked.grade)
+            onAnswer(puzzle.grade)
             Task {
                 try? await Task.sleep(for: .seconds(0.8))
-                next()
+                onNext()
             }
         } else {
             shakes += 1
@@ -193,27 +226,8 @@ struct LettersGameView: View {
     }
 
     private func reveal() {
-        guard let word = round.current else { return }
         update { $0.reveal() }
-        round.record(word, grade: .again)
-    }
-
-    private func next() {
-        solved = false
-        round.advance()
-    }
-
-    private func startRound() {
-        let playable = words.filter { (1...GameDeck.maxLetters).contains(GameDeck.letterCount($0.english)) }
-        round.start(with: playable, count: Self.questionCount)
-        puzzles = round.words.map { word in round.random { LetterPuzzle(word: word.english, using: &$0) } }
-        solved = false
-        didStart = true
-    }
-
-    private func close() {
-        try? context.save()
-        dismiss()
+        onAnswer(.again)
     }
 }
 
@@ -236,6 +250,3 @@ struct ShakeEffect: ViewModifier {
     }
 }
 
-private extension Array {
-    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
-}

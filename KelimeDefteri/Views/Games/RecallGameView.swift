@@ -11,12 +11,7 @@ struct RecallGameView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @State private var session = StudySession()
-    @State private var answer = ""
     @State private var didStart = false
-    @FocusState private var answerFocused: Bool
-    @Namespace private var glassNamespace
-
-    private var hasAnswer: Bool { !answer.trimmingCharacters(in: .whitespaces).isEmpty }
 
     var body: some View {
         NavigationStack {
@@ -46,20 +41,8 @@ struct RecallGameView: View {
 
     @ViewBuilder
     private var content: some View {
-        if let word = session.current {
-            ScrollView {
-                card(for: word)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
-            }
-            .scrollDismissesKeyboard(.interactively)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                bottomBar
-                    .padding(.horizontal)
-                    .padding(.vertical, 12)
-            }
-            .animation(.snappy, value: session.phase)
+        if session.current != nil {
+            RecallQuestionView(session: session, words: words)
         } else if didStart {
             RoundSummaryView(
                 entries: session.roundEntries.map {
@@ -76,7 +59,6 @@ struct RecallGameView: View {
     private var total: Int { session.reviewedCount + session.remaining + (session.current == nil ? 0 : 1) }
 
     private func startRound() {
-        answer = ""
         session.mode = mode
         session.start(with: words, plan: plan)
         // Günlük Tekrar'dan sonra zayıf kelime kalmadıysa "Bir Tur Daha" en zayıflarla devam eder.
@@ -89,6 +71,41 @@ struct RecallGameView: View {
     private func close() {
         try? context.save()
         dismiss()
+    }
+}
+
+
+/// Tek bir hatırlama sorusu: kart ve altta cevap çubuğu (Göster / ↑, sonra not düğmeleri).
+/// Günlük Tekrar, Hızlı Tur, Ters Yön ve karışık Hızlı Tur kullanır; cevabı `session` değerlendirir ve kaydeder.
+struct RecallQuestionView: View {
+    let session: StudySession
+    /// İlişkili kelimeleri bulmak için bütün defter.
+    let words: [Word]
+    /// Not düğmesine basılınca (cevap kaydedildikten sonra) çağrılır.
+    var onGraded: () -> Void = {}
+
+    @State private var answer = ""
+    @FocusState private var answerFocused: Bool
+    @Namespace private var glassNamespace
+
+    private var hasAnswer: Bool { !answer.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    var body: some View {
+        if let word = session.current {
+            ScrollView {
+                card(for: word)
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .padding(.bottom, 24)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomBar
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
+            }
+            .animation(.snappy, value: session.phase)
+        }
     }
 
     // MARK: - Kart
@@ -265,6 +282,7 @@ struct RecallGameView: View {
         let button = Button {
             session.grade(known: option.known)
             answer = ""
+            onGraded()
         } label: {
             Label(option.title, systemImage: option.systemImage)
                 .font(.body.weight(.semibold))
@@ -284,7 +302,6 @@ struct RecallGameView: View {
         answerFocused = false
         session.reveal(answer: withAnswer ? answer : nil)
     }
-
 }
 
 /// Oyunların üstündeki ince ilerleme çubuğu ve "3/10".

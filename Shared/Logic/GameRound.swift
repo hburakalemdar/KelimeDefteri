@@ -56,12 +56,19 @@ final class GameRound {
     }
 
     /// Şu anki kelimenin cevabını kaydeder. Aynı kelime turda ikinci kez cevaplanırsa özet ilk cevabı tutar.
-    /// `timed` false ise (ör. Eşleştir) cevap süresi kaydedilmez.
-    func record(_ word: Word, grade: AnswerGrade, timed: Bool = true, now: Date = .now) {
+    /// `timed` false ise (ör. Eşleştir) cevap süresi kaydedilmez. `mode` verilirse cevap o oyun adına
+    /// (ve o oyunun ağırlığıyla) kaydedilir; karışık Hızlı Tur her soruyu kendi türüyle yazar.
+    func record(_ word: Word, grade: AnswerGrade, mode: GameMode? = nil, timed: Bool = true, now: Date = .now) {
         if !entries.contains(where: { $0.word === word }) {
             entries.append(StudySession.RoundEntry(word: word, memoryBefore: word.memory(at: now), firstCorrect: grade.isCorrect))
         }
-        ReviewRecorder.record(word, grade: grade, mode: mode, responseTime: timed ? now.timeIntervalSince(shownAt) : 0, now: now)
+        ReviewRecorder.record(word, grade: grade, mode: mode ?? self.mode, responseTime: timed ? now.timeIntervalSince(shownAt) : 0, now: now)
+        finishedAt = now
+    }
+
+    /// Başka bir oturumun (ör. hatırlama sorusu) kaydettiği cevabı tur özetine ekler.
+    func adopt(_ entry: StudySession.RoundEntry, now: Date = .now) {
+        if !entries.contains(where: { $0.word === entry.word }) { entries.append(entry) }
         finishedAt = now
     }
 

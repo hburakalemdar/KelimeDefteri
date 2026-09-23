@@ -206,3 +206,18 @@
 - Yanlış cevapta "Doğru Say" korunur ve açıklama "Eşanlamlıysa Doğru Say'a bas." olur (İngilizce eşanlamlıyı kontrol tanımaz).
 - 5 harften kısa kelimelerde yazım hatası kabul edilmez (spec); "stal" → "stale" 5 harfli olduğu için kabul.
 - Mac'teki sonuç satırı yeni durumu tanır ("Neredeyse"); Mac'te Ters Yön henüz yok.
+
+### C7 · Hızlı Tur karışık (23 Eylül 2026)
+- `QuickMixGameView`: Hızlı Tur'un 5 sorusu oynanabilir türlerden rastgele (hatırlama, Çoktan Seçmeli, Boşluğu Doldur,
+  Harfleri Diz, Ters Yön); aynı tür art arda en fazla iki kez. Oyun merkezindeki Hızlı Tur kartı bunu açar.
+- Soru ekranları ayrı parçalara ayrıldı ve oyunlar onları kullanıyor: `RecallQuestionView`, `ChoiceQuestionView`
+  (Çoktan Seçmeli + Boşluğu Doldur, `ClozeCard`), `LettersQuestionView`. Davranış değişmedi.
+- `QuickMix` (saf, testli): tür seçimi ve kelime başına oynanabilir türler. `GameRound`'a türe göre kayıt ve `adopt`.
+- Testler: `QuickMixTests` (4). 109 testin hepsi geçti. iPhone ve Mac'e kuruldu.
+
+**Verilen kararlar**
+- Eşleştir karışık tura girmez: tek soruluk değil, 4–5 kelimelik bir tahta.
+- Her soru kendi oyununun adıyla ve ağırlığıyla kaydedilir (ör. Çoktan Seçmeli sorusu 0.6); İngilizceden Türkçeye hatırlama
+  soruları "Hızlı Tur" adıyla. Böylece hafıza hesabı doğru, kelime geçmişi de gerçek oyun türünü gösterir.
+- Türler kelime bazında seçilir: cümlesi olmayan kelimeye Boşluğu Doldur, 14 harften uzun kelimeye Harfleri Diz gelmez.
+- Hatırlama sorusunun cevap süresi soru ekrana geldiğinde başlar (oturum o an kurulur).

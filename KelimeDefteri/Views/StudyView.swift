@@ -86,7 +86,7 @@ struct StudyView: View {
             case .fillBlank: FillBlankGameView()
             case .letters: LettersGameView()
             case .reverse: RecallGameView(plan: .reverse, mode: .reverse)
-            default: RecallGameView(plan: .quick, mode: .quickRound)
+            default: QuickMixGameView()
             }
         }
     }
