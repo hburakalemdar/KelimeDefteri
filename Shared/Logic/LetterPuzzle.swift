@@ -71,6 +71,17 @@ nonisolated struct LetterPuzzle: Equatable {
         slots[slot] = nil
     }
 
+    /// Klavyeden yazılan harfe uyan ilk serbest taş (büyük/küçük harf ve aksan gözetmez); yoksa `nil`.
+    func freeTile(matching character: Character) -> Int? {
+        let key = Self.fold(character)
+        return freeTiles.first { Self.fold(tiles[$0]) == key }
+    }
+
+    /// En sağdaki dolu yuva (klavyede ⌫ onu boşaltır); hepsi boşsa `nil`.
+    var lastFilledSlot: Int? {
+        slots.lastIndex { $0 != nil }
+    }
+
     /// Yuvalar dolunca çağrılır: doğruysa true; yanlışsa hata sayılır ve false (harfler yerinde kalır).
     mutating func check() -> Bool {
         guard isFull else { return false }

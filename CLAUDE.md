@@ -50,6 +50,9 @@ Sonra `lsregister -f -R /Applications/KelimeDefteri.app` ve `/System/Library/Cor
 
 Ekran görüntüsü için (yalnızca DEBUG): `xcrun simctl launch booted com.burakalemdar.KelimeDefteri -demo`
 gerçek defter yerine örnek kelimelerle açar; `-shareDemo` ek olarak Paylaş eklentisinin formunu gösterir.
+Mac Debug da `-demo` alır (`open build/Build/Products/Debug/KelimeDefteri.app --args -demo`); oyunlar ve Bu Hafta
+`Shared/Games` + `Shared/WeeklySummaryView.swift`te, Mac oyun merkezi `Mac/MacGamesView.swift`. Mac'te günlük hedef
+App Group yerine uygulamanın kendi ayarlarında (`DailyGoal.defaults`).
 Simülatör ekran görüntüsü: `xcrun simctl io booted screenshot x.png`. Testleri `-parallel-testing-enabled NO
 -collect-test-diagnostics never` ile koş; paralelde simülatör kopyaları açılamayıp testler 0 sn'de "failed"
 görünebiliyor, bir test başarısız olunca da `simctl diagnose` dakikalarca takılabiliyor.

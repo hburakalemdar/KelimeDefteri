@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 /// Menü çubuğu simgesine tıklayınca açılan pencere: üstte Çalış / Ekle seçimi, altta
-/// kelime listesi, ayarlar ve çıkış.
+/// kelime listesi, ayarlar ve çıkış. Çalış sayfası oyun merkezidir (`MacGamesView`).
 struct MenuBarView: View {
     private enum Page: String, CaseIterable, Identifiable {
         case study = "Çalış"
@@ -13,6 +13,8 @@ struct MenuBarView: View {
     @State private var page: Page = .study
     /// Çalışma turu burada tutulur: Çalış ↔ Ekle geçişinde çalışma sayfası yeniden kurulsa da tur sürer.
     @State private var session = StudySession()
+    /// Açık oyun da burada tutulur: Ekle'ye geçip dönünce ya da pencere kapanıp açılınca oyun sürer.
+    @State private var gamePage: MacGamePage?
     @Environment(\.modelContext) private var context
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
@@ -32,12 +34,12 @@ struct MenuBarView: View {
             Group {
                 switch page {
                 case .study:
-                    MacStudyView(session: session, onAddTapped: { page = .add })
+                    MacGamesView(session: session, page: $gamePage, onAddTapped: { page = .add })
                 case .add:
                     WordFormView(mode: .add)
                 }
             }
-            .frame(height: 430)
+            .frame(height: 460)
 
             Divider()
 

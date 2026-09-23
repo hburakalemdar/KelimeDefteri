@@ -12,6 +12,9 @@ struct ChoiceGameView: View {
         let correctIndex: Int
     }
 
+    /// Mac'te oyun merkezine dönüş; iOS'ta `nil` (tam ekran kapanır).
+    var onClose: (() -> Void)? = nil
+
     @Query private var words: [Word]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -21,21 +24,10 @@ struct ChoiceGameView: View {
     @State private var didStart = false
 
     var body: some View {
-        NavigationStack {
+        GameScaffold(showsBar: !round.isFinished, onClose: close) {
+            GameProgressHeader(done: round.index, total: round.count)
+        } content: {
             content
-                .background(Color(.systemGroupedBackground))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if !round.isFinished {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(role: .close) { close() }
-                                .accessibilityLabel("Kapat")
-                        }
-                        ToolbarItem(placement: .principal) {
-                            GameProgressHeader(done: round.index, total: round.count)
-                        }
-                    }
-                }
         }
         .pausesClock { round.pauseClock() } resume: { round.resumeClock() }
         .onAppear { if !didStart { startRound() } }
@@ -94,7 +86,7 @@ struct ChoiceGameView: View {
 
     private func close() {
         context.saveLogging()
-        dismiss()
+        if let onClose { onClose() } else { dismiss() }
     }
 }
 
@@ -123,15 +115,12 @@ struct ChoiceQuestionView<Prompt: View>: View {
                     choose(index)
                 }
             }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .gamePagePadding()
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let selected, selected != correctIndex {
                 ContinueButton(action: onNext)
-                    .padding(.horizontal)
-                    .padding(.vertical, 12)
+                    .gameBarPadding()
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -161,7 +150,7 @@ struct GameWordCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 Text(word.english)
-                    .font(.system(.largeTitle, design: .serif, weight: .semibold))
+                    .font(GameStyle.headline)
                     .minimumScaleFactor(0.6)
                     .lineLimit(2)
                 Spacer(minLength: 12)
@@ -171,6 +160,9 @@ struct GameWordCard: View {
                 .labelStyle(.iconOnly)
                 .buttonStyle(.glass)
                 .buttonBorderShape(.circle)
+                #if os(macOS)
+                .help("Telaffuzu dinle")
+                #endif
             }
             if showsSentence && !word.example.isEmpty {
                 Text(AttributedString(quoting: word.example, highlighting: word.english))
@@ -179,13 +171,12 @@ struct GameWordCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
+        .gameCard()
     }
 }
 
 /// Tam genişlik cam seçenek düğmeleri. Seçimden sonra doğru yeşil, yanlış seçilen kırmızı olur.
+/// Mac'te 1–4 tuşlarıyla seçilir; her düğmenin başında tuşu yazar.
 struct ChoiceButtons: View {
     let options: [String]
     let correctIndex: Int
@@ -209,6 +200,12 @@ struct ChoiceButtons: View {
     private func button(_ index: Int) -> some View {
         let state = state(of: index)
         let label = HStack(spacing: 8) {
+            #if os(macOS)
+            Text("\(index + 1)")
+                .font(.callout.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+            #endif
             Text(options[index])
                 .font(font)
                 .multilineTextAlignment(.leading)
@@ -227,6 +224,9 @@ struct ChoiceButtons: View {
             .controlSize(.large)
             .allowsHitTesting(selected == nil)
             .accessibilityAddTraits(state == .correct ? .isSelected : [])
+            #if os(macOS)
+            .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: [])
+            #endif
         switch state {
         case .idle:
             button.buttonStyle(.glass)
@@ -270,5 +270,9 @@ struct ContinueButton: View {
         }
         .buttonStyle(.glassProminent)
         .controlSize(.large)
+        #if os(macOS)
+        .keyboardShortcut(.defaultAction)
+        .help("Devam (↩)")
+        #endif
     }
 }

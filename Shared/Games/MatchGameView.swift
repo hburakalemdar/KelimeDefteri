@@ -3,8 +3,12 @@ import SwiftUI
 
 /// Eşleştir: solda İngilizce kelimeler, sağda karışık Türkçe anlamlar. Bir soldan bir sağdan seçilir;
 /// doğru çift yeşil olup kaybolur, yanlış çift sallanıp kırmızı yanıp söner.
+/// Mac'te bir kutu öbür sütundaki kutunun üstüne sürüklenerek de eşlenir.
 struct MatchGameView: View {
     static let pairCount = 5
+
+    /// Mac'te oyun merkezine dönüş; iOS'ta `nil` (tam ekran kapanır).
+    var onClose: (() -> Void)? = nil
 
     @Query private var words: [Word]
     @Environment(\.dismiss) private var dismiss
@@ -18,32 +22,33 @@ struct MatchGameView: View {
     @State private var wrongPair: (left: Int, right: Int)?
     @State private var shakes = 0
     @State private var didStart = false
+    #if os(macOS)
+    /// Sürüklenen kutunun üstünde durduğu kutu (vurgulanır).
+    @State private var dropTarget: String?
+    #endif
+
+    #if os(iOS)
+    private let tileHeight: CGFloat = 64
+    private let tileSpacing: CGFloat = 10
+    #else
+    private let tileHeight: CGFloat = 50
+    private let tileSpacing: CGFloat = 8
+    #endif
 
     var body: some View {
-        NavigationStack {
+        GameScaffold(showsBar: !round.isFinished, onClose: close) {
+            let gone = goneIDs
+            GameProgressHeader(
+                done: board?.matched.subtracting(gone).count ?? 0,
+                total: round.count - gone.count,
+                showsCount: false
+            )
+        } content: {
             content
-                .background(Color(.systemGroupedBackground))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if !round.isFinished {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(role: .close) { close() }
-                                .accessibilityLabel("Kapat")
-                        }
-                        ToolbarItem(placement: .principal) {
-                            let gone = goneIDs
-                            GameProgressHeader(
-                                done: board?.matched.subtracting(gone).count ?? 0,
-                                total: round.count - gone.count,
-                                showsCount: false
-                            )
-                        }
-                    }
-                }
-                .sensoryFeedback(.success, trigger: board?.matched.count ?? 0)
-                .sensoryFeedback(.warning, trigger: shakes)
-                .sensoryFeedback(.selection, trigger: selectionKey)
         }
+        .sensoryFeedback(.success, trigger: board?.matched.count ?? 0)
+        .sensoryFeedback(.warning, trigger: shakes)
+        .sensoryFeedback(.selection, trigger: selectionKey)
         .pausesClock { round.pauseClock() } resume: { round.resumeClock() }
         .onAppear { if !didStart { startRound() } }
         .onChange(of: words.aliveIDs) { removeDeletedWords() }
@@ -66,12 +71,12 @@ struct MatchGameView: View {
                 VStack(spacing: 16) {
                     statusRow(board)
                     HStack(alignment: .top, spacing: 12) {
-                        VStack(spacing: 10) {
+                        VStack(spacing: tileSpacing) {
                             ForEach(board.left.filter { !gone.contains($0) }, id: \.self) { id in
                                 tile(id: id, isLeft: true, board: board)
                             }
                         }
-                        VStack(spacing: 10) {
+                        VStack(spacing: tileSpacing) {
                             ForEach(board.right.filter { !gone.contains($0) }, id: \.self) { id in
                                 tile(id: id, isLeft: false, board: board)
                             }
@@ -79,9 +84,7 @@ struct MatchGameView: View {
                     }
                     .animation(.snappy, value: gone)
                 }
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
+                .gamePagePadding()
             }
         }
     }
@@ -114,8 +117,14 @@ struct MatchGameView: View {
         let isWrong = wrongPair.map { isLeft ? $0.left == id : $0.right == id } ?? false
         let isRight = justMatched == id
         let text = isLeft ? round.words[id].english : meanings[id]
+        let radius = GameStyle.tileRadius
+        #if os(macOS)
+        let isTargeted = dropTarget == Self.dragKey(id: id, isLeft: isLeft)
+        #else
+        let isTargeted = false
+        #endif
 
-        Button {
+        let button = Button {
             tap(id: id, isLeft: isLeft)
         } label: {
             Text(text)
@@ -124,30 +133,57 @@ struct MatchGameView: View {
                 .minimumScaleFactor(0.7)
                 .lineLimit(3)
                 .foregroundStyle(isRight || isWrong ? Color.white : .primary)
-                .frame(maxWidth: .infinity, minHeight: 64)
+                .frame(maxWidth: .infinity, minHeight: tileHeight)
                 .padding(.horizontal, 10)
-                .background(background(selected: isSelected, wrong: isWrong, right: isRight),
-                            in: .rect(cornerRadius: 16, style: .continuous))
+                .background(background(selected: isSelected || isTargeted, wrong: isWrong, right: isRight),
+                            in: .rect(cornerRadius: radius, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.accentColor, lineWidth: isSelected && !isWrong ? 2 : 0)
+                    RoundedRectangle(cornerRadius: radius, style: .continuous)
+                        .strokeBorder(Color.accentColor, lineWidth: (isSelected || isTargeted) && !isWrong ? 2 : 0)
                 }
-                .contentShape(.rect(cornerRadius: 16, style: .continuous))
+                .contentShape(.rect(cornerRadius: radius, style: .continuous))
         }
         .buttonStyle(.plain)
+
+        #if os(macOS)
+        // Sürükle-bırak: kutu öbür sütundaki bir kutunun üstüne bırakılınca o çift denenir.
+        button
+            .draggable(Self.dragKey(id: id, isLeft: isLeft)) {
+                Text(text)
+                    .font(isLeft ? .system(.body, design: .serif, weight: .semibold) : .body)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: .rect(cornerRadius: radius, style: .continuous))
+            }
+            .dropDestination(for: String.self) { items, _ in
+                guard let key = items.first else { return false }
+                return drop(key, onto: id, isLeft: isLeft)
+            } isTargeted: { targeted in
+                let key = Self.dragKey(id: id, isLeft: isLeft)
+                if targeted { dropTarget = key } else if dropTarget == key { dropTarget = nil }
+            }
+            .modifier(Shake(amount: isWrong ? 1 : 0, trigger: shakes))
+            .opacity(isMatched ? 0 : 1)
+            .scaleEffect(isMatched ? 0.9 : 1)
+            .allowsHitTesting(!board.matched.contains(id) && wrongPair == nil)
+            .accessibilityHidden(isMatched)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+        #else
+        button
         .modifier(Shake(amount: isWrong ? 1 : 0, trigger: shakes))
         .opacity(isMatched ? 0 : 1)
         .scaleEffect(isMatched ? 0.9 : 1)
         .allowsHitTesting(!board.matched.contains(id) && wrongPair == nil)
         .accessibilityHidden(isMatched)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        #endif
     }
 
-    private func background(selected: Bool, wrong: Bool, right: Bool) -> Color {
-        if right { return .green }
-        if wrong { return .red }
-        if selected { return Color.accentColor.opacity(0.15) }
-        return Color(.secondarySystemGroupedBackground)
+    private func background(selected: Bool, wrong: Bool, right: Bool) -> AnyShapeStyle {
+        if right { return AnyShapeStyle(Color.green) }
+        if wrong { return AnyShapeStyle(Color.red) }
+        if selected { return AnyShapeStyle(Color.accentColor.opacity(0.15)) }
+        return AnyShapeStyle(GameStyle.cardFill)
     }
 
     // MARK: - Akış
@@ -169,7 +205,13 @@ struct MatchGameView: View {
         } else {
             selectedRight = selectedRight == id ? nil : id
         }
-        guard let left = selectedLeft, let right = selectedRight, var board else { return }
+        guard let left = selectedLeft, let right = selectedRight else { return }
+        pick(left: left, right: right)
+    }
+
+    /// Bir soldan bir sağdan kutu seçilince çifti dener: doğruysa kaydeder, yanlışsa sallar.
+    private func pick(left: Int, right: Int) {
+        guard var board else { return }
         let result = board.pick(left: left, right: right)
         self.board = board
         selectedLeft = nil
@@ -197,6 +239,24 @@ struct MatchGameView: View {
         }
     }
 
+    #if os(macOS)
+    /// Sürüklenen kutunun kimliği: "L3" (İngilizce) ya da "R2" (Türkçe).
+    private static func dragKey(id: Int, isLeft: Bool) -> String { (isLeft ? "L" : "R") + String(id) }
+
+    /// Sürüklenen kutu öbür sütundaki kutuya bırakıldı; aynı sütuna bırakmak bir şey yapmaz.
+    private func drop(_ key: String, onto id: Int, isLeft: Bool) -> Bool {
+        dropTarget = nil
+        guard let side = key.first, let source = Int(key.dropFirst()), (side == "L") != isLeft,
+              let board, wrongPair == nil,
+              !board.matched.contains(source), !board.matched.contains(id)
+        else { return false }
+        selectedLeft = nil
+        selectedRight = nil
+        if isLeft { pick(left: id, right: source) } else { pick(left: source, right: id) }
+        return true
+    }
+    #endif
+
     /// Tur sürerken silinen kelimelerin turdaki kimlikleri; iki kutusu da tahtadan kalkar.
     private var goneIDs: Set<Int> {
         let alive = words.aliveIDs
@@ -221,7 +281,7 @@ struct MatchGameView: View {
 
     private func close() {
         context.saveLogging()
-        dismiss()
+        if let onClose { onClose() } else { dismiss() }
     }
 }
 

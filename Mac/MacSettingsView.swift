@@ -12,6 +12,7 @@ struct MacSettingsView: View {
     @AppStorage(ReminderSettings.enabledKey) private var reminderEnabled = false
     @AppStorage(ReminderSettings.hourKey) private var reminderHour = ReminderSettings.defaultHour
     @AppStorage(ReminderSettings.minuteKey) private var reminderMinute = ReminderSettings.defaultMinute
+    @AppStorage(DailyGoal.key, store: DailyGoal.defaults) private var dailyGoal = DailyGoal.defaultTarget
     @State private var permissionDenied = false
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var iCloudStatus: CKAccountStatus?
@@ -60,6 +61,16 @@ struct MacSettingsView: View {
             }
 
             Section {
+                Picker("Günlük hedef", selection: $dailyGoal) {
+                    ForEach(DailyGoal.options, id: \.self) { Text("\($0) cevap").tag($0) }
+                }
+            } header: {
+                Text("Hedef")
+            } footer: {
+                Text("Çalış sayfasındaki halka her gün bu kadar cevapla kapanır; iPhone ve Mac'teki cevaplar birlikte sayılır. Halkayı üst üste kapattığın günler serini oluşturur. Hedef her cihazda ayrı seçilir.")
+            }
+
+            Section {
                 LabeledContent("iCloud eşitleme") {
                     switch iCloudStatus {
                     case .available: Text("Açık").foregroundStyle(.green)
@@ -85,7 +96,7 @@ struct MacSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 620)
+        .frame(width: 460, height: 720)
         .task {
             iCloudStatus = (try? await CKContainer(identifier: SharedStore.cloudKitContainerID).accountStatus()) ?? .couldNotDetermine
             let denied = await ReminderScheduler.isDenied()

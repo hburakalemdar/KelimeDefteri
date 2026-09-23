@@ -43,6 +43,10 @@ struct StudyView: View {
                 .sheet(isPresented: $showSettings) {
                     NavigationStack { SettingsView() }
                 }
+                // Bu Hafta'daki zorlanılan kelimeler buradan açılır (Bu Hafta, eklentilerle ortak `Shared`'da).
+                .navigationDestination(for: Word.self) { word in
+                    WordDetailView(word: word)
+                }
                 .fullScreenCover(item: $activeGame, onDismiss: gameDismissed) { game in
                     gameView(game)
                 }
@@ -267,20 +271,6 @@ struct GameCard: View {
         .buttonStyle(.plain)
         .disabled(unavailableReason != nil)
         .opacity(unavailableReason == nil ? 1 : 0.5)
-    }
-}
-
-extension GameMode {
-    var color: Color {
-        switch self {
-        case .dailyReview: .blue
-        case .quickRound: .orange
-        case .multipleChoice: .blue
-        case .match: .green
-        case .fillBlank: .purple
-        case .letters: .pink
-        case .reverse: .cyan
-        }
     }
 }
 

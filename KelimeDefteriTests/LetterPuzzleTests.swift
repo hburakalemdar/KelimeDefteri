@@ -73,4 +73,32 @@ struct LetterPuzzleTests {
         let sameLetters = q.check()
         #expect(sameLetters)
     }
+
+    @Test func typingPicksMatchingFreeTile() {
+        var p = puzzle("Naïve")
+        // Büyük harf ve aksan fark etmez.
+        let tile = p.freeTile(matching: "i")
+        #expect(tile.map { LetterPuzzle.fold(p.tiles[$0]) } == "i")
+        p.place(tile: tile!)
+        // Tek i vardı; ikinci kez yazılınca serbest taş kalmaz.
+        #expect(p.freeTile(matching: "I") == nil)
+        #expect(p.freeTile(matching: "x") == nil)
+        let n = p.freeTile(matching: "n")
+        #expect(n != nil)
+    }
+
+    @Test func lastFilledSlotForBackspace() {
+        var p = puzzle("stale")
+        #expect(p.lastFilledSlot == nil)
+        p.place(tile: p.freeTiles[0])
+        p.place(tile: p.freeTiles[0])
+        #expect(p.lastFilledSlot == 1)
+        p.remove(slot: 1)
+        #expect(p.lastFilledSlot == 0)
+        // Ortadaki yuva boşalırsa en sağdaki dolu yuva döner.
+        p.place(tile: p.freeTiles[0])
+        p.place(tile: p.freeTiles[0])
+        p.remove(slot: 1)
+        #expect(p.lastFilledSlot == 2)
+    }
 }

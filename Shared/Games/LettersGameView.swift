@@ -6,6 +6,9 @@ import SwiftUI
 struct LettersGameView: View {
     static let questionCount = 8
 
+    /// Mac'te oyun merkezine dönüş; iOS'ta `nil` (tam ekran kapanır).
+    var onClose: (() -> Void)? = nil
+
     @Query private var words: [Word]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -15,21 +18,10 @@ struct LettersGameView: View {
     @State private var didStart = false
 
     var body: some View {
-        NavigationStack {
+        GameScaffold(showsBar: !round.isFinished, onClose: close) {
+            GameProgressHeader(done: round.index, total: round.count)
+        } content: {
             content
-                .background(Color(.systemGroupedBackground))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if !round.isFinished {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(role: .close) { close() }
-                                .accessibilityLabel("Kapat")
-                        }
-                        ToolbarItem(placement: .principal) {
-                            GameProgressHeader(done: round.index, total: round.count)
-                        }
-                    }
-                }
         }
         .pausesClock { round.pauseClock() } resume: { round.resumeClock() }
         .onAppear { if !didStart { startRound() } }
@@ -81,11 +73,12 @@ struct LettersGameView: View {
 
     private func close() {
         context.saveLogging()
-        dismiss()
+        if let onClose { onClose() } else { dismiss() }
     }
 }
 
 /// Tek bir Harfleri Diz sorusu. Harfleri Diz ve karışık Hızlı Tur kullanır; soru değişince `.id` ile yenilenmeli.
+/// Mac'te harfler klavyeden yazılır: harf uyan taşı yerleştirir, ⌫ son harfi geri alır, ⌘↩ gösterir, ↩ devam eder.
 struct LettersQuestionView: View {
     let word: Word
     /// Sorunun başlangıç hâli (karışık taşlar).
@@ -97,6 +90,9 @@ struct LettersQuestionView: View {
     @State private var state: LetterPuzzle?
     @State private var solved = false
     @State private var shakes = 0
+    #if os(macOS)
+    @FocusState private var keyboardFocused: Bool
+    #endif
 
     var body: some View {
         let puzzle = state ?? self.puzzle
@@ -107,9 +103,7 @@ struct LettersQuestionView: View {
                     .modifier(ShakeEffect(trigger: shakes))
                 tilesView(puzzle)
             }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .gamePagePadding()
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Group {
@@ -127,23 +121,54 @@ struct LettersQuestionView: View {
                     .buttonStyle(.glass)
                     .controlSize(.large)
                     .disabled(solved)
+                    #if os(macOS)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .help("Cevabı göster (⌘↩)")
+                    #endif
                 }
             }
-            .padding(.horizontal)
-            .padding(.vertical, 12)
+            .gameBarPadding()
         }
         .animation(.snappy(duration: 0.2), value: puzzle)
         .sensoryFeedback(.warning, trigger: shakes)
         .sensoryFeedback(.success, trigger: solved) { _, new in new }
+        #if os(macOS)
+        .focusable()
+        .focusEffectDisabled()
+        .focused($keyboardFocused)
+        .onKeyPress(phases: .down) { press in type(press) }
+        .onAppear { keyboardFocused = true }
+        #endif
     }
+
+    #if os(macOS)
+    /// Klavyeden yazılan harf uyan serbest taşı yerleştirir; ⌫ son yerleştirilen harfi geri alır.
+    private func type(_ press: KeyPress) -> KeyPress.Result {
+        let current = state ?? puzzle
+        guard !solved, !current.isRevealed, press.modifiers.subtracting(.shift).isEmpty else { return .ignored }
+        if press.key == .delete {
+            guard let slot = current.lastFilledSlot else { return .ignored }
+            update { $0.remove(slot: slot) }
+            return .handled
+        }
+        guard press.characters.count == 1, let character = press.characters.first, character.isLetter else {
+            return .ignored
+        }
+        if let tile = current.freeTile(matching: character) {
+            place(tile)
+        } else {
+            // Uyan taş yok (harf yok ya da hepsi kullanıldı): yuvalar kısaca sallanır.
+            shakes += 1
+        }
+        return .handled
+    }
+    #endif
 
     private func meaningCard(_ word: Word) -> some View {
         Text(word.turkish)
             .font(.title2.weight(.semibold))
             .fixedSize(horizontal: false, vertical: true)
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
+        .gameCard()
     }
 
     // MARK: - Yuvalar ve taşlar

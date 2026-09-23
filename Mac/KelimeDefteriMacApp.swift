@@ -11,11 +11,11 @@ struct KelimeDefteriMacApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            StoreGate {
+            StoreGate(result: Self.store) {
                 MenuBarView()
             }
         } label: {
-            if let container = SharedStore.container {
+            if let container = try? Self.store.get() {
                 MenuBarLabel()
                     .modelContainer(container)
             } else {
@@ -25,19 +25,28 @@ struct KelimeDefteriMacApp: App {
         .menuBarExtraStyle(.window)
 
         Window("Kelimelerim", id: WindowID.words) {
-            StoreGate {
+            StoreGate(result: Self.store) {
                 WordsWindow()
             }
         }
         .defaultSize(width: 760, height: 480)
 
         Settings {
-            StoreGate {
+            StoreGate(result: Self.store) {
                 settingsTabs
             }
         }
         .windowResizability(.contentSize)
     }
+
+    /// Ekran görüntüsü ve deneme için (yalnızca DEBUG): `-demo` ile açılınca gerçek defter yerine örnek kelimeler.
+    /// ⇧⌘E servisi ve hatırlatmalar her zaman gerçek defteri kullanır.
+    static let store: Result<ModelContainer, Error> = {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-demo") { return .success(PreviewData.container) }
+        #endif
+        return SharedStore.result
+    }()
 
     private var settingsTabs: some View {
         TabView {

@@ -36,7 +36,11 @@ struct RoundSummaryView: View {
             VStack(alignment: .leading, spacing: 0) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Tur Bitti")
+                        #if os(iOS)
                         .font(.largeTitle.bold())
+                        #else
+                        .font(.title.bold())
+                        #endif
                     Text(RoundText.summary(
                         correct: entries.count(where: \.correct), total: entries.count, seconds: duration
                     ))
@@ -45,7 +49,11 @@ struct RoundSummaryView: View {
                     .monospacedDigit()
                 }
                 .padding(.horizontal, 4)
+                #if os(iOS)
                 .padding(.bottom, 24)
+                #else
+                .padding(.bottom, 16)
+                #endif
 
                 if !entries.isEmpty {
                     Text("Hafıza")
@@ -64,14 +72,12 @@ struct RoundSummaryView: View {
                                 .padding(.vertical, 11)
                         }
                     }
-                    .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
+                    .background(GameStyle.cardFill, in: .rect(cornerRadius: GameStyle.cardRadius, style: .continuous))
                 }
             }
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 24)
+            .gamePagePadding()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(GameStyle.pageBackground)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
                 Button(action: onAgain) {
@@ -81,6 +87,10 @@ struct RoundSummaryView: View {
                         .padding(.vertical, 6)
                 }
                 .buttonStyle(.glassProminent)
+                #if os(macOS)
+                .keyboardShortcut(.defaultAction)
+                .help("Bir tur daha (↩)")
+                #endif
                 Button(action: onDone) {
                     Text("Bitti")
                         .font(.body.weight(.semibold))
@@ -88,10 +98,13 @@ struct RoundSummaryView: View {
                         .padding(.vertical, 6)
                 }
                 .buttonStyle(.glass)
+                #if os(macOS)
+                .keyboardShortcut(.cancelAction)
+                .help("Oyunlara dön (Esc)")
+                #endif
             }
             .controlSize(.large)
-            .padding(.horizontal)
-            .padding(.vertical, 12)
+            .gameBarPadding()
         }
     }
 
