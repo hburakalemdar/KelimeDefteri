@@ -97,7 +97,7 @@ struct StudySessionTests {
     /// Bellek içi depo iOS 27 simülatöründe kaydederken ara ara çöktüğü için geçici dosya kullanılır.
     private func insert(_ words: Word...) throws -> ModelContext {
         let url = URL.temporaryDirectory.appending(path: "test-\(UUID().uuidString).store")
-        let container = try ModelContainer(for: Word.self, configurations: ModelConfiguration(url: url, cloudKitDatabase: .none))
+        let container = try ModelContainer(for: SharedStore.schema, configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none))
         let context = ModelContext(container)
         words.forEach(context.insert)
         try context.save()

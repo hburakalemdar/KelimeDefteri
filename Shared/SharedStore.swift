@@ -17,18 +17,27 @@ enum SharedStore {
     /// Uygulama ve eklenti arasında paylaşılan küçük ayarlar (ör. son kaynak kitap).
     static let defaults = UserDefaults(suiteName: appGroupID) ?? .standard
 
+    /// Depodaki bütün modeller; uygulama, eklenti, örnek veri ve testler aynı şemayı kullanır.
+    nonisolated static let schema = Schema([Word.self, ReviewLog.self])
+
     static let container: ModelContainer = {
         do {
-            guard let storeURL = sharedStoreURL() else {
+            let container: ModelContainer
+            if let storeURL = sharedStoreURL() {
+                migrateLegacyStore(to: storeURL)
+                let configuration = ModelConfiguration(
+                    schema: schema,
+                    url: storeURL,
+                    cloudKitDatabase: isExtension ? .none : .private(cloudKitContainerID)
+                )
+                container = try ModelContainer(for: schema, configurations: configuration)
+            } else {
                 // App Group yetkisi yoksa (olmamalı) uygulamanın kendi klasörüne düş.
-                return try ModelContainer(for: Word.self)
+                container = try ModelContainer(for: schema)
             }
-            migrateLegacyStore(to: storeURL)
-            let configuration = ModelConfiguration(
-                url: storeURL,
-                cloudKitDatabase: isExtension ? .none : .private(cloudKitContainerID)
-            )
-            return try ModelContainer(for: Word.self, configurations: configuration)
+            // Eklenti yalnızca yeni kelime ekler; eski kayıtların geçişini uygulamalar yapar.
+            if !isExtension { MemoryMigration.migrateIfNeeded(context: container.mainContext) }
+            return container
         } catch {
             fatalError("Kelime veritabanı açılamadı: \(error)")
         }

@@ -270,7 +270,7 @@ kısa bir satırla ne yapıldığını rapora ekle, commit + push.
 
 - [x] **A1 · Karışık sıra.** `WordPicker` (§3, gecikme ağırlığıyla) ve `StudySession` onu kullanır.
       Testler: tohumla belirli sonuç, art arda aynı kelime yok, ilk kelime öncekiyle farklı, yanlış kelime en az 2 kelime sonra.
-- [ ] **B1 · Kayıt modeli ve geçiş.** §1. Testler: geçiş değerleri, ikinci çalıştırmada değişiklik yok,
+- [x] **B1 · Kayıt modeli ve geçiş.** §1. Testler: geçiş değerleri, ikinci çalıştırmada değişiklik yok,
       `ReviewLog` ilişkisi (kelime silinince logları da silinir).
 - [ ] **B2 · Hafıza motoru.** §2, bütün zorunlu testlerle.
 - [ ] **B3 · Motoru bağla.** Her cevap `AnswerGrade` çıkarır, motoru uygular, `ReviewLog` yazar

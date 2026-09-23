@@ -10,8 +10,8 @@ enum PreviewData {
         // her açılışta yeni bir geçici dosya kullan.
         let url = URL.temporaryDirectory.appending(path: "demo-\(UUID().uuidString).store")
         let container = try! ModelContainer(
-            for: Word.self,
-            configurations: ModelConfiguration(url: url, cloudKitDatabase: .none)
+            for: SharedStore.schema,
+            configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none)
         )
         let ddia = "Designing Data-Intensive Applications"
         let now = Date.now
@@ -56,6 +56,7 @@ enum PreviewData {
             word.correctCount = correct
             container.mainContext.insert(word)
         }
+        MemoryMigration.migrateIfNeeded(context: container.mainContext)
         return container
     }()
 }

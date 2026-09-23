@@ -13,12 +13,21 @@ final class Word {
     var example: String = ""
     var source: String = ""
 
-    /// Leitner kutusu: 0 = yeni/bilinmiyor, `Leitner.maxBox` = öğrenildi.
+    /// Eski Leitner kutusu. Artık yazılmaz; yalnızca hafıza değerlerine tek seferlik geçişte okunur.
     var box: Int = 0
+    /// Sıradaki tekrar zamanı; hatırlatma ve sıralama bunu kullanır.
     var dueDate: Date = Date.distantPast
     var createdAt: Date = Date.now
     var reviewCount: Int = 0
     var correctCount: Int = 0
+
+    /// Hafıza dayanıklılığı (gün). 0 = hiç çalışılmamış.
+    var stability: Double = 0
+    /// Zorluk: 1 (kolay) … 10 (zor).
+    var difficulty: Double = 5
+    var lastReviewedAt: Date?
+    @Relationship(deleteRule: .cascade, inverse: \ReviewLog.word)
+    var logs: [ReviewLog]?
 
     init(
         english: String,
