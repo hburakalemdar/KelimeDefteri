@@ -3,6 +3,9 @@ import SwiftUI
 
 @main
 struct KelimeDefteriApp: App {
+    /// Bildirimden verilen cevaplar için (bkz. `NotificationDelegate`).
+    @UIApplicationDelegateAdaptor private var notificationDelegate: NotificationDelegate
+
     var body: some Scene {
         WindowGroup {
             StoreGate(result: Self.store) {

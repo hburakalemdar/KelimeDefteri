@@ -11,6 +11,10 @@ Ayrıntılı özellik listesi ve yapı: README.md.
 - **KelimeDefteri** — iPhone/iPad uygulaması (iOS 26+). `KelimeDefteri/` + `Shared/`.
 - **KelimeEkle** — iOS Paylaş menüsü eklentisi. `KelimeEkle/` + `Shared/`. iCloud'a kendisi eşitlemez;
   App Group'taki ortak SQLite'a yazar, ana uygulama kalıcı geçmişten görüp iCloud'a gönderir.
+- **KelimeWidget** — iOS widget eklentisi (`com.burakalemdar.KelimeDefteri.KelimeWidget`). `KelimeWidget/` +
+  `Shared/`. KelimeEkle gibi App Group deposuna yazar; soru durumu App Group ayarlarında (`GlanceQuizStore`).
+  Hızlı Tur bağlantısı `kelimedefteri://quick` (ContentView karşılar); denetim `OpenQuickRoundIntent`
+  (Shared'da, uygulamada çalışır). Bildirim cevapları `NotificationDelegate` + `ReminderQuiz`.
 - **KelimeDefteriMac** — yerel macOS uygulaması (macOS 26+, Catalyst değil). `Mac/` + `Shared/`.
   Dock'ta görünmez (LSUIElement), menü çubuğunda yaşar (MenuBarExtra): Çalış / Ekle penceresi,
   ayrı Kelimelerim (tablo) ve Ayarlar pencereleri. ⇧⌘E "Kelime Defteri'ne Ekle" servisini kendisi

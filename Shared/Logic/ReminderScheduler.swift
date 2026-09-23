@@ -55,7 +55,15 @@ enum ReminderScheduler {
             studiedDueDates: studiedDueDates, newCount: newCount, hour: hour, minute: minute, now: now
         )
 
-        for reminder in reminders {
+        #if os(iOS)
+        // Her hatırlatmaya bir soru: seçenekler basılı tutunca düğme olarak çıkar (bkz. `ReminderQuiz`).
+        var categories = Set<UNNotificationCategory>()
+        var generator = SystemRandomNumberGenerator()
+        var previousKey: String?
+        defer { center.setNotificationCategories(categories) }
+        #endif
+
+        for (offset, reminder) in reminders.enumerated() {
             let content = UNMutableNotificationContent()
             content.title = "Kelime Defteri"
             content.body = reminder.dueCount == 1
@@ -63,6 +71,19 @@ enum ReminderScheduler {
                 : "Bugün \(reminder.dueCount) kelime seni bekliyor. Birkaç dakikanı alır."
             content.sound = .default
             content.badge = NSNumber(value: reminder.dueCount)
+            #if os(iOS)
+            if let question = GlanceQuiz.question(
+                from: words, avoiding: previousKey, now: reminder.fireDate, using: &generator
+            ) {
+                let category = ReminderQuiz.category(for: question, identifier: ReminderQuiz.categoryPrefix + String(offset))
+                categories.insert(category)
+                content.categoryIdentifier = category.identifier
+                content.userInfo = ReminderQuiz.userInfo(for: question)
+                content.subtitle = ReminderQuiz.prompt(for: question)
+                content.body += "\n" + ReminderQuiz.hint
+                previousKey = question.wordKey
+            }
+            #endif
 
             let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminder.fireDate)
             let request = UNNotificationRequest(

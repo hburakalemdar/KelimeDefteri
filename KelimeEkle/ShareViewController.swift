@@ -44,6 +44,8 @@ final class ShareViewController: UIViewController {
 
     private func finish(saved: Bool) {
         if saved {
+            // Widget sorusu ve kilit ekranı özeti yeni kelimeyi hesaba katsın.
+            Glance.reloadWidgets()
             extensionContext?.completeRequest(returningItems: nil)
         } else {
             extensionContext?.cancelRequest(withError: CocoaError(.userCancelled))
