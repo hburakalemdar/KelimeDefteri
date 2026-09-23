@@ -1,0 +1,293 @@
+# Spec: Oyunlaştırma (1–3. adımlar)
+
+Bu dosya `/loop` ile yürütülecek işin tek kaynağıdır. Neden yapıldığı `docs/GELECEK.md`'de.
+Burada yazmayan bir karar gerekirse: en sade, Apple uygulamalarına en yakın seçeneği seç ve
+`docs/CALISMA-RAPORU.md`'ye yaz. Kullanıcıya soru sorma.
+
+**Kullanıcının verdiği kararlar (23 Eylül 2026):**
+- Çalış sekmesi: üstte Günlük Tekrar kartı, altında 2 sütunlu oyun kartları.
+- Hafıza gücü: yüzde ve halka ("%62"), renkli.
+- Cihaza kurulum yok; yalnızca simülatör. Kullanıcı sonunda kendisi kuracak.
+- Mac derlenir ve yeni dili gösterir (hafıza gücü, karışık sıra); oyunlar Mac'e sonra gelecek.
+- Her görev `main`'e commit edilip push edilir.
+
+---
+
+## 1. Veri modeli (B1)
+
+`Word`'e eklenen alanlar. Hepsi varsayılan değerli; CloudKit yalnızca ekleme kabul eder.
+
+| Alan | Tür | Varsayılan | Anlamı |
+|---|---|---|---|
+| `stability` | `Double` | `0` | Gün cinsinden hafıza dayanıklılığı. `0` = hiç çalışılmamış (yeni). |
+| `difficulty` | `Double` | `5` | 1 (kolay) … 10 (zor). |
+| `lastReviewedAt` | `Date?` | `nil` | Son cevap zamanı. |
+| `logs` | `[ReviewLog]?` | `nil` | `@Relationship(deleteRule: .cascade, inverse: \ReviewLog.word)` |
+
+Yeni model `ReviewLog` (`Shared/ReviewLog.swift`):
+
+| Alan | Tür | Varsayılan |
+|---|---|---|
+| `date` | `Date` | `.now` |
+| `mode` | `String` | `""` (`GameMode.rawValue`) |
+| `correct` | `Bool` | `false` |
+| `grade` | `Int` | `0` (`AnswerGrade.rawValue`) |
+| `responseTime` | `Double` | `0` (saniye) |
+| `word` | `Word?` | `nil` |
+
+- `ModelContainer` şemasına `ReviewLog` eklenir: `SharedStore`, `PreviewData`, testlerdeki geçici depolar.
+- `box` ve `dueDate` alanları **silinmez**. `box` artık yazılmaz. `dueDate` her cevapta motorun
+  hesapladığı sıradaki tekrar zamanıyla güncellenir; hatırlatma bildirimi ve sıralama onu kullanmaya devam eder.
+- `reviewCount` ve `correctCount` artmaya devam eder.
+
+**Tek seferlik geçiş** (`MemoryMigration.migrateIfNeeded(context:)`, uygulama açılışında; Mac'te de):
+- Koşul: `stability == 0 && reviewCount > 0`.
+- `stability = max(Leitner.intervalsInDays[box], 0.5)`
+- `lastReviewedAt = dueDate > .distantPast ? dueDate − stability gün : nil`
+- `difficulty = clamp(5 + (0.5 − correctCount/reviewCount) × 6, 1…10)`
+- Birim testli. İkinci kez çalışınca hiçbir şeyi değiştirmemeli.
+
+## 2. Hafıza motoru (B2)
+
+`Shared/Logic/Memory.swift`, saf fonksiyonlar, `nonisolated`.
+
+**Hatırlama ihtimali** (FSRS-4.5 unutma eğrisi):
+
+    R(t, S) = (1 + 19/81 · t / S) ^ (−0.5)      t: son cevaptan beri geçen gün
+
+- `t = S` iken `R = 0.9`.
+- `S == 0` (yeni kelime) → R tanımsız; arayüzde "Yeni" yazılır.
+
+**Cevap notu**: `AnswerGrade` = `again(1)`, `hard(2)`, `good(3)`, `easy(4)`. Kullanıcıya not
+**sorulmaz**; cevaptan çıkarılır:
+
+| Durum | Not |
+|---|---|
+| Yanlış cevap ve Devam / Bilemedim | `again` |
+| Cevaba baktı, sonra Bildim | `hard` |
+| Yazarak doğru, süre > 12 sn | `hard` |
+| Yazarak doğru, 4–12 sn | `good` |
+| Yazarak doğru, ≤ 4 sn | `easy` |
+| Yanlış çıktı ama Doğru Say | `good` |
+| Tanıma oyunlarında doğru (Çoktan Seçmeli, Eşleştir, Boşluğu Doldur) | `good` (asla `easy`) |
+
+**Oyun ağırlığı** (`GameMode.weight`): hatırlama oyunları (Günlük Tekrar, Hızlı Tur, Ters Yön) `1.0`,
+Harfleri Diz `0.8`, tanıma oyunları `0.6`.
+
+**Güncelleme** (`Memory.review(stability:difficulty:lastReviewedAt:grade:weight:now:)` → yeni S, D, sıradaki tekrar):
+
+- İlk cevap (`S == 0`): `S = [0.4, 1.2, 3.0, 8.0][grade−1] × weight` (en az 0.3),
+  `D = [7, 6, 5, 3.5][grade−1]`.
+- Doğru cevap (hard/good/easy):
+
+      R      = R(t, S)
+      büyüme = e^1.5 · (11 − D) · S^(−0.2) · (e^(1.2·(1−R)) − 1)
+      çarpan = hard 0.5 · good 1.0 · easy 1.5
+      S'     = S · (1 + büyüme · çarpan · weight)
+
+  Aynı gün içindeki tekrarda R ≈ 1 olduğu için büyüme çok küçük kalır. Gün içinde oynamak
+  zarar vermez ama asıl kazanç kelimeyi unutmaya yakınken hatırlamaktan gelir.
+- Yanlış cevap (again): `S' = max(0.3, S × (weight == 1 ? 0.35 : 0.5))`. Sıfırlanmaz.
+- Zorluk: again +1.0, hard +0.4, good −0.2, easy −0.6; sonra 5'e doğru %5 yaklaştır; 1…10 aralığında tut.
+- Sıradaki tekrar: `now + S'` gün (hedef hatırlama %90).
+
+**Türetilen kavramlar** (`Word` uzantısı):
+- `memory(at:)` → `Double?` (yeni ise `nil`)
+- `isWeak` → yeni **ya da** `R < 0.9`. Günlük Tekrar ve sekme rozeti bunu sayar.
+- `isLearned` → `stability ≥ 21` gün (eski `box ≥ maxBox` tanımının yerini alır).
+
+**Testler (zorunlu):** R(S,S)=0.9; yeni kelimenin ilk notları; doğru cevap S'yi büyütür, easy > good > hard;
+aynı gün tekrarı neredeyse hiç büyütmez; yanlış sıfırlamaz; tanıma oyunu hatırlamadan az büyütür;
+zorluk sınırlar içinde kalır.
+
+## 3. Seçim ve sıra (A1, B3'te motora bağlanır)
+
+`Shared/Logic/WordPicker.swift`, tohumlanabilir rastgele sayı üreteci alır (testte sabit sonuç).
+
+- **Ağırlık:** yeni kelime `1.0`, diğerleri `(1 − R) + 0.1`. A1'de R yerine geçici olarak
+  "gecikme": `min(1, gecikenGün / 7) + 0.1`.
+- Ağırlıklı, tekrarsız örnekleme.
+- **Aynı kelime art arda gelmez.** Yanlış bilinen kelime sıraya yeniden girerse arada en az 2 kelime olur
+  (turda yeterli kelime yoksa en sona).
+- **Yeni turun ilk kelimesi, önceki turun ilk kelimesi olamaz.** Önceki ilk kelimenin kimliği
+  `UserDefaults`'ta tutulur.
+- **Günlük Tekrar:** zayıf kelimeler, en fazla 20; bunların en fazla 5'i yeni.
+- **Hızlı Tur:** 5 kelime, bütün defterden ağırlıklı seçim.
+- **Diğer oyunlar:** oyunun kuralına göre (aşağıda), ağırlıklı seçim.
+
+## 4. Görünüm dili
+
+- **`MemoryRing`** (`BoxRing`'in yerini alır; iOS ve Mac ortak):
+  - Halka R oranında dolu.
+  - Renk: `≥ 0.85` yeşil, `0.60–0.85` turuncu, `< 0.60` kırmızı.
+  - Yeni kelimede kesik çizgili gri boş halka.
+  - Yanına metin: `%62` ya da `Yeni`. Metin opsiyonel parametre.
+- **"Kutu" kelimesi hiçbir ekranda kalmaz** (iOS, Mac, Paylaş eklentisi, İlerleme, Ayarlar).
+- **Renkler ve yazı:** sistem mavisi vurgu; İngilizce kelimeler New York serif; Liquid Glass düğmeler
+  (`.glass` / `.glassProminent`).
+- **Titreşim:** doğru `.success`, yanlış `.warning`, seçim `.selection`.
+- Kullanıcının istikrarlı istekleri: sonucu belli şeyi tekrar sorma, gereksiz seçenek ekleme, her düğmenin
+  ayrı bir işi olsun. CLAUDE.md'deki tuzaklar da geçerli (pasif form düğmesinin rengini elle soldur,
+  Mac'te form üstüne `.bar` şerit koyma, Mac'te `.tint`li `.glass` düğme dolu görünür).
+
+## 5. Ekranlar
+
+### 5.1 Çalış sekmesi: oyun merkezi (C1)
+
+- `NavigationStack`, büyük başlık "Çalış". Alt başlık: "Hafıza %78 · 7 kelime zayıfladı"
+  (ortalama R, yeni kelimeler hariç). Sağ üstte Ayarlar dişlisi kalır.
+- Zemin `systemGroupedBackground`, içerik `ScrollView`.
+- **Günlük Tekrar kartı** (tam genişlik, 26 pt köşe, `secondarySystemGroupedBackground`):
+  - Solda başlık "Günlük Tekrar" (`.title2.bold`), altında "7 kelime zayıfladı · yaklaşık 3 dk"
+    (kelime başına ~25 sn, yukarı yuvarlanır).
+  - Sağda defterin ortalama hafızasını gösteren büyük `MemoryRing` (56 pt, ortasında yüzde).
+  - Altta tam genişlik **Başla** (`.glassProminent`, large).
+  - Zayıf kelime yoksa: "Bütün kelimeler güçlü" ve düğme **Yine de Çalış** (en zayıf 10 kelime).
+- **"Oyunlar"** başlığı (`.title3.bold`), altında `LazyVGrid`, 2 sütun, 12 pt aralık.
+- **Oyun kartı:** 18 pt köşeli kutu; üstte 44 pt renkli kare içinde beyaz SF Symbol
+  (Ayarlar simgelerinin büyüğü); altında başlık (`.headline`) ve tek satırlık açıklama (`.footnote`, ikincil renk).
+  Oynanamıyorsa soluk görünür ve açıklama yerine nedeni yazılır ("En az 4 kelime gerekli").
+
+| Oyun | Simge | Renk | Açıklama | Koşul |
+|---|---|---|---|---|
+| Hızlı Tur | `bolt.fill` | turuncu | 5 kelime, 1 dakika | ≥ 1 kelime |
+| Çoktan Seçmeli | `checklist` | mavi | 4 seçenekten doğrusu | ≥ 4 kelime |
+| Eşleştir | `square.grid.2x2.fill` | yeşil | Kelimeleri anlamlarıyla eşle | ≥ 4 kelime |
+| Boşluğu Doldur | `text.cursor` | mor | Kitaptaki cümleyi tamamla | cümlesi olan ≥ 4 kelime |
+| Harfleri Diz | `textformat.abc` | pembe | Harflerden kelimeyi kur | ≤ 14 harfli ≥ 1 kelime |
+| Ters Yön | `arrow.left.arrow.right` | camgöbeği | Türkçeden İngilizceye | ≥ 1 kelime |
+
+- Henüz yapılmamış oyunun kartı gösterilmez; her C görevi kendi kartını ekler.
+- Defter boşsa ekranın tamamı mevcut "Defterin Boş" görünümü.
+- Her oyun `fullScreenCover` ile açılır: sol üstte kapat (✕, `role: .close`), üstte ince ilerleme çubuğu
+  ve "3/10". Oyun ortasında kapatılırsa o ana kadarki cevaplar kaydedilmiş kalır.
+- Sekme rozeti: zayıf kelime sayısı.
+
+### 5.2 Günlük Tekrar ve Hızlı Tur (C1)
+
+- Bugünkü Çalış kartı ve cevap çubuğu aynen kullanılır: Göster / ↑, sonuca göre Devam / Doğru Say /
+  Bilemedim–Bildim. `GradeOption` mantığı korunur. Kart başlığında "Kutu 2/5" yerine `MemoryRing` ve yüzde.
+- Cevap süresi, kartın gösterildiği andan cevabın açıldığı ana kadar ölçülür.
+- "Bugünlük Bu Kadar" ekranı kalkar; yerine tur özeti gelir.
+
+### 5.3 Tur özeti (C1, bütün oyunlarda ortak)
+
+- Başlık "Tur Bitti", altında "4/5 doğru · 42 sn".
+- Liste: her kelime için kelime, Türkçesi ve "%45 → %78" (önceki ve sonraki hafıza, küçük halkayla).
+  Yeni kelimede "Yeni → %71".
+- Altta **Bir Tur Daha** (`.glassProminent`) ve **Bitti** (`.glass`). Bitti oyun merkezine döner.
+
+### 5.4 Çoktan Seçmeli (C2)
+
+- 10 soru. Üstte İngilizce kelime (serif, büyük) ve 🔊; varsa cümlesi küçük italik.
+- Altta 4 tam genişlik cam düğme: Türkçe anlamlar, her kelimenin **ilk** anlamı.
+- Yanlış seçenekler defterdeki diğer kelimelerden gelir. Önce aynı kaynaktan olanlar tercih edilir.
+  Doğru cevapla aynı (katlanmış) anlam asla yanlış seçenek olmaz.
+- Doğru seçim: düğme yeşile döner, 0,8 sn sonra otomatik geçer.
+- Yanlış seçim: seçilen kırmızı, doğrusu yeşil olur ve altta **Devam** belirir. Otomatik geçmez; kullanıcı doğrusunu görür.
+
+### 5.5 Eşleştir (C3)
+
+- 5 kelime (defterde 4 varsa 4). İki sütun: solda İngilizce (serif), sağda karışık sırayla Türkçe ilk anlamlar.
+- Bir sol ve bir sağ kutuya dokunulur.
+  - Doğru çift: ikisi yeşil olup solar ve kaybolur (`.snappy`).
+  - Yanlış çift: iki kutu kısa sallanır, kırmızı yanıp söner. Hata sayılır, seçim sıfırlanır.
+- Üstte süre (mm:ss) ve hata sayısı. Hepsi eşleşince tur özeti.
+- Kayıt: eşleşmeden önce hiç yanlış çifte girmediyse `good`, girdiyse `again`.
+
+### 5.6 Boşluğu Doldur (C4)
+
+- Yalnızca cümlesinde kelimenin kendisi geçen kelimeler (büyük/küçük harf ve aksan farkı yok). 10 soru.
+- Cümle serif gösterilir, kelimenin yeri `_____` ile boş. Altında Türkçe ilk anlamı ipucu olarak (ikincil renk).
+- 4 İngilizce seçenek (cam düğme); yanlışlar diğer kelimelerden. Doğru/yanlış davranışı Çoktan Seçmeli ile aynı.
+  Doğru seçilince boşluk kelimeyle dolar (vurgu rengi, kalın).
+
+### 5.7 Harfleri Diz (C5)
+
+- ≤ 14 harfli kelimeler. 8 soru. Üstte Türkçe anlamlar, altında cevap yuvaları
+  (ifadelerde boşluk sabit bir aralık olarak görünür).
+- Altta karışık harf taşları (cam, yuvarlak köşe).
+  - Taşa dokununca ilk boş yuvaya gider; yuvadaki harfe dokununca taşa geri döner.
+  - Yuvalar dolunca otomatik kontrol edilir.
+  - Doğru: yeşil, 0,8 sn sonra geçer.
+  - Yanlış: yuvalar sallanır, harfler yerinde kalır, düzeltilebilir.
+- **Göster** düğmesi cevabı açar ve `again` sayılır. Hata sayısına göre not: 0 hata `good`, 1–2 hata `hard`, göster `again`.
+
+### 5.8 Ters Yön (C6)
+
+- Türkçe anlamlar büyük gösterilir; İngilizcesi yazılır. 10 soru.
+- Çalış'taki cevap çubuğu (Göster / ↑) ve `GradeOption` mantığı aynen kullanılır.
+- Kontrol: `AnswerChecker.fold` eşitliği ya da 5+ harfli kelimelerde en fazla 1 harf fark (yazım hatası).
+  Yazım hatasıyla doğruysa "Neredeyse: doğrusu *idempotent*" gösterilir ve `hard` sayılır.
+
+### 5.9 Hızlı Tur karışık (C7)
+
+Hızlı Tur'un 5 sorusu oynanabilir oyun türlerinden rastgele seçilir; art arda aynı tür en fazla iki kez gelir.
+
+### 5.10 Diğer ekranlar (B3, B4)
+
+- **Kelimelerim satırı:** sağda `MemoryRing` ve yüzde (ya da "Yeni").
+  - Süzgeç: Tümü / Zayıf / Güçlü / Yeni.
+  - Sıralama: Eklenme Tarihi / A–Z / Hafıza (en zayıf önce) / En Zor (zorluk).
+- **Ayrıntı sayfası:**
+  - "Hafıza" bölümü: büyük halka ve yüzde, "Sıradaki tekrar", "Görülme" (log sayısı),
+    "Doğru bilme" oranı, "Son görülme" (göreli), "Ortalama cevap süresi".
+  - "Geçmiş" bölümü: son 30 gösterim, her biri bir nokta (yeşil doğru, kırmızı yanlış),
+    soldan sağa eskiden yeniye; altında oyun adlarına göre sayılar ("Günlük Tekrar 8 · Eşleştir 3").
+- **İlerleme (Ayarlar):** kutu grafiği yerine hafıza dağılımı:
+  Yeni / %0–50 / %50–70 / %70–85 / %85–95 / %95+ ve "Ortalama hafıza %78".
+- **Ayarlar › Defterin:** "Öğrenilen" = `isLearned`.
+- **Mac:** Çalış kartında `MemoryRing` ve yüzde; Kelimelerim tablosunda "Kutu" sütunu yerine
+  sıralanabilir "Hafıza" sütunu; bitiş ekranı "Hepsi Güçlü" / "Yine de Çalış". Mac'teki çalışma da
+  `ReviewLog` yazar ve karışık sırayı kullanır.
+
+---
+
+## 6. Görevler
+
+`/loop` her turda işaretlenmemiş **ilk** görevi alır. Her görev bitince: kutuyu `[x]` yap,
+kısa bir satırla ne yapıldığını rapora ekle, commit + push.
+
+- [ ] **A1 · Karışık sıra.** `WordPicker` (§3, gecikme ağırlığıyla) ve `StudySession` onu kullanır.
+      Testler: tohumla belirli sonuç, art arda aynı kelime yok, ilk kelime öncekiyle farklı, yanlış kelime en az 2 kelime sonra.
+- [ ] **B1 · Kayıt modeli ve geçiş.** §1. Testler: geçiş değerleri, ikinci çalıştırmada değişiklik yok,
+      `ReviewLog` ilişkisi (kelime silinince logları da silinir).
+- [ ] **B2 · Hafıza motoru.** §2, bütün zorunlu testlerle.
+- [ ] **B3 · Motoru bağla.** Her cevap `AnswerGrade` çıkarır, motoru uygular, `ReviewLog` yazar
+      (`ReviewRecorder`, testli). `WordPicker` R ağırlığına geçer. `MemoryRing` her yerde, "Kutu" hiçbir yerde (§4, §5.10).
+      Rozet ve bildirim zayıf kelime sayısıyla. iOS ve Mac.
+- [ ] **B4 · Kelime istatistiği.** §5.10 ayrıntı sayfası ve Kelimelerim süzgeç/sıralama.
+- [ ] **C1 · Oyun merkezi, Günlük Tekrar, Hızlı Tur, tur özeti.** §5.1–5.3.
+- [ ] **C2 · Çoktan Seçmeli.** §5.4
+- [ ] **C3 · Eşleştir.** §5.5
+- [ ] **C4 · Boşluğu Doldur.** §5.6
+- [ ] **C5 · Harfleri Diz.** §5.7
+- [ ] **C6 · Ters Yön.** §5.8
+- [ ] **C7 · Hızlı Tur karışık.** §5.9
+- [ ] **Z · Rapor.** `docs/CALISMA-RAPORU.md` tamamlanır (§7).
+
+## 7. Her turda çalışma kuralları
+
+1. `CLAUDE.md`'yi, bu dosyayı ve `docs/CALISMA-RAPORU.md`'yi (varsa) oku.
+2. Görevi uygula. Paylaşılan mantık `Shared/Logic/` altında, `nonisolated`, birim testli.
+3. Derle: iOS **ve** Mac (`-scheme KelimeDefteriMac -destination 'platform=macOS'`). Paylaş eklentisi iOS şemasıyla derlenir.
+4. Testleri koş: `-parallel-testing-enabled NO`. Hepsi geçmeden commit etme.
+5. Simülatörde `-demo` ile aç (`PreviewData` gerekirse güncelle: yeni, zayıf, güçlü, cümlesi olan/olmayan
+   kelimeler olmalı). Görevin değiştirdiği her ekranın açık ve koyu mod görüntüsünü al
+   (`xcrun simctl io booted screenshot`), kendin incele, sorunları düzelt.
+   Kontrol: kesilen/taşan yazı, soluk görünmeyen pasif düğme, yanlış renk, "Kutu" kalıntısı.
+6. Ekran görüntülerini kullanıcıya gönder (SendUserFile, `proactive`, kısa Türkçe açıklama).
+7. `docs/CALISMA-RAPORU.md`'ye görev satırı ekle: ne yapıldı, verilen kararlar, bilinen eksikler.
+8. Listede işaretle, `main`'e commit et (Türkçe mesaj, sonuna `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`), push et.
+9. Tur sonunda `xcrun simctl shutdown all`.
+
+**Yasaklar:**
+- iPhone'a ve `/Applications`'a kurma.
+- Apple Developer hesabında değişiklik yapma (yeni hedef, kimlik, App Group vb.).
+- CloudKit alanını silme ya da yeniden adlandırma.
+- Kullanıcının gerçek verisine dokunma (Mac'teki uygulamayı açıp denemek dahil).
+
+**Takılırsan:** Çalışır durumda bırak, sorunu rapora yaz, kutuyu `[~]` yap ve sıradaki göreve geç.
+Bir görev bir sonrakinin ön koşuluysa (B1→B2→B3) ve bitmediyse döngüyü durdur ve raporda açıkla.
+
+**Döngü bitişi:** Bütün kutular `[x]` ya da `[~]` olunca Z'yi yap, özet mesaj gönder ve döngüyü durdur.

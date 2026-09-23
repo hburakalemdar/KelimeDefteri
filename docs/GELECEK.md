@@ -110,52 +110,7 @@ Her adım kendi başına kullanılabilir. 1. adım birkaç saatlik iş; 2. adım
 
 ---
 
-## Gece planı (1–3. adımlar)
+## Uygulama planı (1–3. adımlar)
 
-`/loop` her turda aşağıdaki listeden **işaretlenmemiş ilk görevi** alır, bitirir, işaretler.
-Görevler sırayla yapılır; her biri kendi başına derlenir, test edilir ve commit edilir.
-
-- [ ] **A1 · Karışık sıra.** Günlük turda kelimeler ağırlıklı karışık gelsin (zamanı daha çok geçmiş olan
-      öne çıkma ihtimali yüksek ama sabit değil). Aynı kelime art arda gelmesin. Yeni turun ilk kelimesi,
-      bir önceki turun ilk kelimesiyle aynı olmasın. `StudySession` testleri güncellensin.
-- [ ] **B1 · Kayıt modeli.** `ReviewLog` modeli (kelime, tarih, oyun türü, doğru mu, cevap süresi) ve
-      `Word`'e hafıza alanları (ör. stability, difficulty, lastReviewedAt). Hepsi varsayılan değerli ve
-      isteğe bağlı ilişkili (CloudKit kuralı). Var olan `box`/`dueDate`'ten başlangıç değerleri hesaplansın.
-      `PreviewData` yeni alanlarla güncellensin.
-- [ ] **B2 · Hafıza motoru.** FSRS'nin sade bir hali: hatırlama ihtimali (%0–100), cevaba göre güncelleme,
-      sıradaki tekrar zamanı. Yanlış cevap sıfırlamaz. Aynı gün içindeki tekrar daha az ağırlık taşır.
-      Saf mantık (`Shared/Logic/`), kapsamlı birim testli.
-- [ ] **B3 · Motoru bağla.** `StudySession` hafıza motorunu kullansın; her cevap bir `ReviewLog` yazsın.
-      "Bugünlük bu kadar" ekranı yerine her zaman oynanabilir tur (en zayıf kelimeler). "Kutu" dili
-      her yerden kalksın; yerine hafıza gücü gösterilsin (kart, Kelimelerim, ayrıntı, İlerleme grafiği,
-      Mac çalışma kartı ve tablosu). Hatırlatma bildirimi ve rozet sayısı yeni mantığa uysun.
-- [ ] **B4 · Kelime istatistiği.** Ayrıntı sayfasında: kaç kez görüldü, doğru oranı, son görülme,
-      ortalama cevap süresi, her gösterim bir nokta olan küçük zaman çizelgesi. Kelimelerim'e
-      "En zor kelimeler" sıralaması.
-- [ ] **C1 · Oyun merkezi.** Çalış sekmesi oyun seçme ekranına dönüşsün: üstte Günlük Tekrar (asıl oturum,
-      kaç kelimenin zayıfladığıyla), altında oyun kartları. İlk oyun **Hızlı Tur**: 5 kelime, zayıflardan
-      ağırlıklı rastgele seçim, sonunda kısa özet.
-- [ ] **C2 · Çoktan Seçmeli.** 4 Türkçe seçenek; yanlış seçenekler defterdeki diğer kelimelerden gelir.
-- [ ] **C3 · Eşleştir.** 5 İngilizce, 5 Türkçe kart; eşleştirme; süre ve hata sayısı.
-- [ ] **C4 · Boşluğu Doldur.** Kitaptaki cümlede kelimenin yeri boş; 4 seçenek. Cümlesi olmayan kelime bu oyuna girmez.
-- [ ] **C5 · Harfleri Diz.** Türkçesi verilir, karışık harf düğmelerinden İngilizcesi kurulur.
-- [ ] **C6 · Ters Yön.** Türkçesi sorulur, İngilizcesi yazılır (hoşgörülü kontrol).
-- [ ] **Z · Sabah raporu.** `docs/GECE-RAPORU.md`: ne yapıldı, ekran görüntülerinde ne görüldü,
-      nerede takılındı, sabah iPhone'a kurmadan önce bilinmesi gerekenler (veri dönüşümü).
-
-### Gece çalışma kuralları
-
-- Her turun başında `CLAUDE.md`'yi ve bu dosyayı oku. Kullanıcı yokken çalışıyorsun; soru sorma,
-  karar gerekiyorsa en sade ve Apple'a en yakın seçeneği seç ve sabah raporuna yaz.
-- Tasarım: tamamen iOS'a özgü (Liquid Glass, sistem parçaları, SF Symbols, sistem mavisi).
-  Gereksiz seçenek ekleme; sonucu belli şeyi kullanıcıya tekrar sorma. Her düğmenin ayrı bir işi olsun.
-- Her görevde: derle, testleri `-parallel-testing-enabled NO` ile koş, simülatörde `-demo` ile ilgili
-  ekranları aç, ekran görüntüsünü alıp kendin bak, hatayı düzelt. Mac hedefi her görevde derlenmeli ve
-  menü çubuğu penceresi bozulmamalı.
-- Görev bitince: listede işaretle, `main`'e commit et (sonuna Co-Authored-By satırı) ve GitHub'a push et.
-- **iPhone'a ve /Applications'a kurma.** Kullanıcının gerçek verisi var; sabah kendisi kuracak.
-- Apple Developer hesabında değişiklik yok (yeni hedef, kimlik, App Group yok). Widget ve bildirim işleri sonraya.
-- CloudKit şeması yalnızca ekleyerek değişir; alan silme ya da yeniden adlandırma yok.
-- Bir görevde takılırsan: yapabildiğin kadarını çalışır halde bırak, sorunu sabah raporuna yaz,
-  görevi `[~]` ile işaretle ve sıradakine geç.
-- Tur sonunda simülatörü kapat (`xcrun simctl shutdown all`). Tüm görevler bitince döngüyü durdur.
+Ayrıntılı spec, görev listesi ve `/loop` çalışma kuralları: [SPEC-OYUN.md](SPEC-OYUN.md).
+İlerleme: [CALISMA-RAPORU.md](CALISMA-RAPORU.md).
