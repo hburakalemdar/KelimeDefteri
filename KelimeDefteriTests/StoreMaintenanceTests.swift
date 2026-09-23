@@ -3,8 +3,19 @@ import SwiftData
 import Testing
 @testable import KelimeDefteri
 
-struct StoreMaintenanceTests {
+final class StoreMaintenanceTests {
     private let base = Date(timeIntervalSince1970: 1_790_000_000)
+    /// Sahipsiz kayıt notları gerçek ayarlara karışmasın diye her test kendi ayar alanını kullanır.
+    private let suiteName = "StoreMaintenanceTests-\(UUID().uuidString)"
+    private let defaults: UserDefaults
+
+    init() {
+        defaults = UserDefaults(suiteName: suiteName)!
+    }
+
+    deinit {
+        UserDefaults.standard.removePersistentDomain(forName: suiteName)
+    }
 
     /// Bellek içi depo iOS 27 simülatöründe kaydederken ara ara çöktüğü için geçici dosya kullanılır.
     private func makeContext() throws -> ModelContext {
@@ -38,7 +49,7 @@ struct StoreMaintenanceTests {
         for word in [newer, older, other] { context.insert(word) }
         try context.save()
 
-        let summary = StoreMaintenance.run(in: context)
+        let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base)
         #expect(summary == StoreMaintenance.Summary(mergedWords: 1, removedLogs: 0))
 
         let remaining = try words(context)
@@ -58,7 +69,7 @@ struct StoreMaintenanceTests {
         context.insert(older)
         context.insert(newer)
 
-        StoreMaintenance.run(in: context)
+        StoreMaintenance.run(in: context, defaults: defaults, now: base)
         let kept = try #require(try words(context).first)
         #expect(kept.example == "A stale cache.")
         #expect(kept.turkish == "eskimiş, bayat")
@@ -75,7 +86,7 @@ struct StoreMaintenanceTests {
         addLog(to: newer, correct: true, in: context)
         try context.save()
 
-        StoreMaintenance.run(in: context)
+        StoreMaintenance.run(in: context, defaults: defaults, now: base)
         let kept = try #require(try words(context).first)
         #expect(try words(context).count == 1)
         #expect(kept.logs?.count == 3)
@@ -99,7 +110,7 @@ struct StoreMaintenanceTests {
         context.insert(older)
         context.insert(newer)
 
-        StoreMaintenance.run(in: context)
+        StoreMaintenance.run(in: context, defaults: defaults, now: base)
         let kept = try #require(try words(context).first)
         #expect(kept.createdAt == base)
         #expect(kept.stability == 9)
@@ -118,7 +129,7 @@ struct StoreMaintenanceTests {
         context.insert(older)
         context.insert(newer)
 
-        StoreMaintenance.run(in: context)
+        StoreMaintenance.run(in: context, defaults: defaults, now: base)
         let kept = try #require(try words(context).first)
         #expect(kept.stability == 3)
         #expect(kept.lastReviewedAt == base)
@@ -134,7 +145,7 @@ struct StoreMaintenanceTests {
         context.insert(older)
         context.insert(newer)
 
-        StoreMaintenance.run(in: context)
+        StoreMaintenance.run(in: context, defaults: defaults, now: base)
         let kept = try #require(try words(context).first)
         #expect(kept.isNew)
         #expect(kept.difficulty == 5)
@@ -156,7 +167,7 @@ struct StoreMaintenanceTests {
         for word in [third, first, second] { context.insert(word) }
         addLog(to: third, correct: true, in: context)
 
-        let summary = StoreMaintenance.run(in: context)
+        let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base)
         #expect(summary.mergedWords == 2)
         let remaining = try words(context)
         #expect(remaining.count == 1)
@@ -179,7 +190,7 @@ struct StoreMaintenanceTests {
             if insertingReversed { pair.reverse() }
             for word in pair { context.insert(word) }
             try context.save()
-            StoreMaintenance.run(in: context)
+            StoreMaintenance.run(in: context, defaults: defaults, now: base)
             let kept = try #require(try words(context).first)
             return (kept.english, kept.turkish)
         }
@@ -197,28 +208,84 @@ struct StoreMaintenanceTests {
         context.insert(Word(english: "take into account", turkish: "hesaba katmak", createdAt: base))
         try context.save()
 
-        let summary = StoreMaintenance.run(in: context)
+        let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base)
         #expect(!summary.changed)
         #expect(try words(context).count == 2)
     }
 
-    @Test func orphanLogsAreDeleted() throws {
+    private func insertOrphan(in context: ModelContext) -> ReviewLog {
+        let orphan = ReviewLog(date: base, mode: "recall", correct: false, grade: 1, responseTime: 3)
+        context.insert(orphan)
+        return orphan
+    }
+
+    private func logCount(_ context: ModelContext) throws -> Int {
+        try context.fetchCount(FetchDescriptor<ReviewLog>())
+    }
+
+    @Test func orphanLogIsNotDeletedOnFirstSight() throws {
         let context = try makeContext()
         let word = Word(english: "quorum", turkish: "yeter sayı")
         context.insert(word)
         addLog(to: word, correct: true, in: context)
-        let orphan = ReviewLog(date: base, mode: "recall", correct: false, grade: 1, responseTime: 3)
-        context.insert(orphan)
+        _ = insertOrphan(in: context)
         try context.save()
 
-        let summary = StoreMaintenance.run(in: context)
+        let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base)
+        #expect(!summary.changed)
+        #expect(try logCount(context) == 2)
+        #expect(defaults.data(forKey: StoreMaintenance.orphanDefaultsKey) != nil)
+
+        // Bir saat dolmadan yine silinmez.
+        let early = StoreMaintenance.run(in: context, defaults: defaults, now: base.addingTimeInterval(59 * 60))
+        #expect(!early.changed)
+        #expect(try logCount(context) == 2)
+    }
+
+    @Test func orphanLogIsDeletedAfterAnHour() throws {
+        let context = try makeContext()
+        let word = Word(english: "quorum", turkish: "yeter sayı")
+        context.insert(word)
+        addLog(to: word, correct: true, in: context)
+        _ = insertOrphan(in: context)
+        try context.save()
+
+        StoreMaintenance.run(in: context, defaults: defaults, now: base)
+        // Arada yapılan çalışma ilk görülme zamanını ileri kaydırmaz.
+        StoreMaintenance.run(in: context, defaults: defaults, now: base.addingTimeInterval(30 * 60))
+        let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base.addingTimeInterval(60 * 60))
         #expect(summary == StoreMaintenance.Summary(mergedWords: 0, removedLogs: 1))
         let logs = try context.fetch(FetchDescriptor<ReviewLog>())
         #expect(logs.count == 1)
         #expect(logs.first?.word === word)
         #expect(!context.hasChanges)
+        #expect(defaults.data(forKey: StoreMaintenance.orphanDefaultsKey) == nil)
 
-        // İkinci çalıştırma bir şey değiştirmez.
-        #expect(!StoreMaintenance.run(in: context).changed)
+        // Sonraki çalıştırma bir şey değiştirmez.
+        #expect(!StoreMaintenance.run(in: context, defaults: defaults, now: base.addingTimeInterval(2 * 60 * 60)).changed)
+    }
+
+    @Test func orphanThatFindsItsWordIsKept() throws {
+        let context = try makeContext()
+        let orphan = insertOrphan(in: context)
+        try context.save()
+        StoreMaintenance.run(in: context, defaults: defaults, now: base)
+
+        // Kelimesi iCloud'dan sonradan geldi.
+        let word = Word(english: "quorum", turkish: "yeter sayı")
+        context.insert(word)
+        orphan.word = word
+        try context.save()
+        let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base.addingTimeInterval(2 * 60 * 60))
+        #expect(!summary.changed)
+        #expect(try logCount(context) == 1)
+        #expect(defaults.data(forKey: StoreMaintenance.orphanDefaultsKey) == nil)
+
+        // Yeniden sahipsiz kalırsa süre baştan sayılır.
+        orphan.word = nil
+        try context.save()
+        let later = base.addingTimeInterval(3 * 60 * 60)
+        #expect(!StoreMaintenance.run(in: context, defaults: defaults, now: later).changed)
+        #expect(StoreMaintenance.run(in: context, defaults: defaults, now: later.addingTimeInterval(60 * 60)).removedLogs == 1)
     }
 }
