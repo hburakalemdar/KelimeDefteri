@@ -22,6 +22,33 @@ struct MotivationTests {
         return (0..<count).map { start.addingTimeInterval(Double($0) * 60) }
     }
 
+    // MARK: - Kilit ekranı widget'ı
+
+    @Test func widgetShortText() {
+        #expect(DailyGoal.shortText(.init(answered: 12, target: 30, streak: 4)) == "12/30 · 4 gün seri")
+        #expect(DailyGoal.shortText(.init(answered: 0, target: 30, streak: 0)) == "0/30")
+    }
+
+    @Test func timelineIncludesMidnight() {
+        let midnight = calendar.date(from: DateComponents(year: 2026, month: 9, day: 24))!
+        // 22:00'den yarım saat arayla 12 an: 00:00 zaten adımlardan biri, tekrar eklenmez.
+        let start = calendar.date(from: DateComponents(year: 2026, month: 9, day: 23, hour: 22))!
+        let dates = DailyGoal.timelineDates(from: start, step: 1800, count: 12, calendar: calendar)
+        #expect(dates.count == 12)
+        #expect(dates.contains(midnight))
+
+        // 21:45'ten başlayınca gece yarısı adımlara denk gelmez, ayrıca eklenir.
+        let offset = start.addingTimeInterval(-15 * 60)
+        let shifted = DailyGoal.timelineDates(from: offset, step: 1800, count: 12, calendar: calendar)
+        #expect(shifted.count == 13)
+        #expect(shifted.contains(midnight))
+        #expect(shifted.first == offset)
+        #expect(shifted == shifted.sorted())
+
+        // Öğleden sonra başlayan 6 saatlik çizelgede gece yarısı yok.
+        #expect(DailyGoal.timelineDates(from: now, step: 1800, count: 12, calendar: calendar).count == 12)
+    }
+
     // MARK: - Günlük hedef
 
     @Test func todayCountUsesLocalDay() {

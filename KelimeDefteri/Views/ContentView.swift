@@ -80,10 +80,27 @@ struct ContentView: View {
     }
 
     /// Çalış sekmesine geçip Hızlı Tur'u açar; defter boşsa yalnızca Çalış sekmesi görünür.
+    /// Hızlı Tur zaten açıksa olduğu gibi kalır. Başka bir ekran (oyun, Ayarlar, düzenleme) açıksa
+    /// SwiftUI üstüne ikinci tam ekranı açamaz; önce o kapatılır (cevaplar zaten anında kaydedilir).
     private func openQuickRound() {
         selection = .study
         guard !words.isEmpty, !showQuickRound else { return }
-        showQuickRound = true
+        guard let root = Self.rootController, root.presentedViewController != nil else {
+            showQuickRound = true
+            return
+        }
+        Task {
+            await root.dismiss(animated: true)
+            showQuickRound = true
+        }
+    }
+
+    /// Ön plandaki pencerenin kök denetleyicisi (açık ekranları kapatmak için).
+    private static var rootController: UIViewController? {
+        let windows = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+        return (windows.first(where: \.isKeyWindow) ?? windows.first)?.rootViewController
     }
 }
 

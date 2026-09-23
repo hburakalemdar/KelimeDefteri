@@ -22,7 +22,7 @@ nonisolated enum DailyGoal {
     }
 
     /// Halkanın o anki durumu.
-    struct Progress: Equatable {
+    struct Progress: Equatable, Sendable {
         /// Bugün verilen cevap sayısı.
         let answered: Int
         let target: Int
@@ -81,5 +81,25 @@ nonisolated enum DailyGoal {
     /// "5 günlük seri"; seri yoksa `nil`.
     static func streakText(_ streak: Int) -> String? {
         streak > 0 ? "\(streak) günlük seri" : nil
+    }
+
+    /// Kilit ekranı için kısa satır: "12/30 · 4 gün seri"; seri yoksa yalnızca "12/30".
+    static func shortText(_ progress: Progress) -> String {
+        let count = "\(progress.answered)/\(progress.target)"
+        return progress.streak > 0 ? "\(count) · \(progress.streak) gün seri" : count
+    }
+
+    /// Widget zaman çizelgesinin anları: `now`'dan başlayıp `step` arayla `count` an, araya düşen
+    /// gece yarıları da eklenir (halka yeni günde sıfırdan başlasın).
+    static func timelineDates(from now: Date, step: TimeInterval, count: Int, calendar: Calendar = .current) -> [Date] {
+        guard count > 0 else { return [] }
+        var dates = (0..<count).map { now.addingTimeInterval(Double($0) * step) }
+        let end = dates[dates.count - 1]
+        var day = calendar.startOfDay(for: now)
+        while let next = calendar.date(byAdding: .day, value: 1, to: day), next <= end {
+            dates.append(next)
+            day = next
+        }
+        return Array(Set(dates)).sorted()
     }
 }
