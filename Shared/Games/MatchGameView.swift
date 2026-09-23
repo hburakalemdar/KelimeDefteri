@@ -72,13 +72,11 @@ struct MatchGameView: View {
                     statusRow(board)
                     HStack(alignment: .top, spacing: 12) {
                         VStack(spacing: tileSpacing) {
-                            columnHeader("İngilizce")
                             ForEach(board.left.filter { !gone.contains($0) }, id: \.self) { id in
                                 tile(id: id, isLeft: true, board: board)
                             }
                         }
                         VStack(spacing: tileSpacing) {
-                            columnHeader("Türkçe")
                             ForEach(board.right.filter { !gone.contains($0) }, id: \.self) { id in
                                 tile(id: id, isLeft: false, board: board)
                             }
@@ -89,15 +87,6 @@ struct MatchGameView: View {
                 .gamePagePadding()
             }
         }
-    }
-
-    /// Sütunun dilini söyleyen başlık (liste bölüm başlığı gibi); kartlar arasında sıra zorunlu değil.
-    private func columnHeader(_ title: LocalizedStringKey) -> some View {
-        Text(title)
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 4)
     }
 
     /// Süre (mm:ss) ve hata sayısı.
@@ -146,11 +135,19 @@ struct MatchGameView: View {
                 .foregroundStyle(isRight || isWrong ? Color.white : .primary)
                 .frame(maxWidth: .infinity, minHeight: tileHeight)
                 .padding(.horizontal, 10)
-                .background(background(selected: isSelected || isTargeted, wrong: isWrong, right: isRight),
+                .background(background(isLeft: isLeft, selected: isSelected || isTargeted, wrong: isWrong, right: isRight),
                             in: .rect(cornerRadius: radius, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: radius, style: .continuous)
                         .strokeBorder(Color.accentColor, lineWidth: (isSelected || isTargeted) && !isWrong ? 2 : 0)
+                }
+                // Türkçe kartlar dolu değil, ince çerçeveli: iki sütun renk kullanmadan ayrışır
+                // (renkler seçim, doğru ve yanlış için ayrılmış).
+                .overlay {
+                    if !isLeft && !isSelected && !isTargeted && !isWrong && !isRight {
+                        RoundedRectangle(cornerRadius: radius, style: .continuous)
+                            .strokeBorder(.tertiary, lineWidth: 1)
+                    }
                 }
                 .contentShape(.rect(cornerRadius: radius, style: .continuous))
         }
@@ -190,11 +187,11 @@ struct MatchGameView: View {
         #endif
     }
 
-    private func background(selected: Bool, wrong: Bool, right: Bool) -> AnyShapeStyle {
+    private func background(isLeft: Bool, selected: Bool, wrong: Bool, right: Bool) -> AnyShapeStyle {
         if right { return AnyShapeStyle(Color.green) }
         if wrong { return AnyShapeStyle(Color.red) }
         if selected { return AnyShapeStyle(Color.accentColor.opacity(0.15)) }
-        return AnyShapeStyle(GameStyle.cardFill)
+        return isLeft ? AnyShapeStyle(GameStyle.cardFill) : AnyShapeStyle(Color.clear)
     }
 
     // MARK: - Akış
