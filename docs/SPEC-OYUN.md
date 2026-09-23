@@ -279,7 +279,7 @@ kısa bir satırla ne yapıldığını rapora ekle, commit + push.
 - [x] **B4 · Kelime istatistiği.** §5.10 ayrıntı sayfası ve Kelimelerim süzgeç/sıralama.
 - [x] **C1 · Oyun merkezi, Günlük Tekrar, Hızlı Tur, tur özeti.** §5.1–5.3.
 - [x] **C2 · Çoktan Seçmeli.** §5.4
-- [ ] **C3 · Eşleştir.** §5.5
+- [x] **C3 · Eşleştir.** §5.5
 - [ ] **C4 · Boşluğu Doldur.** §5.6
 - [ ] **C5 · Harfleri Diz.** §5.7
 - [ ] **C6 · Ters Yön.** §5.8

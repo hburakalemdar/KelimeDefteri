@@ -266,15 +266,19 @@ struct RecallGameView: View {
 struct GameProgressHeader: View {
     let done: Int
     let total: Int
+    /// Eşleştir gibi soru sırası olmayan oyunlarda yalnızca çubuk gösterilir.
+    var showsCount = true
 
     var body: some View {
         HStack(spacing: 10) {
             ProgressView(value: Double(done), total: Double(max(total, 1)))
                 .frame(width: 150)
-            Text("\(min(done + 1, total))/\(total)")
-                .font(.subheadline.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
+            if showsCount {
+                Text("\(min(done + 1, total))/\(total)")
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(total) kelimeden \(min(done + 1, total)). kelime")

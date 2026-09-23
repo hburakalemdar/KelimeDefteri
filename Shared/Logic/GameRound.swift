@@ -29,14 +29,22 @@ final class GameRound {
     func random<T>(_ body: (inout SeededGenerator) -> T) -> T { body(&generator) }
 
     /// `pool` içinden ağırlıklı `count` kelime seçer; önceki turun ilk kelimesiyle başlamaz.
-    func start(with pool: [Word], count: Int, now: Date = .now) {
+    /// `distinctBy` verilirse aynı anahtarı taşıyan ikinci kelime alınmaz (ör. Eşleştir'de aynı anlam).
+    func start(with pool: [Word], count: Int, distinctBy key: ((Word) -> String)? = nil, now: Date = .now) {
         let candidates = pool.indices.map { index in
             let memory = pool[index].memory(at: now)
             return WordPicker.Candidate(id: index, weight: WordPicker.weight(memory: memory), isNew: memory == nil)
         }
         let previous = defaults.string(forKey: StudySession.lastFirstWordKey)
         let avoided = previous.flatMap { key in pool.firstIndex { AnswerChecker.fold($0.english) == key } }
-        words = WordPicker.order(candidates, limit: count, avoidingFirst: avoided, using: &generator).map { pool[$0] }
+        let ordered = WordPicker.order(candidates, limit: key == nil ? count : nil, avoidingFirst: avoided, using: &generator)
+            .map { pool[$0] }
+        if let key {
+            var seen: Set<String> = []
+            words = Array(ordered.filter { seen.insert(key($0)).inserted }.prefix(count))
+        } else {
+            words = ordered
+        }
         if let first = words.first {
             defaults.set(AnswerChecker.fold(first.english), forKey: StudySession.lastFirstWordKey)
         }
@@ -48,12 +56,18 @@ final class GameRound {
     }
 
     /// Şu anki kelimenin cevabını kaydeder. Aynı kelime turda ikinci kez cevaplanırsa özet ilk cevabı tutar.
-    func record(_ word: Word, grade: AnswerGrade, now: Date = .now) {
+    /// `timed` false ise (ör. Eşleştir) cevap süresi kaydedilmez.
+    func record(_ word: Word, grade: AnswerGrade, timed: Bool = true, now: Date = .now) {
         if !entries.contains(where: { $0.word === word }) {
             entries.append(StudySession.RoundEntry(word: word, memoryBefore: word.memory(at: now), firstCorrect: grade.isCorrect))
         }
-        ReviewRecorder.record(word, grade: grade, mode: mode, responseTime: now.timeIntervalSince(shownAt), now: now)
+        ReviewRecorder.record(word, grade: grade, mode: mode, responseTime: timed ? now.timeIntervalSince(shownAt) : 0, now: now)
         finishedAt = now
+    }
+
+    /// Soru sırası olmayan oyunlarda (Eşleştir) turu bitirir.
+    func finish() {
+        index = words.count
     }
 
     func advance(now: Date = .now) {

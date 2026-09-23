@@ -145,3 +145,18 @@
 - Aynı katlanmış anlamı taşıyan iki kelime varsa seçeneklerde yalnızca biri çıkar; farklı seçenek yetmezse 4'ten az seçenek gösterilir
   (en az 4 kelime koşulu olduğundan pratikte nadir).
 - Düğme yüksekliği ilk denemede fazla geldi; dikey boşluk azaltıldı.
+
+### C3 · Eşleştir (23 Eylül 2026)
+- `MatchGameView`: 5 çift (defterde 4 kelime varsa 4), solda serif İngilizce, sağda karışık ilk anlamlar. Üstte süre (m:ss) ve
+  hata sayısı, ince ilerleme çubuğu. Seçili kutu vurgu rengi çerçeveli; doğru çift yeşil olup `.snappy` ile kaybolur; yanlış
+  çift sallanır, kırmızı yanıp söner, hata sayılır, seçim sıfırlanır. Hepsi eşleşince tur özeti.
+- `MatchBoard` (saf, testli): karışık sağ sütun, eşleştirme, hata ve yanlış çifte giren kelimeler; not `good`/`again`.
+- `GameRound`: `distinctBy` (aynı anlamlı iki kelime aynı tahtaya düşmez), `timed: false`, `finish()`.
+- Testler: `MatchBoardTests` (2). 91 testin hepsi geçti. iPhone ve Mac'e kuruldu.
+
+**Verilen kararlar**
+- Eşleşen kutular yerinde görünmez olur; diğer kutular kaymaz, kullanıcı yerini kaybetmez.
+- Yanlış çiftte **iki** kelime de "yanlış çifte girdi" sayılır (soldaki kelime ve sağdaki anlamın sahibi).
+- Eşleştir'de cevap süresi kaydedilmez (ortalama cevap süresine katılmaz); tur süresi özette görünür.
+- Sağ sütun hiçbir zaman sol sütunla aynı sırada gelmez.
+- Başlıkta "3/10" sayısı yok (soru sırası olmayan oyun); yalnızca çubuk ve altında süre/hata.

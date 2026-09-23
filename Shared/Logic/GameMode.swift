@@ -46,7 +46,7 @@ nonisolated enum GameMode: String, CaseIterable, Sendable {
 
 extension GameMode {
     /// Oyun merkezinde kartı gösterilen oyunlar, sırasıyla. Her oyun yapıldıkça buraya eklenir.
-    static let hubGames: [GameMode] = [.quickRound, .multipleChoice]
+    static let hubGames: [GameMode] = [.quickRound, .multipleChoice, .match]
 
     /// Kartın altındaki tek satırlık açıklama.
     var cardDetail: String {
