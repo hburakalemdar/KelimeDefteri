@@ -114,3 +114,18 @@ Her adım kendi başına kullanılabilir. 1. adım birkaç saatlik iş; 2. adım
 
 Ayrıntılı spec, görev listesi ve `/loop` çalışma kuralları: [SPEC-OYUN.md](SPEC-OYUN.md).
 İlerleme: [CALISMA-RAPORU.md](CALISMA-RAPORU.md).
+
+## İleride: tekrar modları (not alındı 23 Eylül 2026)
+
+Durum: 1–6. adımlar tamamlandı. "Yeni Eklenenler" modu eklendi; aşağıdakiler kullanıcı isteğiyle sonraya kaldı.
+
+- **Kitaba göre tekrar:** Belirli bir kitaptan eklenen kelimeleri çalışmak (ör. kitaba geri dönmeden önce).
+  Engel: "Kaynak kitap" alanı kaldırıldı (bkz. CALISMA-RAPORU "Kaynak kitap kaldırıldı"); `Word.source` modelde duruyor
+  ama boş. Yapılacaksa önce kitabın zahmetsiz kaydedilmesi çözülmeli (ör. Paylaş'ta gelen Apple Books alıntısındaki
+  "Alıntı Kaynağı" satırından kitap adını otomatik almak), elle yazdırmak yok. Tekrar hafızaya yazmamalı ya da yalnızca
+  vadesi gelenleri öne almalı (erken tekrar takvimi bozar).
+- **Kendini Sına:** Defterden rastgele ~20 kelime, ipucu yok, sonunda "%78'ini biliyorsun"; zaman içindeki oran "Bu
+  Hafta"da. Hafızaya yazmaz, yalnızca ölçer (WaniKani Extra Study / Bunpro Cram gibi SRS'e dokunmayan modlar).
+  Değerlendirme: oyunlar zaten hatırlama alıştırması; asıl katkısı ilerlemeyi görmek.
+- Elenenler ve gerekçe: "Zorlandıkların" ("Yine de Çalış" bunu yapıyor), "Yakında unutulacaklar / erken tekrar"
+  (takvimi bozar), "Sınav öncesi yoğun tekrar" (yığarak çalışma kalıcı değil).
