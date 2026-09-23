@@ -144,8 +144,14 @@ private struct WordRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(word.english)
-                    .font(.system(.body, design: .serif, weight: .semibold))
+                HStack(spacing: 5) {
+                    Text(word.english)
+                        .font(.system(.body, design: .serif, weight: .semibold))
+                    if word.isLearned {
+                        LearnedBadge()
+                            .font(.footnote)
+                    }
+                }
                 Text(word.turkish)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

@@ -71,6 +71,23 @@ enum PreviewData {
                 log.word = word
             }
         }
+
+        // Günlük hedef ve haftalık özet için: son 4 gün hedef (30) kapandı, bugün 18 cevap.
+        // "stale" ve "idempotent" en çok yanlış bilinenler olsun.
+        let studied = samples.map(\.0).filter { !$0.isNew }
+        for (offset, answers) in [(-4, 34), (-3, 31), (-2, 40), (-1, 30), (0, 18)] {
+            let start = day(offset).addingTimeInterval(9 * 3600)
+            for index in 0..<answers {
+                let word = studied[index % studied.count]
+                let round = index / studied.count
+                let date = min(start.addingTimeInterval(Double(index) * 90), offset == 0 ? now : .distantFuture)
+                let correct = !((word.english == "stale" && round % 3 == 0) || (word.english == "idempotent" && round % 2 == 0) || index % 11 == 0)
+                let log = ReviewLog(date: date, mode: GameMode.quickRound.rawValue, correct: correct,
+                                    grade: correct ? 3 : 1, responseTime: 4)
+                container.mainContext.insert(log)
+                log.word = word
+            }
+        }
         return container
     }()
 }

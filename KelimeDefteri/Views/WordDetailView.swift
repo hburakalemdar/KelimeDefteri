@@ -90,8 +90,11 @@ extension WordDetailView {
             HStack(spacing: 16) {
                 MemoryRing(memory: memory, size: 56, text: .center)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(memoryTitle(memory))
-                        .font(.headline)
+                    HStack(spacing: 5) {
+                        Text(memoryTitle(memory))
+                        if word.isLearned { LearnedBadge() }
+                    }
+                    .font(.headline)
                     Text(memoryDetail(memory))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

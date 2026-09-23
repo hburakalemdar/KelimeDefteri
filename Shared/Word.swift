@@ -83,7 +83,7 @@ extension Word {
 
     /// Üç haftadan uzun süre akılda kalan kelime öğrenilmiş sayılır; yanlış bilinip henüz doğru
     /// bilinmemiş kelime (zayıf) öğrenilmiş sayılmaz.
-    var isLearned: Bool { stability >= 21 && !isLapsed }
+    var isLearned: Bool { stability >= Memory.learnedStability && !isLapsed }
 }
 
 // MARK: - Sayılar

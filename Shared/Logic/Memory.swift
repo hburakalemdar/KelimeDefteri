@@ -16,6 +16,8 @@ nonisolated enum Memory {
     static let targetRetention = 0.9
     static let minimumStability = 0.3
     static let difficultyRange = 1.0...10.0
+    /// "Öğrenildi" sınırı (gün): dayanıklılığı üç haftayı geçen kelime uzun süre akılda kalır.
+    static let learnedStability = 21.0
 
     private static let firstStability = [0.4, 1.2, 3.0, 8.0]
     private static let firstDifficulty = [7.0, 6.0, 5.0, 3.5]

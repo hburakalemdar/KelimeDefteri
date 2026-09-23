@@ -20,6 +20,11 @@ struct StudyView: View {
     }
 
     @Query(sort: \Word.dueDate) private var words: [Word]
+    @Query private var logs: [ReviewLog]
+    @AppStorage(DailyGoal.key, store: DailyGoal.defaults) private var goalTarget = DailyGoal.defaultTarget
+    /// Son turdan önce hedef tamamlanmış mıydı; tur hedefi kapatınca hafif bir titreşim verilir.
+    @State private var goalWasComplete = false
+    @State private var celebration = 0
     @State private var showSettings = false
     @State private var activeGame: Game?
     /// Hafıza zamanla azaldığı için sayılar her dakika tazelenir.
@@ -38,9 +43,11 @@ struct StudyView: View {
                 .sheet(isPresented: $showSettings) {
                     NavigationStack { SettingsView() }
                 }
-                .fullScreenCover(item: $activeGame, onDismiss: { now = .now }) { game in
+                .fullScreenCover(item: $activeGame, onDismiss: gameDismissed) { game in
                     gameView(game)
                 }
+                .sensoryFeedback(.success, trigger: celebration)
+                .onAppear { goalWasComplete = goalProgress.isComplete }
         }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { now = $0 }
     }
@@ -53,6 +60,7 @@ struct StudyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 28) {
                     dailyCard
+                    goalCard
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Oyunlar")
                             .font(.title3.bold())
@@ -154,6 +162,56 @@ struct StudyView: View {
         return text
     }
 
+    // MARK: - Günlük hedef
+
+    /// Yalnızca kelimesi olan cevaplar sayılır (haftalık özetle aynı kural).
+    private var goalProgress: DailyGoal.Progress {
+        DailyGoal.progress(dates: logs.filter { $0.word != nil }.map(\.date), target: goalTarget, now: now)
+    }
+
+    private func gameDismissed() {
+        now = .now
+        let complete = goalProgress.isComplete
+        if complete && !goalWasComplete { celebration += 1 }
+        goalWasComplete = complete
+    }
+
+    private var goalCard: some View {
+        let progress = goalProgress
+        return NavigationLink {
+            WeeklySummaryView()
+        } label: {
+            HStack(spacing: 16) {
+                GoalRing(progress: progress, size: 56)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Günlük Hedef")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(DailyGoal.text(progress))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    if let streak = DailyGoal.streakText(progress.streak) {
+                        Label(streak, systemImage: "flame.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .labelStyle(StreakLabelStyle())
+                    }
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.forward")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
+            .contentShape(.rect(cornerRadius: 26, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Haftalık özeti açar")
+    }
+
     // MARK: - Boş defter
 
     private var emptyDeck: some View {
@@ -165,6 +223,16 @@ struct StudyView: View {
             Button("Kelime Ekle", action: onAddTapped)
                 .buttonStyle(.glassProminent)
                 .controlSize(.large)
+        }
+    }
+}
+
+/// Seri satırı: alev simgesi turuncu, yazı çevresinin renginde.
+private struct StreakLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon.foregroundStyle(.orange)
+            configuration.title
         }
     }
 }

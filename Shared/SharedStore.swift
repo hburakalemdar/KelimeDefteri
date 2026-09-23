@@ -10,7 +10,7 @@ import SwiftUI
 /// eklenti kısa ömürlü olduğundan sadece yerel depoya yazar, uygulama o değişikliği
 /// kalıcı geçmişten görüp iCloud'a gönderir.
 enum SharedStore {
-    static let appGroupID = "group.com.burakalemdar.KelimeDefteri"
+    nonisolated static let appGroupID = "group.com.burakalemdar.KelimeDefteri"
     static let cloudKitContainerID = "iCloud.com.burakalemdar.KelimeDefteri"
 
     static var isExtension: Bool { Bundle.main.bundlePath.hasSuffix(".appex") }
