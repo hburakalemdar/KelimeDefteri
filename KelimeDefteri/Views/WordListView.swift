@@ -15,13 +15,13 @@ struct WordListView: View {
             }
         }
 
-        /// Zayıf, Güçlü ve Yeni birbirini dışlar: yeni kelimenin hafızası henüz yok.
+        /// Zayıf, Güçlü ve Yeni birbirini dışlar; tanım defter özetiyle ortak (`DeckSummary.group`).
         func includes(_ word: Word, now: Date) -> Bool {
             switch self {
             case .all: true
-            case .weak: !word.isNew && word.isWeak(at: now)
-            case .strong: !word.isNew && !word.isWeak(at: now)
-            case .new: word.isNew
+            case .weak: DeckSummary.group(of: word, now: now) == .weak
+            case .strong: DeckSummary.group(of: word, now: now) == .strong
+            case .new: DeckSummary.group(of: word, now: now) == .new
             }
         }
     }
@@ -50,10 +50,11 @@ struct WordListView: View {
     private var rows: [Word] {
         let query = AnswerChecker.fold(searchText)
         let now = Date.now
+        // Arama bütün defterde yapılır; süzgeç (arama açıkken düğmesi de gizli) arama bitince geri gelir.
         let matching = words.filter { word in
-            filter.includes(word, now: now) && (query.isEmpty
-                || AnswerChecker.fold(word.english).contains(query)
-                || AnswerChecker.fold(word.turkish).contains(query))
+            query.isEmpty
+                ? filter.includes(word, now: now)
+                : AnswerChecker.fold(word.english).contains(query) || AnswerChecker.fold(word.turkish).contains(query)
         }
         return switch sort {
         case .newest: matching

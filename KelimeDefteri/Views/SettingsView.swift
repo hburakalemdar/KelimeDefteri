@@ -45,9 +45,7 @@ struct SettingsView: View {
             } header: {
                 Text("Hatırlatma")
             } footer: {
-                Text(permissionDenied
-                     ? "Bildirim izni kapalı. Hatırlatma için iPhone ayarlarından Kelime Defteri'ne bildirim izni ver."
-                     : "Zayıflayan kelime olan günlerde, seçtiğin saatte kaç kelimenin tekrar beklediğini söyleyen bir bildirim gelir. Uygulama simgesinde de zayıf kelime sayısı görünür.")
+                Text(reminderFooter)
             }
 
             Section {
@@ -119,6 +117,16 @@ struct SettingsView: View {
         let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
         let build = info?["CFBundleVersion"] as? String ?? "1"
         return "\(short) (\(build))"
+    }
+
+    private var reminderFooter: String {
+        if permissionDenied {
+            return "Bildirim izni kapalı. Hatırlatma için iPhone ayarlarından Kelime Defteri'ne bildirim izni ver."
+        }
+        if reminderEnabled {
+            return "Zayıflayan kelime olan günlerde, seçtiğin saatte kaç kelimenin tekrar beklediğini söyleyen bir bildirim gelir. Uygulama simgesinde de Günlük Tekrar'da bekleyen kelime sayısı görünür."
+        }
+        return "Açarsan zayıflayan kelime olan günlerde, seçeceğin saatte bir bildirim gelir ve uygulama simgesinde Günlük Tekrar'da bekleyen kelime sayısı görünür."
     }
 
     private var accuracy: Double? {

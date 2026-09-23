@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Kelimenin hafıza gücünü (hatırlama ihtimalini) halka olarak gösterir.
 ///
-/// Halka hafıza oranında dolar; %85 ve üstü yeşil, %60–85 turuncu, altı kırmızı.
+/// Halka hafıza oranında dolar; %90 ve üstü yeşil, %60–90 turuncu (zayıf), altı kırmızı.
 /// Yeni kelimede kesik çizgili gri boş halka. İstenirse yanında ya da ortasında "%62" / "Yeni" yazar.
 struct MemoryRing: View {
     enum TextPlacement {
@@ -84,13 +84,24 @@ extension Word {
     var memorySortValue: Double { memory() ?? -1 }
 }
 
-/// Defterin tek satırlık özeti: "48 kelime · 12 zayıf · 9 öğrenildi".
+/// Defterin tek satırlık özeti, Kelimelerim süzgeçleriyle birebir: "9 kelime · 2 zayıf · 4 güçlü · 3 yeni".
 enum DeckSummary {
+    enum Group { case weak, strong, new }
+
+    /// Zayıf, Güçlü ve Yeni birbirini dışlar: yeni kelimenin hafızası henüz yok, zayıf da güçlü de sayılmaz.
+    static func group(of word: Word, now: Date = .now) -> Group {
+        if word.isNew { return .new }
+        return word.isWeak(at: now) ? .weak : .strong
+    }
+
+    /// Sıfır olan parça yazılmaz.
     static func text(for words: [Word], now: Date = .now) -> String {
-        // Kelimelerim'deki Zayıf süzgeci gibi: yeni kelimenin hafızası olmadığı için zayıf sayılmaz.
-        let weak = words.count { !$0.isNew && $0.isWeak(at: now) }
-        let learned = words.count(where: \.isLearned)
-        return "\(words.count) kelime · \(weak) zayıf · \(learned) öğrenildi"
+        let groups = words.map { group(of: $0, now: now) }
+        let parts = [(Group.weak, "zayıf"), (.strong, "güçlü"), (.new, "yeni")].compactMap { group, name in
+            let count = groups.count { $0 == group }
+            return count > 0 ? "\(count) \(name)" : nil
+        }
+        return (["\(words.count) kelime"] + parts).joined(separator: " · ")
     }
 }
 

@@ -2,12 +2,12 @@ import Foundation
 
 /// Hafıza yüzdesinin gösterimi ve defter geneli dağılımı.
 nonisolated enum MemoryStats {
-    /// Halka rengi için üç düzey.
+    /// Halka rengi için üç düzey. Yeşil sınırı "zayıf" sınırıyla aynı (%90): zayıflayan kelime yeşil görünmez.
     enum Level: Equatable {
         case strong, fading, weak
 
         init(_ memory: Double) {
-            self = memory >= 0.85 ? .strong : memory >= 0.60 ? .fading : .weak
+            self = memory >= Memory.targetRetention ? .strong : memory >= 0.60 ? .fading : .weak
         }
     }
 
@@ -23,7 +23,7 @@ nonisolated enum MemoryStats {
 
     /// İlerleme ekranındaki dağılım dilimleri.
     enum Bucket: Int, CaseIterable, Identifiable {
-        case new, below50, below70, below85, below95, top
+        case new, below50, below70, below90, below95, top
 
         var id: Int { rawValue }
 
@@ -32,8 +32,8 @@ nonisolated enum MemoryStats {
             case .new: "Yeni"
             case .below50: "%0–50"
             case .below70: "%50–70"
-            case .below85: "%70–85"
-            case .below95: "%85–95"
+            case .below90: "%70–90"
+            case .below95: "%90–95"
             case .top: "%95+"
             }
         }
@@ -44,8 +44,8 @@ nonisolated enum MemoryStats {
             case .new: nil
             case .below50: 0.35
             case .below70: 0.6
-            case .below85: 0.78
-            case .below95: 0.9
+            case .below90: 0.8
+            case .below95: 0.92
             case .top: 0.98
             }
         }
@@ -55,7 +55,7 @@ nonisolated enum MemoryStats {
             self = switch memory {
             case ..<0.5: .below50
             case ..<0.7: .below70
-            case ..<0.85: .below85
+            case ..<Memory.targetRetention: .below90
             case ..<0.95: .below95
             default: .top
             }
