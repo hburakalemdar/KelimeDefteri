@@ -32,9 +32,34 @@ extension MemoryMigration {
     @MainActor
     static func migrateIfNeeded(context: ModelContext) {
         let descriptor = FetchDescriptor<Word>(predicate: #Predicate { $0.stability == 0 && $0.reviewCount > 0 })
-        guard let words = try? context.fetch(descriptor), !words.isEmpty else { return }
+        let words = (try? context.fetch(descriptor)) ?? []
         for word in words { migrate(word) }
-        context.saveLogging()
+        let filled = fillLearnedDates(context: context)
+        if !words.isEmpty || filled > 0 { context.saveLogging() }
+    }
+
+    /// `learnedAt` alanından önce öğrenilmiş sayılan kelimelere ilk değer olarak son tekrar tarihini
+    /// (yoksa eklenme tarihini) yazar; öğrenilmiş olmayan kelimede kalmış tarihi siler. Sonuç yalnızca
+    /// kelimenin kendi alanlarından çıkar: iki cihaz aynı değeri yazar, ikinci çalıştırma bir şey değiştirmez.
+    /// Kaydetmez; değişen kelime sayısını döner.
+    @MainActor @discardableResult
+    static func fillLearnedDates(context: ModelContext) -> Int {
+        let learned = Memory.learnedStability
+        let descriptor = FetchDescriptor<Word>(predicate: #Predicate {
+            ($0.learnedAt == nil && $0.stability >= learned) || ($0.learnedAt != nil && $0.stability < learned)
+        })
+        guard let words = try? context.fetch(descriptor) else { return 0 }
+        var changed = 0
+        for word in words {
+            if word.isLearned, word.learnedAt == nil {
+                word.learnedAt = word.lastReviewedAt ?? word.createdAt
+                changed += 1
+            } else if !word.isLearned, word.learnedAt != nil {
+                word.learnedAt = nil
+                changed += 1
+            }
+        }
+        return changed
     }
 
     /// Kelime eski biçimdeyse hafıza değerlerini kutusundan çıkarır. Cevap kaydedilmeden önce de

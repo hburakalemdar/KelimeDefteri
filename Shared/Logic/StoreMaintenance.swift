@@ -125,6 +125,7 @@ nonisolated enum StoreMaintenance {
             keeper.difficulty = latest.difficulty
             keeper.dueDate = latest.dueDate
             keeper.lastReviewedAt = latest.lastReviewedAt
+            keeper.learnedAt = latest.learnedAt
         }
 
         for other in others {

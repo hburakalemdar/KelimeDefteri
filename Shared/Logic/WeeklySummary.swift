@@ -5,6 +5,9 @@ import Foundation
 ///
 /// "Güçlendi": son 7 günde en az bir kez doğru bilinen ve o haftaki son cevabı doğru olan kelime.
 /// Doğru cevap hafıza dayanıklılığını artırır; son cevabı yanlış olan kelime zayıf kaldığı için sayılmaz.
+///
+/// "Öğrenilen": şu an öğrenilmiş sayılan kelimeler (`Word.isLearned`); bu hafta öğrenilenler, öğrenilme
+/// tarihi (`Word.learnedAt`) son 7 günde olanlar.
 nonisolated struct WeeklySummary<ID: Hashable> {
     struct Answer {
         let word: ID
@@ -26,6 +29,10 @@ nonisolated struct WeeklySummary<ID: Hashable> {
     let answerCount: Int
     let correctCount: Int
     let strengthenedCount: Int
+    /// Şu an öğrenilmiş kelime sayısı.
+    let learnedCount: Int
+    /// Bunlardan son 7 günde öğrenilenler.
+    let learnedThisWeek: Int
     /// En çok yanlış bilinen kelimeler (en fazla 5); hiç yanlışı olmayan kelime girmez.
     let hardest: [HardWord]
     /// Eskiden yeniye 7 gün: gün başı ve o günkü cevap sayısı.
@@ -34,13 +41,16 @@ nonisolated struct WeeklySummary<ID: Hashable> {
     /// Doğru bilme oranı; hiç cevap yoksa `nil`.
     var accuracy: Double? { answerCount > 0 ? Double(correctCount) / Double(answerCount) : nil }
 
-    init(answers: [Answer], now: Date = .now, calendar: Calendar = .current) {
+    /// `learnedDates`: öğrenilmiş her kelime için bir öğe, öğrenildiği tarih (bilinmiyorsa `nil`).
+    init(answers: [Answer], learnedDates: [Date?] = [], now: Date = .now, calendar: Calendar = .current) {
         let today = calendar.startOfDay(for: now)
         let start = calendar.date(byAdding: .day, value: -(Self.dayCount - 1), to: today) ?? today
         let end = calendar.date(byAdding: .day, value: 1, to: today) ?? now
         let week = answers.filter { $0.date >= start && $0.date < end }.sorted { $0.date < $1.date }
 
         self.start = start
+        learnedCount = learnedDates.count
+        learnedThisWeek = learnedDates.count { $0.map { $0 >= start && $0 < end } ?? false }
         answerCount = week.count
         correctCount = week.count { $0.correct }
 

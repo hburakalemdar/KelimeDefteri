@@ -8,6 +8,7 @@ struct WeeklySummaryView: View {
     var onClose: () -> Void = {}
 
     @Query private var logs: [ReviewLog]
+    @Query private var words: [Word]
     @AppStorage(DailyGoal.key, store: DailyGoal.defaults) private var target = DailyGoal.defaultTarget
 
     var body: some View {
@@ -15,6 +16,7 @@ struct WeeklySummaryView: View {
         let answered = logs.filter { $0.word != nil }
         let summary = WeeklySummary(
             answers: answered.map { .init(word: $0.word!.persistentModelID, date: $0.date, correct: $0.correct) },
+            learnedDates: words.filter(\.isLearned).map(\.learnedAt),
             now: now
         )
         let streak = DailyGoal.streak(dates: answered.map(\.date), target: target, now: now)
@@ -63,10 +65,11 @@ struct WeeklySummaryView: View {
             }
             LabeledContent("Güçlenen kelime", value: "\(summary.strengthenedCount)")
             LabeledContent("Seri", value: streak > 0 ? "\(streak) gün" : "Yok")
+            LabeledContent("Öğrendiğin kelime", value: learnedText(summary))
         } header: {
             Text("Son 7 Gün")
         } footer: {
-            Text("Güçlenen kelime: bu hafta doğru bildiğin ve son cevabı doğru olan kelime. Seri, halkayı üst üste kapattığın gün sayısı.")
+            Text("Güçlenen kelime: bu hafta doğru bildiğin ve son cevabı doğru olan kelime. Seri, halkayı üst üste kapattığın gün sayısı. Öğrendiğin kelime: üç haftadan uzun süre akılda kalan kelime.")
         }
 
         if !summary.hardest.isEmpty {
@@ -84,6 +87,13 @@ struct WeeklySummaryView: View {
                 }
             }
         }
+    }
+
+    /// "42", bu hafta öğrenilen varsa "42 (bu hafta +4)".
+    private func learnedText(_ summary: WeeklySummary<PersistentIdentifier>) -> String {
+        summary.learnedThisWeek > 0
+            ? "\(summary.learnedCount) (bu hafta +\(summary.learnedThisWeek))"
+            : "\(summary.learnedCount)"
     }
 
     private func hardRow(word: Word, hard: WeeklySummary<PersistentIdentifier>.HardWord) -> some View {
