@@ -12,11 +12,12 @@ kelimenin hafıza durumu **ReviewLog'lardan gün gün (04:00 sınırı) yeniden 
 Word alanları önbellektir. Ayrıntı ve gerekçeler SPEC'te.
 
 ## Onaylar (tekrar sorma)
-- Parça bitip testler geçince **sormadan** cihazlara kur, commit et, push et.
+- Testler geçince **sormadan** commit et, push et. Cihazlara kurulum yalnızca **A, B, C üçü de bitince**, iPhone ve Mac
+  birlikte (ara parçalarda kurma; ara sürüm eski/yeni karışımı yaratır).
 - Mac ve iPhone **aynı anda** güncellenmeli (eski+yeni sürüm birlikte çalışırsa önbellek farklı yazılır — SPEC §6).
 - CloudKit şemasını üretime aktarma (ayrı onay). Apple hesabında yeni kayıt gerekmez.
 
-## Kullanıcı kararları (SPEC §9'da da var)
+## Kullanıcı kararları (özet; numaralar ve tam metin için SPEC §9 esastır)
 1. Aynı gün 1 doğru + 1 yanlış = "bilemedin" (1/3 eşiği).
 2. Widget/bildirim sorusu: önce vadesi gelmiş ve yeni olmayan kelimeler, yoksa ağırlıklı rastgele (yeniler hariç); widget boş kalmaz.
 3. Tur özetinde ✓/✗ = bu turdaki ilk cevap; "sonraki tekrar" metni günün sonucunu yansıtır; yüzde yok, "önce → sonra" vade.
@@ -45,4 +46,14 @@ Word alanları önbellektir. Ayrıntı ve gerekçeler SPEC'te.
 - Önceki SPEC sürümleri git geçmişinde (v7–v12 commit'leri).
 
 ## Son durum
-- SPEC v12 yazıldı; son denetim sonucu: (aşağıya eklenecek)
+- SPEC v12 son denetimi: **Kodlamaya hazır**, Yüksek yok (`docs/motor/7-son-denetim-v12.md`). Kalan Orta/Düşük
+  maddeler SPEC'e işlenmedi; ilgili parçanın ajanına bunları da ver:
+  - (C) Tekrar turu notu için tur başlangıcı: `startedAt` duraklatmada kayıyor (StudySession:284, GameRound:99) →
+    StudySession'ın `roundBeganAt`'ını (:79, private) aç, GameRound'a kaymayan başlangıç alanı ekle.
+  - (C) Mac'te otomatik yeniden başlatma iki yerde: `continueDailyIfWeakRemain` VE `MacStudyView.refresh()` →
+    `startDailyIfNeeded()` (:86-105); ikisi de kalkmalı ki özet ekranı kaybolmasın ("tur başlamadı" durumu gerekebilir).
+  - (A) "Neredeyse"de yazılan cevap gösterilsin: RecallGameView:230 şu an yalnız `.incorrect`'te gösteriyor.
+  - (A) Soru kartında yüzde gösterilmez (§4.3): RecallGameView:145 `MemoryRing(..., text: .trailing)`.
+  - Mac tur özetini C kurar (§4.1'deki "A" ifadesi yanlış; A'nın MacStudyView'da işi yok).
+  - §2.5 ilk gün: yanlışta lapsedAt = bugün, vade = Yarın 04:00; doğruda vade = çıpa + S (§7.1 ile aynı).
+  - (B) Hızlı Tur süre metni GameMode.swift:55'te; `GameDeck(count:withSentence:shortWords:)` elle yazılmış init.
