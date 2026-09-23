@@ -325,8 +325,9 @@ struct WordFormView: View {
         }
 
         if onFinish == nil && editingWord == nil && !addedToday.isEmpty {
-            Section("Bugün Eklenenler") {
-                ForEach(addedToday.prefix(5)) { word in
+            // Kelimelerim gibi her kelime ayrı kart: her biri kendi bölümünde, başlık yalnızca ilkinde.
+            ForEach(Array(addedToday.prefix(5).enumerated()), id: \.element.id) { index, word in
+                Section {
                     // Form düğme yazısını vurgu rengine boyuyor; Kelimelerim satırı gibi görünsün diye sabit renkler.
                     Button { editingToday = word } label: {
                         VStack(alignment: .leading, spacing: 2) {
@@ -347,7 +348,10 @@ struct WordFormView: View {
                                 .labelStyle(.iconOnly)
                         }
                     }
+                } header: {
+                    if index == 0 { Text("Bugün Eklenenler") }
                 }
+                .listSectionSpacing(8)
             }
         }
     }
