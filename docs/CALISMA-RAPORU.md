@@ -402,3 +402,12 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
 - "Panodaki Kelimeyi Ekle" App Intent'i: uygulamayı açıp Ekle sekmesini panodaki metinle doldurur; Kısayollar / Eylem
   düğmesi / Arkaya Vurma ile kullanılır.
 - 198 testin hepsi geçti.
+
+### Aynı gün koruması ve zorlandıkların (23 Eylül 2026)
+- Bir kelimenin hafızası (S, D, vade) aynı takvim gününde yalnızca ilk cevapla değişir; sonraki cevaplar geçmişe ve
+  sayaçlara yazılır. Aynı gün sonraki yanlış yalnızca vadeyi geri çeker (kelime tekrar listesine girer), S/D'ye dokunmaz.
+  Bütün oyunlar, Mac, widget ve bildirim cevapları `ReviewRecorder` üzerinden kapsanır.
+- "Yine de Çalış" önce son 14 günde zorlandıklarını getirir (≥2 cevap ve ≥%40 yanlış ya da son cevabı yanlış), kalan yer
+  hafızası en düşüklerle dolar (toplam 10).
+- Düzenle formunda "Kelimeyi Sil" (iPhone). Ekle › Bugün Eklenenler'den kaydırarak silme kaldırıldı.
+- 205 testin hepsi geçti.
