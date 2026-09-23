@@ -138,11 +138,6 @@ struct RecallQuestionView: View {
     private func card(for word: Word) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 6) {
-                if !word.source.isEmpty {
-                    Image(systemName: "book.closed")
-                    Text(word.source)
-                        .lineLimit(1)
-                }
                 Spacer(minLength: 12)
                 MemoryRing(memory: word.memory(), size: 12, text: .trailing)
             }

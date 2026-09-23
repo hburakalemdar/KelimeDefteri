@@ -41,22 +41,11 @@ struct WordDetailView: View {
 
             if !word.example.isEmpty {
                 Section("Kitaptaki Cümle") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(AttributedString(quoting: word.example, highlighting: word.english))
-                            .font(.system(.body, design: .serif).italic())
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                        if !word.source.isEmpty {
-                            Label(word.source, systemImage: "book.closed")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
-            } else if !word.source.isEmpty {
-                Section("Kaynak") {
-                    Label(word.source, systemImage: "book.closed")
+                    Text(AttributedString(quoting: word.example, highlighting: word.english))
+                        .font(.system(.body, design: .serif).italic())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .padding(.vertical, 2)
                 }
             }
 

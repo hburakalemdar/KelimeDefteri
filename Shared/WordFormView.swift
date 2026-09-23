@@ -23,13 +23,11 @@ struct WordFormView: View {
     @Environment(\.openURL) private var openURL
     #endif
     @Query private var allWords: [Word]
-    @AppStorage("lastSource", store: SharedStore.defaults) private var lastSource = ""
 
     @State private var english = ""
     @State private var turkish = ""
     @State private var definition = ""
     @State private var example = ""
-    @State private var source = ""
     /// Türkçe alanı doluyken gelen çeviri önerisi; "Kullan" ile alana yazılır.
     @State private var suggestion: String?
     /// Türkçe alanı çeviriyle dolduruldu; kullanıcıya kontrol etmesi hatırlatılır.
@@ -67,7 +65,7 @@ struct WordFormView: View {
     private var hasChanges: Bool {
         guard let word = editingWord, didLoad else { return false }
         return english != word.english || turkish != word.turkish || definition != word.definition
-            || example != word.example || source != word.source
+            || example != word.example
     }
 
     /// Yazılan kelime defterde zaten varsa o kayıt (düzenlenen kelimenin kendisi hariç).
@@ -88,7 +86,6 @@ struct WordFormView: View {
 
     private var cleanDefinition: String { definition.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var cleanExample: String { example.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var cleanSource: String { source.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     /// Cümle yapıştırıldıysa kelimelerini seçilebilir düğmeler olarak göster (sırasıyla, tekrarlar dahil).
     private var sentenceWords: [String] {
@@ -153,9 +150,6 @@ struct WordFormView: View {
                         #else
                         Text("İki ya da daha fazla kelimelik ifade için ilk ve son kelimesine dokun.")
                         #endif
-                        if !source.isEmpty && onFinish != nil {
-                            Label(source, systemImage: "book.closed")
-                        }
                     }
                     #if os(macOS)
                     .font(.caption)
@@ -323,12 +317,6 @@ struct WordFormView: View {
                 .lineLimit(1...3)
             TextField("Kitaptaki cümle", text: $example, axis: .vertical)
                 .lineLimit(1...5)
-            HStack {
-                TextField("Kaynak kitap", text: $source)
-                if !recentSources.isEmpty {
-                    sourceMenu
-                }
-            }
         }
 
         if onFinish == nil && editingWord == nil && !addedToday.isEmpty {
@@ -431,12 +419,6 @@ struct WordFormView: View {
                 .lineLimit(1...3)
             TextField("Cümle", text: $example, prompt: Text("Kelimeyi gördüğün cümle"), axis: .vertical)
                 .lineLimit(1...4)
-            HStack(spacing: 4) {
-                TextField("Kaynak", text: $source, prompt: Text("Kitap adı"))
-                if !recentSources.isEmpty {
-                    sourceMenu
-                }
-            }
         }
     }
 
@@ -472,32 +454,6 @@ struct WordFormView: View {
     }
     #endif
 
-    /// En son kullanılan kitaplar, yeniden yazmamak için.
-    private var recentSources: [String] {
-        var seen = Set<String>()
-        return allWords
-            .sorted { $0.createdAt > $1.createdAt }
-            .map(\.source)
-            .filter { !$0.isEmpty && seen.insert($0).inserted }
-            .prefix(8)
-            .map { $0 }
-    }
-
-    private var sourceMenu: some View {
-        Menu {
-            ForEach(recentSources, id: \.self) { title in
-                Button(title) { source = title }
-            }
-        } label: {
-            Image(systemName: "chevron.up.chevron.down")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 28, height: 28)
-                .contentShape(.rect)
-        }
-        .menuIndicator(.hidden)
-        .accessibilityLabel("Önceki kitaplar")
-    }
 
     private var suggestionRow: some View {
         HStack {
@@ -627,7 +583,7 @@ struct WordFormView: View {
     }
 
     private func canAbsorb(into word: Word) -> Bool {
-        word.wouldAbsorb(turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample, source: cleanSource)
+        word.wouldAbsorb(turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample)
     }
 
     #if os(iOS)
@@ -682,11 +638,9 @@ struct WordFormView: View {
             turkish = word.turkish
             definition = word.definition
             example = word.example
-            source = word.source
         } else {
             english = draft.english
             example = draft.example
-            source = draft.source ?? lastSource
             if !english.isEmpty && existingMatch == nil {
                 // Paylaşılan kelime geldi; sıra Türkçesinde. Zaten defterdeyse klavye "Zaten defterinde"
                 // uyarısını örtmesin diye odak verilmez.
@@ -716,18 +670,14 @@ struct WordFormView: View {
             word.turkish = trimmedTurkish
             word.definition = cleanDefinition
             word.example = cleanExample
-            word.source = cleanSource
             try? context.save()
             dismiss()
         } else {
-            // Ekle formunun varsayılan kitabı yalnızca yeni kelimeyle değişir; eski kaydı düzenlemek değiştirmez.
-            lastSource = cleanSource
             context.insert(Word(
                 english: trimmedEnglish,
                 turkish: trimmedTurkish,
                 definition: cleanDefinition,
-                example: cleanExample,
-                source: cleanSource
+                example: cleanExample
             ))
             finishAdding(message: "“\(trimmedEnglish)” eklendi")
         }
@@ -735,11 +685,7 @@ struct WordFormView: View {
 
     /// Aynı kelime yeniden eklenirken yeni bilgileri mevcut kayda katar.
     private func absorb(into word: Word) {
-        lastSource = cleanSource
-        word.absorb(
-            turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample,
-            source: cleanSource
-        )
+        word.absorb(turkish: trimmedTurkish, definition: cleanDefinition, example: cleanExample)
         finishAdding(message: "“\(word.english)” güncellendi")
     }
 

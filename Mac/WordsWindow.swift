@@ -26,9 +26,6 @@ struct WordsWindow: View {
                     .font(.system(.body, design: .serif).weight(.semibold))
             }
             TableColumn("Türkçe", value: \.turkish)
-            TableColumn("Kaynak", value: \.source) { word in
-                Text(word.source).foregroundStyle(.secondary)
-            }
             TableColumn("Hafıza", value: \.memorySortValue) { word in
                 MemoryRing(memory: word.memory(), size: 14, text: .trailing)
                     .foregroundStyle(.secondary)

@@ -2,7 +2,7 @@ import Testing
 @testable import KelimeDefteri
 
 struct SharedTextParserTests {
-    @Test func appleBooksExcerptGivesSentenceAndBookTitle() {
+    @Test func appleBooksExcerptKeepsOnlyTheSentence() {
         let shared = """
         “A follower replica may return stale data.”
 
@@ -13,7 +13,6 @@ struct SharedTextParserTests {
         """
         let draft = SharedTextParser.draft(from: shared)
         #expect(draft.example == "A follower replica may return stale data.")
-        #expect(draft.source == "Designing Data-Intensive Applications")
         #expect(draft.english.isEmpty)
     }
 
@@ -21,18 +20,16 @@ struct SharedTextParserTests {
         let draft = SharedTextParser.draft(from: "  “Idempotent” ")
         #expect(draft.english == "idempotent")
         #expect(draft.example.isEmpty)
-        #expect(draft.source == nil)
     }
 
     @Test func plainSentenceWithoutSource() {
         let draft = SharedTextParser.draft(from: "Retries are safe only\nif the operation is idempotent.")
         #expect(draft.example == "Retries are safe only if the operation is idempotent.")
-        #expect(draft.source == nil)
     }
 
-    @Test func sourceOnSameLineAsMarker() {
+    @Test func markerOnSameLineIsDropped() {
         let draft = SharedTextParser.draft(from: "\"Throughput matters.\"\n\nAlıntı: Sistem Tasarımı")
-        #expect(draft.source == "Sistem Tasarımı")
+        #expect(draft.example == "Throughput matters.")
     }
 
     @Test func wordsAreUniqueOrderedAndKeepContractions() {

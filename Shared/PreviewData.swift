@@ -13,7 +13,6 @@ enum PreviewData {
             for: SharedStore.schema,
             configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none)
         )
-        let ddia = "Designing Data-Intensive Applications"
         let now = Date.now
         let today = Calendar.current.startOfDay(for: now)
         func day(_ offset: Int) -> Date { Calendar.current.date(byAdding: .day, value: offset, to: today)! }
@@ -22,30 +21,30 @@ enum PreviewData {
         let samples: [(Word, Int, Date, Date, Int, Int)] = [
             (Word(english: "idempotent", turkish: "tekrarlanabilir, etkisi değişmeyen",
                   definition: "gives the same result no matter how many times it is applied",
-                  example: "Retries are safe only if the operation is idempotent.", source: ddia),
+                  example: "Retries are safe only if the operation is idempotent."),
              1, day(-1), day(-6), 4, 2),
             (Word(english: "throughput", turkish: "iş hacmi, verim",
-                  example: "Batching requests increased throughput but also latency.", source: ddia),
+                  example: "Batching requests increased throughput but also latency."),
              0, .distantPast, now, 0, 0),
             (Word(english: "stale", turkish: "eskimiş, güncel olmayan",
                   definition: "no longer fresh or up to date",
-                  example: "A follower replica may return stale data.", source: ddia),
+                  example: "A follower replica may return stale data."),
              2, day(-20), day(-30), 5, 4),
             (Word(english: "quorum", turkish: "yeter sayı, çoğunluk",
-                  example: "Writes must be acknowledged by a quorum of nodes.", source: ddia),
+                  example: "Writes must be acknowledged by a quorum of nodes."),
              3, day(4), day(-20), 6, 5),
             (Word(english: "coalesce", turkish: "birleştirmek, kaynaştırmak",
-                  example: "The scheduler coalesces adjacent timers to save power.", source: "The Linux Programming Interface"),
+                  example: "The scheduler coalesces adjacent timers to save power."),
              5, day(30), day(-60), 9, 8),
             (Word(english: "backpressure", turkish: "geri basınç, akış kısıtlama",
-                  example: "Without backpressure, a fast producer overwhelms the consumer.", source: "Reactive Design Patterns"),
+                  example: "Without backpressure, a fast producer overwhelms the consumer."),
              1, day(1), day(-2), 1, 1),
             (Word(english: "tombstone", turkish: "silinme işareti",
                   definition: "a marker indicating that a record was deleted",
-                  example: "Deletions are recorded as tombstones until compaction.", source: ddia),
+                  example: "Deletions are recorded as tombstones until compaction."),
              4, day(12), day(-30), 7, 6),
             (Word(english: "linearizable", turkish: "doğrusallaştırılabilir",
-                  example: "A linearizable register behaves as if there were a single copy.", source: ddia),
+                  example: "A linearizable register behaves as if there were a single copy."),
              0, .distantPast, now.addingTimeInterval(-600), 0, 0),
         ]
         for (word, box, due, created, reviews, correct) in samples {

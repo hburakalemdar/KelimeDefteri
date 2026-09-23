@@ -17,7 +17,6 @@ nonisolated enum SharedTextParser {
     struct Draft: Equatable {
         var english = ""
         var example = ""
-        var source: String?
     }
 
     /// Bu kadar kelimeye kadar, cümle gibi bitmeyen seçim ifade sayılır ("on the other hand").
@@ -25,25 +24,17 @@ nonisolated enum SharedTextParser {
     /// Cümledeki düğmelerle seçilebilecek en uzun ifade.
     static let maxSelectionLength = 6
 
+    /// Apple Kitaplar'ın alıntının altına eklediği kaynak satırı; o satırdan sonrası cümleye girmez.
     private static let sourceMarkers = ["Excerpt From", "Alıntı Kaynağı", "Alıntı:"]
     private static let quoteCharacters = CharacterSet(charactersIn: "“”\"'‘’«»")
 
     static func draft(from sharedText: String) -> Draft {
         let lines = sharedText.components(separatedBy: .newlines)
         var quoteLines = lines
-        var source: String?
-
         if let markerIndex = lines.firstIndex(where: { line in
             sourceMarkers.contains { line.trimmingCharacters(in: .whitespaces).hasPrefix($0) }
         }) {
             quoteLines = Array(lines[..<markerIndex])
-            let markerLine = lines[markerIndex].trimmingCharacters(in: .whitespaces)
-            let sameLine = sourceMarkers
-                .first { markerLine.hasPrefix($0) }
-                .map { markerLine.dropFirst($0.count).trimmingCharacters(in: .whitespaces) } ?? ""
-            source = sameLine.isEmpty
-                ? lines[(markerIndex + 1)...].map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
-                : sameLine
         }
 
         let text = quoteLines
@@ -55,9 +46,9 @@ nonisolated enum SharedTextParser {
         let tokens = tokens(in: text)
         let looksLikeSentence = text.rangeOfCharacter(from: CharacterSet(charactersIn: ".!?;:,")) != nil
         if tokens.count == 1 || (tokens.count <= maxPhraseLength && !looksLikeSentence) {
-            return Draft(english: tokens.joined(separator: " ").lowercased(), example: "", source: source)
+            return Draft(english: tokens.joined(separator: " ").lowercased(), example: "")
         }
-        return Draft(english: "", example: text, source: source)
+        return Draft(english: "", example: text)
     }
 
     /// Cümledeki kelimeler sırasıyla, tekrarlar dahil ("don't", "read-only" tek kelime sayılır).

@@ -32,9 +32,9 @@ struct ReviewFixesTests {
     @Test func wordSharingAnyMeaningIsNeverAWrongOption() {
         for seed in 0..<40 as Range<UInt64> {
             var generator = SeededGenerator(seed: seed)
-            let others = [C(turkish: "eskimiş", source: ""), C(turkish: "verim", source: ""),
-                          C(turkish: "yeter sayı", source: ""), C(turkish: "silinme", source: "")]
-            let result = ChoiceQuiz.options(answer: C(turkish: "bayat, eskimiş", source: ""), others: others, using: &generator)
+            let others = [C(turkish: "eskimiş"), C(turkish: "verim"),
+                          C(turkish: "yeter sayı"), C(turkish: "silinme")]
+            let result = ChoiceQuiz.options(answer: C(turkish: "bayat, eskimiş"), others: others, using: &generator)
             #expect(result.options[result.correctIndex] == "bayat")
             #expect(!result.options.contains("eskimiş"))
             #expect(result.options.count == 4)

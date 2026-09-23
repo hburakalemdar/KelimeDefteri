@@ -7,7 +7,7 @@ iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
 ## Özellikler
 
 - **Kelime ekle:** İngilizce kelime, Türkçe karşılıkları (virgülle ayrılmış), isteğe bağlı
-  İngilizce tanım, kitaptaki cümle ve kaynak kitap.
+  İngilizce tanım ve kitaptaki cümle.
   - *Türkçesini bul:* Apple'ın cihaz üstü çeviri motoruyla (Translation framework) öneri.
   - *Sözlük:* iOS'un yerleşik sözlüğünde İngilizce tanıma bakma.
 - **Çalış (oyun merkezi):** Üstte **Günlük Tekrar** (zayıflayan kelimeler, en fazla 20, en fazla 5 yeni),
@@ -23,8 +23,8 @@ iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
 - **İlerleme:** Ayarlar › İlerleme'de hafıza dağılımı (Yeni / %0–50 … %95+) ve ortalama hafıza.
 - **Hoşgörülü kontrol:** Büyük/küçük harf, Türkçe karakter (ş/s, ı/i…) ve noktalama fark etmez.
 - **Paylaş menüsünden ekleme:** Books, Safari ya da PDF okuyucuda metni seç › Paylaş › Kelime Defteri.
-  Cümle paylaşıldıysa kelimeleri düğme olarak gelir, bilinmeyene dokunulur; Apple Books'ta kitap adı
-  kaynak olarak otomatik dolar.
+  Cümle paylaşıldıysa kelimeleri düğme olarak gelir, bilinmeyene dokunulur; Apple Books'un eklediği
+  alıntı satırı cümleye girmez.
 - **iCloud eşitleme:** Kelimeler iCloud'da yedeklenir; iPhone ve Mac'te aynı defter.
 - **Mac: menü çubuğu uygulaması.** Dock'ta görünmez; menü çubuğundaki kitap simgesi zayıf kelime
   sayısını gösterir. Tıklayınca Çalış / Ekle penceresi açılır (klavyeyle: Return kontrol, ← Bilemedim,

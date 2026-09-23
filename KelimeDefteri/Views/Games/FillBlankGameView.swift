@@ -73,8 +73,8 @@ struct FillBlankGameView: View {
         round.start(with: playable, count: Self.questionCount)
         questions = round.words.compactMap { word in
             guard let cloze = ClozeSentence(sentence: word.example, word: word.english) else { return nil }
-            let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(text: $0.english, source: $0.source) }
-            let answer = ChoiceQuiz.Candidate(text: word.english, source: word.source)
+            let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(text: $0.english) }
+            let answer = ChoiceQuiz.Candidate(text: word.english)
             let result = round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
             return Question(word: word, cloze: cloze, options: result.options, correctIndex: result.correctIndex)
         }
@@ -118,12 +118,6 @@ struct ClozeCard: View {
             Label(ChoiceQuiz.firstMeaning(word.turkish), systemImage: "lightbulb")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            if !word.source.isEmpty {
-                Label(word.source, systemImage: "book.closed")
-                    .font(.footnote)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)

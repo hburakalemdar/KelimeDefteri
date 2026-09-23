@@ -132,11 +132,11 @@ struct QuickMixGameView: View {
     private func makeQuestion(_ word: Word, mode: GameMode) -> Question {
         switch mode {
         case .multipleChoice:
-            let result = options(for: word) { ChoiceQuiz.Candidate(turkish: $0.turkish, source: $0.source) }
+            let result = options(for: word) { ChoiceQuiz.Candidate(turkish: $0.turkish) }
             return .choice(word, options: result.options, correct: result.correctIndex)
         case .fillBlank:
             if let cloze = ClozeSentence(sentence: word.example, word: word.english) {
-                let result = options(for: word) { ChoiceQuiz.Candidate(text: $0.english, source: $0.source) }
+                let result = options(for: word) { ChoiceQuiz.Candidate(text: $0.english) }
                 return .blank(word, cloze: cloze, options: result.options, correct: result.correctIndex)
             }
             return .recall(word, reverse: false)

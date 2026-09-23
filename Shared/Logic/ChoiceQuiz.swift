@@ -5,21 +5,19 @@ nonisolated enum ChoiceQuiz {
     struct Candidate: Equatable {
         /// Seçenekte gösterilecek metin.
         let text: String
-        let source: String
         /// Kelimenin bütün anlamları (sadeleştirilmiş). Doğru cevapla ortak bir anlamı olan kelime
         /// yanlış seçenek olmaz: "stale: bayat, eskimiş" sorulurken "outdated: eskimiş" çıkmaz.
         let meanings: Set<String>
 
         /// `meanings` verilmezse yalnızca gösterilen metin kullanılır (ör. İngilizce seçenekler).
-        init(text: String, source: String, meanings: [String] = []) {
+        init(text: String, meanings: [String] = []) {
             self.text = text
-            self.source = source
             self.meanings = Set(meanings + [AnswerChecker.fold(text)]).subtracting([""])
         }
 
         /// Türkçe anlamı seçenek olan kelime: ilk anlamı gösterilir, bütün anlamları karşılaştırılır.
-        init(turkish: String, source: String) {
-            self.init(text: ChoiceQuiz.firstMeaning(turkish), source: source, meanings: AnswerChecker.meanings(in: turkish))
+        init(turkish: String) {
+            self.init(text: ChoiceQuiz.firstMeaning(turkish), meanings: AnswerChecker.meanings(in: turkish))
         }
     }
 
@@ -37,7 +35,7 @@ nonisolated enum ChoiceQuiz {
 
     /// Doğru cevap ve `count − 1` yanlış seçenek, karışık sırayla.
     ///
-    /// Yanlışlar önce doğru cevapla aynı kaynaktan (kitaptan) seçilir; doğru cevabın herhangi bir
+    /// Yanlışlar defterdeki diğer kelimelerden rastgele seçilir; doğru cevabın herhangi bir
     /// anlamını taşıyan kelime ya da birbiriyle aynı (sadeleştirilmiş) metin çıkmaz.
     /// Yeterli farklı seçenek yoksa daha az döner.
     static func options<G: RandomNumberGenerator>(
@@ -48,11 +46,9 @@ nonisolated enum ChoiceQuiz {
     ) -> (options: [String], correctIndex: Int) {
         var used: Set<String> = [AnswerChecker.fold(answer.text)]
         let shuffled = others.shuffled(using: &generator)
-        let sameSource = answer.source.isEmpty ? [] : shuffled.filter { $0.source == answer.source }
-        let rest = shuffled.filter { answer.source.isEmpty || $0.source != answer.source }
 
         var wrong: [String] = []
-        for candidate in sameSource + rest where wrong.count < count - 1 {
+        for candidate in shuffled where wrong.count < count - 1 {
             let key = AnswerChecker.fold(candidate.text)
             guard !key.isEmpty, !used.contains(key), candidate.meanings.isDisjoint(with: answer.meanings) else { continue }
             used.insert(key)

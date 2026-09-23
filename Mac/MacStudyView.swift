@@ -125,11 +125,6 @@ struct MacStudyView: View {
     private func card(for word: Word) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 5) {
-                if !word.source.isEmpty {
-                    Image(systemName: "book.closed")
-                    Text(word.source)
-                        .lineLimit(1)
-                }
                 Spacer(minLength: 10)
                 MemoryRing(memory: word.memory(), size: 10, text: .trailing)
             }

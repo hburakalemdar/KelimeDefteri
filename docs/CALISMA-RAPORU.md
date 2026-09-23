@@ -351,3 +351,10 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
 - Simülatörde sürekli çıkan "PosterBoard beklenmedik şekilde kesildi" uyarısı simülatörün kendi bozuk duvar kâğıdı kaydından
   geliyordu (uygulamayla ilgisi yok); simülatör sıfırlandı (`xcrun simctl erase`).
 - Testler: `LogicFixesTests`, `GameViewFixesTests`, `FormFixesTests`. 150 testin hepsi geçti.
+
+### Kaynak kitap kaldırıldı (23 Eylül 2026)
+- Karar (kullanıcı): kitaplar çoğunlukla PDF'ten okunuyor, kitap adı hiç dolmuyordu; alan işlevsizdi. Ekle/Paylaş/Düzenle
+  formlarındaki "Kaynak kitap" alanı, önceki kitaplar menüsü ve varsayılan kitap (`lastSource`) kaldırıldı. Kartlarda, ayrıntı
+  sayfasında ve Mac tablosunda kitap adı gösterilmez; Çoktan Seçmeli / Boşluğu Doldur yanlış seçenekleri aynı kitabı tercih
+  etmez, bütün defterden seçilir. Apple Books alıntısındaki "Alıntı Kaynağı" satırı cümleden yine ayıklanır.
+- `Word.source` modelde duruyor (CloudKit şemasından alan silinemez), hiçbir yerde kullanılmıyor.

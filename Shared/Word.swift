@@ -11,6 +11,8 @@ final class Word {
     var turkish: String = ""
     var definition: String = ""
     var example: String = ""
+    /// Kaynak kitap. Artık kullanılmıyor (kitaplar çoğunlukla PDF'ten okunuyor, ad hiç dolmuyordu);
+    /// CloudKit şemasından alan silinemediği için duruyor.
     var source: String = ""
 
     /// Eski Leitner kutusu. Artık yazılmaz; yalnızca hafıza değerlerine tek seferlik geçişte okunur.
@@ -34,14 +36,12 @@ final class Word {
         turkish: String,
         definition: String = "",
         example: String = "",
-        source: String = "",
         createdAt: Date = .now
     ) {
         self.english = english
         self.turkish = turkish
         self.definition = definition
         self.example = example
-        self.source = source
         self.createdAt = createdAt
     }
 
