@@ -387,3 +387,18 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
   Eylem düğmesi "Hızlı Tur" kontrolü, `kelimedefteri://quick` bağlantısı. Widget cevapları "Çoktan Seçmeli" olarak yazılır.
 - Hatırlatma bildiriminde soru: basılı tutunca 4 seçenek, cevap arka planda hafızaya yazılır.
 - 189 testin hepsi geçti.
+
+### Mac oyunları, kilit ekranı halkası, Paylaş kısayolları (23 Eylül 2026)
+- Oyunlar `Shared/Games/`'e taşındı (iOS davranışı aynı, platform farkı `GameScaffold`'da). Mac menü penceresinde oyun
+  merkezi (`MacGamesView`): Günlük Tekrar, hedef halkası/seri (tıklayınca Bu Hafta), 6 oyun. Klavye: Return başlat,
+  1–6 oyun, 1–4 seçenek, Esc merkeze dön (menü penceresinde SwiftUI kısayolu Esc'i almadığı için yerel olay yakalayıcı),
+  Harfleri Diz'de harf yazma, Eşleştir'de tıklama/sürükle-bırak. Mac hedefi kendi ayarlarında (Ayarlar › Genel › Hedef).
+  Mac'te de `-demo` (DEBUG). Ekranda denendi: oyun merkezi, Çoktan Seçmeli, Harfleri Diz, Eşleştir sürükleme. Esc otomasyonla
+  gönderilemediği için denenmedi.
+- Kilit ekranı: yuvarlak widget günlük hedef halkası, dikdörtgen "12/30 · 4 gün seri"; gece yarısı yenilenir.
+  Oyun açıkken `kelimedefteri://quick` açık ekranı kapatıp Hızlı Tur'u açar.
+- `KelimeEylem` eylem eklentisi: Paylaş sayfasının alt listesinde "Kelime Defteri'ne Ekle" (yalnızca metin), KelimeEkle ile
+  aynı form (`AddWordExtensionController`). Seçili metin `loadItem` yedeğiyle okunur.
+- "Panodaki Kelimeyi Ekle" App Intent'i: uygulamayı açıp Ekle sekmesini panodaki metinle doldurur; Kısayollar / Eylem
+  düğmesi / Arkaya Vurma ile kullanılır.
+- 198 testin hepsi geçti.
