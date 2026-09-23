@@ -268,7 +268,7 @@ Hızlı Tur'un 5 sorusu oynanabilir oyun türlerinden rastgele seçilir; art ard
 `/loop` her turda işaretlenmemiş **ilk** görevi alır. Her görev bitince: kutuyu `[x]` yap,
 kısa bir satırla ne yapıldığını rapora ekle, commit + push.
 
-- [ ] **A1 · Karışık sıra.** `WordPicker` (§3, gecikme ağırlığıyla) ve `StudySession` onu kullanır.
+- [x] **A1 · Karışık sıra.** `WordPicker` (§3, gecikme ağırlığıyla) ve `StudySession` onu kullanır.
       Testler: tohumla belirli sonuç, art arda aynı kelime yok, ilk kelime öncekiyle farklı, yanlış kelime en az 2 kelime sonra.
 - [ ] **B1 · Kayıt modeli ve geçiş.** §1. Testler: geçiş değerleri, ikinci çalıştırmada değişiklik yok,
       `ReviewLog` ilişkisi (kelime silinince logları da silinir).

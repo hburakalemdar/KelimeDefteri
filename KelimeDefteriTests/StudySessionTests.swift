@@ -4,33 +4,82 @@ import Testing
 @testable import KelimeDefteri
 
 struct StudySessionTests {
+    /// Her test kendi ayar deposunu kullanır; önceki turun ilk kelimesi testler arasında taşınmasın.
+    private func makeSession(seed: UInt64 = 1, defaults: UserDefaults? = nil) -> StudySession {
+        StudySession(seed: seed, defaults: defaults ?? UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+    }
+
     private func word(_ english: String, dueIn days: Double) -> Word {
         let word = Word(english: english, turkish: "anlam")
         word.dueDate = Date.now.addingTimeInterval(days * 86_400)
         return word
     }
 
-    @Test func dueModeAsksOnlyDueWordsOldestFirst() {
-        let session = StudySession()
+    @Test func dueModeAsksOnlyDueWords() {
+        let session = makeSession()
         let later = word("later", dueIn: 2)
         let older = word("older", dueIn: -3)
         let recent = word("recent", dueIn: -1)
 
         session.start(with: [later, recent, older], practiceAll: false)
 
-        #expect(session.current?.english == "older")
+        #expect(["older", "recent"].contains(session.current?.english))
         #expect(session.remaining == 1)
     }
 
+    @Test func sameSeedGivesSameOrder() {
+        let words = (0..<8).map { word("w\($0)", dueIn: -Double($0)) }
+        func order(seed: UInt64) -> [String] {
+            let session = makeSession(seed: seed)
+            session.start(with: words, practiceAll: true)
+            var result: [String] = []
+            while let current = session.current {
+                result.append(current.english)
+                session.grade(known: true)
+            }
+            return result
+        }
+        #expect(order(seed: 42) == order(seed: 42))
+        #expect(Set(order(seed: 42)) == Set(words.map(\.english)))
+    }
+
+    @Test func newRoundDoesNotStartWithPreviousFirstWord() {
+        let defaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        let words = (0..<5).map { word("w\($0)", dueIn: -1) }
+        var previous: String?
+        for seed in 0..<30 as Range<UInt64> {
+            let session = makeSession(seed: seed, defaults: defaults)
+            session.start(with: words, practiceAll: true)
+            #expect(session.current?.english != previous)
+            previous = session.current?.english
+        }
+    }
+
+    @Test func unknownWordComesBackAfterTwoOthers() {
+        let session = makeSession()
+        let words = (0..<5).map { word("w\($0)", dueIn: -1) }
+        session.start(with: words, practiceAll: false)
+        let missed = session.current
+        session.grade(known: false)
+
+        var seen: [Word?] = []
+        while let current = session.current, seen.count < 10 {
+            seen.append(current)
+            session.grade(known: true)
+        }
+        #expect(seen.firstIndex { $0 === missed } == 2)
+        #expect(seen.count == 5)
+    }
+
     @Test func practiceAllIncludesNotYetDueWords() {
-        let session = StudySession()
+        let session = makeSession()
         session.start(with: [word("a", dueIn: 5), word("b", dueIn: 9)], practiceAll: true)
         #expect(session.current != nil)
         #expect(session.remaining == 1)
     }
 
     @Test func correctAnswerIsDetectedAndKnownWordLeavesQueue() {
-        let session = StudySession()
+        let session = makeSession()
         let target = word("stale", dueIn: -1)
         target.turkish = "eskimiş, güncel olmayan"
         session.start(with: [target], practiceAll: false)
@@ -59,7 +108,7 @@ struct StudySessionTests {
         let first = word("first", dueIn: -1)
         let added = word("added", dueIn: -1)
         let context = try insert(first)
-        let session = StudySession()
+        let session = makeSession()
         session.start(with: [first], practiceAll: false)
 
         context.insert(added)
@@ -77,7 +126,7 @@ struct StudySessionTests {
         let added = word("added", dueIn: -1)
         let later = word("later", dueIn: 3)
         let context = try insert(first, later)
-        let session = StudySession()
+        let session = makeSession()
         session.start(with: [first, later], practiceAll: false)
         session.grade(known: true)
         #expect(session.current == nil)
@@ -95,7 +144,7 @@ struct StudySessionTests {
         let first = word("first", dueIn: -2)
         let second = word("second", dueIn: -1)
         let context = try insert(first, second)
-        let session = StudySession()
+        let session = makeSession()
         session.start(with: [first, second], practiceAll: false)
 
         context.delete(first)
@@ -106,18 +155,19 @@ struct StudySessionTests {
         #expect(session.remaining == 0)
     }
 
-    @Test func unknownWordIsAskedAgainAtEndOfRound() {
-        let session = StudySession()
+    @Test func unknownWordGoesToEndWhenFewWordsLeft() {
+        let session = makeSession()
         let first = word("first", dueIn: -2)
         let second = word("second", dueIn: -1)
         session.start(with: [first, second], practiceAll: false)
+        let missed = session.current
 
         session.reveal(answer: nil)
         #expect(session.phase == .revealed(.peeked))
         session.grade(known: false)
 
-        #expect(session.current?.english == "second")
+        #expect(session.current !== missed)
         session.grade(known: true)
-        #expect(session.current?.english == "first")
+        #expect(session.current === missed)
     }
 }
