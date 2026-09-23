@@ -4,11 +4,12 @@ import SwiftUI
 /// Menü çubuğu penceresindeki çalışma kartı; iOS'taki Çalış ekranının Mac karşılığı.
 /// Klavyeyle kullanılabilir: Return kontrol eder (boşken gösterir) ve sonra devam eder; ← Bilemedim, → Bildim.
 struct MacStudyView: View {
+    /// Tur `MenuBarView`'de yaşar; sayfa değişince kaybolmaz.
+    let session: StudySession
     var onAddTapped: () -> Void
 
     @Query(sort: \Word.dueDate) private var words: [Word]
     @Environment(\.modelContext) private var context
-    @State private var session = StudySession()
     @State private var answer = ""
     @FocusState private var answerFocused: Bool
 
@@ -33,6 +34,12 @@ struct MacStudyView: View {
         .onAppear {
             // Uygulama açıkken iCloud'dan eski biçimli kelime gelmiş olabilir.
             MemoryMigration.migrateIfNeeded(context: context)
+            // Pencere günlerce açık kalmış olabilir: dünkü turun açık cevabı kaydedilir, bugünün turu başlar.
+            // Yoksa aynı turda bugün verilen cevaplar hafızayı değiştirmezdi.
+            if session.began(onAnotherDayThan: .now) {
+                session.gradePendingAnswer()
+                session.start(with: words, plan: .daily)
+            }
             session.resumeClock()
             // Pencere her açıldığında gün dönmüş olabilir; zamanı gelenleri sıraya al.
             refresh()
@@ -43,8 +50,11 @@ struct MacStudyView: View {
         }
         .onChange(of: words.count) { refresh() }
         .onChange(of: session.current == nil) { _, ended in
-            // iOS'taki Günlük Tekrar gibi tur en fazla 20 kelime (5'i yeni); zayıf kelime kaldıysa yenisi başlar.
-            if ended && session.plan == .daily { startDailyIfNeeded() }
+            // iOS'taki Günlük Tekrar gibi tur en fazla 20 kelime (5'i yeni). Tur bitince yeni tur yalnızca
+            // çalışılmış zayıf kelime kaldıysa kendiliğinden başlar; yalnızca yeni kelime kaldıysa "Hepsi Güçlü"
+            // görünür. Bu turda sorulup zayıf kalan kelime (hemen arkasından doğru bilinen) sayılmaz, yoksa
+            // az önce gördüğü kart hemen yeniden gelirdi.
+            if ended && session.plan == .daily { continueDailyIfWeakRemain() }
         }
     }
 
@@ -61,6 +71,13 @@ struct MacStudyView: View {
         } else {
             session.sync(with: words)
         }
+    }
+
+    private func continueDailyIfWeakRemain() {
+        let asked = session.roundEntries.map(\.word)
+        let remaining = words.filter { word in !asked.contains { $0 === word } }
+        guard StudySession.dailyCount(remaining).weak > 0 else { return }
+        session.start(with: words, plan: .daily)
     }
 
     private func startDailyIfNeeded() {

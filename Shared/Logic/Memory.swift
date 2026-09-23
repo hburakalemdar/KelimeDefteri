@@ -68,6 +68,9 @@ nonisolated enum Memory {
 
     /// Yanlış cevaptan sonra gösterilen en yüksek hafıza.
     static let lapseMemory = 0.5
+    /// Yanlış cevaptan hemen sonra hafızanın asıl konduğu değer: yüzde aşağı yuvarlandığı için
+    /// tam %50 hemen %49 görünürdü; biraz üstü bir süre %50 görünür.
+    static let lapseTarget = lapseMemory + 0.004
 
     /// Yanlış cevaptan sonraki tekrar zamanı: geçmişe konur, kelime doğru bilinene kadar zayıf sayılır.
     ///
@@ -75,7 +78,7 @@ nonisolated enum Memory {
     /// ama en fazla %50'yi verecek şekilde seçilir. Böylece yanlış cevap hafızayı hiç yükseltmez;
     /// dayanıklılık (S) ve son tekrar zamanı motorun kendi değerleri olarak kalır.
     static func lapseDue(stability: Double, memoryBefore: Double?, now: Date) -> Date {
-        let target = min(memoryBefore ?? lapseMemory, lapseMemory)
+        let target = min(memoryBefore ?? lapseTarget, lapseTarget)
         // R(t, S) = target  →  t = S · 81/19 · (target^−2 − 1)
         let elapsed = stability * 81.0 / 19.0 * (pow(target, -2) - 1)
         return now.addingTimeInterval((stability - elapsed) * dayLength)

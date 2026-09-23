@@ -317,7 +317,7 @@ struct LapseTests {
         #expect(before > 0.97)
         ReviewRecorder.record(word, grade: .again, mode: .match, responseTime: 0, now: now)
         let after = word.memory(at: now)!
-        #expect(abs(after - Memory.lapseMemory) < 1e-9)
+        #expect(abs(after - Memory.lapseTarget) < 1e-9)
         #expect(word.isWeak(at: now))
         #expect(word.isDue(at: now))
         // Zaman geçtikçe düşmeye devam eder.
@@ -338,7 +338,7 @@ struct LapseTests {
         let word = Word(english: "quorum", turkish: "yeter sayı")
         ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
         #expect(!word.isNew)
-        #expect(abs(word.memory(at: now)! - Memory.lapseMemory) < 1e-9)
+        #expect(abs(word.memory(at: now)! - Memory.lapseTarget) < 1e-9)
         #expect(word.isWeak(at: now))
     }
 

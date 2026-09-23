@@ -7,6 +7,9 @@ import SwiftData
 /// `updatesMemory` false ise (aynı turda aynı kelimeye verilen ikinci ve sonraki cevaplar) hafıza
 /// değişmez; cevap yalnızca sayaçlara ve geçmişe yazılır. Yoksa turda birkaç kez bilinmeyen kelimenin
 /// dayanıklılığı her yanlışta yeniden düşerdi.
+///
+/// `clearsLapse` false ise (yanlış bilinen kelime hemen arkasından, arada başka kart olmadan doğru
+/// bilindi) sonraki doğru cevap kelimeyi zayıflıktan çıkarmaz: az önce görülen cevap yazılmıştır.
 enum ReviewRecorder {
     @discardableResult
     static func record(
@@ -15,8 +18,11 @@ enum ReviewRecorder {
         mode: GameMode,
         responseTime: Double,
         updatesMemory: Bool = true,
+        clearsLapse: Bool = true,
         now: Date = .now
     ) -> ReviewLog? {
+        // Başka yerde (ör. öteki cihazdan) silinmiş kelimeye cevap yazılmaz.
+        guard !word.isDeleted else { return nil }
         MemoryMigration.migrate(word)
         let memoryBefore = word.memory(at: now)
         if updatesMemory {
@@ -36,7 +42,7 @@ enum ReviewRecorder {
         if !grade.isCorrect {
             // Yanlış bilinen kelime doğru bilinene kadar zayıf kalır (Günlük Tekrar'a hemen girer).
             word.dueDate = Memory.lapseDue(stability: word.stability, memoryBefore: memoryBefore, now: now)
-        } else if !updatesMemory, let last = word.lastReviewedAt {
+        } else if !updatesMemory, clearsLapse, let last = word.lastReviewedAt {
             // Turda önce yanlış sonra doğru bilindi: tekrar zamanı motorun hesabına döner.
             word.dueDate = last.addingTimeInterval(word.stability * Memory.dayLength)
         }

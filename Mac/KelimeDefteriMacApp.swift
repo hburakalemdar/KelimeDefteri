@@ -45,12 +45,12 @@ enum WindowID {
     static let words = "words"
 }
 
-/// Menü çubuğundaki simge; zayıf kelime varsa sayısını da gösterir.
+/// Menü çubuğundaki simge; Günlük Tekrar'ın soracağı kelime varsa sayısını da gösterir (bildirimle aynı sayı).
 private struct MenuBarLabel: View {
     @Query private var words: [Word]
 
     var body: some View {
-        let due = words.count { $0.isWeak }
+        let due = ReminderScheduler.dailyTotal(words)
         if due > 0 {
             Label("\(due)", systemImage: "character.book.closed")
                 .labelStyle(.titleAndIcon)

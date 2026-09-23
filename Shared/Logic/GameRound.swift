@@ -57,7 +57,8 @@ final class GameRound {
         startedAt = now
         finishedAt = now
         shownAt = now
-        pausedAt = nil
+        // Duraklatılmışken başlatılırsa saat duraklatılmış kalır.
+        if pausedAt != nil { pausedAt = now }
     }
 
     /// Şu anki kelimenin cevabını kaydeder. Aynı kelime turda ikinci kez cevaplanırsa özet ilk cevabı tutar
@@ -65,6 +66,9 @@ final class GameRound {
     /// `timed` false ise (ör. Eşleştir) cevap süresi kaydedilmez. `mode` verilirse cevap o oyun adına
     /// (ve o oyunun ağırlığıyla) kaydedilir; karışık Hızlı Tur her soruyu kendi türüyle yazar.
     func record(_ word: Word, grade: AnswerGrade, mode: GameMode? = nil, timed: Bool = true, now: Date = .now) {
+        guard !word.isDeleted else { return }
+        // Eski biçimli kelimenin önceki hafızası "Yeni" görünmesin.
+        MemoryMigration.migrate(word)
         let isFirstAnswer = !entries.contains(where: { $0.word === word })
         if isFirstAnswer {
             entries.append(StudySession.RoundEntry(word: word, memoryBefore: word.memory(at: now), firstCorrect: grade.isCorrect))
@@ -87,9 +91,12 @@ final class GameRound {
         if pausedAt == nil { pausedAt = now }
     }
 
+    /// Tur sürüyorsa arka planda geçen süre tur süresine (ve Eşleştir sayacına) de sayılmaz.
     func resumeClock(now: Date = .now) {
         guard let pausedAt else { return }
-        shownAt += now.timeIntervalSince(pausedAt)
+        let paused = now.timeIntervalSince(pausedAt)
+        shownAt += paused
+        if !words.isEmpty && !isFinished { startedAt += paused }
         self.pausedAt = nil
     }
 
@@ -101,6 +108,6 @@ final class GameRound {
     func advance(now: Date = .now) {
         index += 1
         shownAt = now
-        pausedAt = nil
+        if pausedAt != nil { pausedAt = now }
     }
 }

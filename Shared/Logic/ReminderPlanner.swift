@@ -1,7 +1,8 @@
 import Foundation
 
-/// Önümüzdeki günlerin hatırlatmalarını planlar: her gün seçilen saatte kaç kelimenin
-/// sırada olacağını hesaplar. Sırada kelime olmayan günlere bildirim düşmez.
+/// Önümüzdeki günlerin hatırlatmalarını planlar: her gün seçilen saatte Günlük Tekrar'ın kaç
+/// kelime soracağını hesaplar (çalışılmış zayıflar en fazla 20, yeniler en fazla 5, toplam en fazla 20).
+/// Sorulacak kelime olmayan günlere bildirim düşmez.
 ///
 /// Bildirim içeriği planlandığı anda sabitlenir; bu yüzden uygulama her arka plana
 /// geçtiğinde plan yeniden kurulur (bkz. `ReminderScheduler`).
@@ -11,8 +12,11 @@ nonisolated enum ReminderPlanner {
         let dueCount: Int
     }
 
+    /// `studiedDueDates`: çalışılmış kelimelerin tekrar zamanları (o andan sonra zayıf sayılırlar).
+    /// `newCount`: hiç çalışılmamış kelime sayısı; bunlar her gün sorulabilir.
     static func plan(
-        dueDates: [Date],
+        studiedDueDates: [Date],
+        newCount: Int,
         hour: Int,
         minute: Int,
         now: Date,
@@ -25,8 +29,14 @@ nonisolated enum ReminderPlanner {
         let firstDay = todayAtTime > now ? 0 : 1
         return (firstDay..<(firstDay + days)).compactMap { offset in
             guard let fireDate = calendar.date(byAdding: .day, value: offset, to: todayAtTime) else { return nil }
-            let count = dueDates.count { $0 <= fireDate }
+            let count = dailyCount(studiedDueDates: studiedDueDates, newCount: newCount, at: fireDate)
             return count > 0 ? Reminder(fireDate: fireDate, dueCount: count) : nil
         }
+    }
+
+    /// Günlük Tekrar'ın `date` anında soracağı kelime sayısı.
+    static func dailyCount(studiedDueDates: [Date], newCount: Int, at date: Date) -> Int {
+        let count = StudySession.dailyCount(weak: studiedDueDates.count { $0 <= date }, new: newCount)
+        return count.weak + count.new
     }
 }

@@ -11,6 +11,8 @@ struct MenuBarView: View {
     }
 
     @State private var page: Page = .study
+    /// Çalışma turu burada tutulur: Çalış ↔ Ekle geçişinde çalışma sayfası yeniden kurulsa da tur sürer.
+    @State private var session = StudySession()
     @Environment(\.modelContext) private var context
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
@@ -30,7 +32,7 @@ struct MenuBarView: View {
             Group {
                 switch page {
                 case .study:
-                    MacStudyView(onAddTapped: { page = .add })
+                    MacStudyView(session: session, onAddTapped: { page = .add })
                 case .add:
                     WordFormView(mode: .add)
                 }
