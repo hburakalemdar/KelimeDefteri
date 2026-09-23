@@ -1,35 +1,48 @@
-# Görev: hafıza ilerlemesi ve tur içi oyun mantığı yeniden tasarımı (23 Eylül 2026)
+# Görev: Motor 2'yi kodla (hafıza motoru + tur içi mantık + özet/Mac)
 
-Devir notu. Kullanıcı tur özetinde "%99 → Şimdi", "%50 → 8 gün sonra" gibi saçma sonuçlar gördü; "bütün oyun ve modlar
-için ilerleme ve tur içi oyun mantığı çok ciddi araştırılıp düşünülsün" dedi. Henüz KOD DEĞİŞİKLİĞİ ONAYI YOK:
-önce tasarım belgesi, sonra kullanıcıya sade özet + karar noktaları, onaydan sonra uygulama.
+Devir notu (24 Eylül 2026, önceki oturum). Tasarım bitti: **`docs/SPEC-MOTOR2.md`** (son sürüm; kendi başına yeterli).
+Bu oturumun işi onu kodlamak, test etmek, iki cihaza kurmak, commit/push. İş bitince bu dosyayı sil ve
+`docs/CALISMA-RAPORU.md` sonuna kısa "Motor 2" bölümü ekle; `docs/SPEC-OYUN.md`'nin motor kısmına "yerine SPEC-MOTOR2 geçer"
+diye bir satır not düş.
 
-Ön bulgular (ilk analiz): özet satırı üç anı karıştırıyor (✓/✗ ilk cevap, % tur başı, vade son cevap); "%50" lapse sabiti
-(vade geçmişe konuyor); motor ile ekran farklı R kullanıyor; bugün eklenen aynı gün koruması (ReviewRecorder) aynı gün
-yanlışı ya etkisiz ya "Şimdi" yapıyor, yanlış→doğru eski vadeyi geri getiriyor; hatırlama oyunlarında yanlış ×0.35;
-learnedAt aynı gün yanlış→doğruda kayıyor.
+## Neden
+Kullanıcı tur özetinde "%99 → Şimdi", "%50 → 8 gün sonra" gibi çelişkiler gördü; aynı gün doğru→yanlış ya hiç işlenmiyor ya
+her şeyi siliyordu. 4 araştırma + 12 tasarım sürümü + her sürümde bağımsız denetim + Python simülasyonu sonucunda yeni motor:
+kelimenin hafıza durumu **ReviewLog'lardan gün gün (04:00 sınırı) yeniden oynatılarak** hesaplanır (`replay(taban, loglar, now)`),
+Word alanları önbellektir. Ayrıntı ve gerekçeler SPEC'te.
 
-## Plan
-1. Paralel 4 ajan, raporlar scratchpad/motor/ altına: 1-ilerleme.md (motor denetimi, kod), 2-tur-ici.md (tur içi, kod),
-   3-arastirma-motor.md, 4-arastirma-oyun.md (web).
-2. sentezci → docs/SPEC-MOTOR2.md (tasarım: motor kuralları, tur içi akış, özet ekranı, göç, testler, karar noktaları).
-3. denetleyici → SPEC'i raporlara ve koda karşı denetler; düzeltme.
-4. Kullanıcıya sade özet, onay. Sonra uygulama (worktree ajanları), test, iki cihaza kurulum, commit/push (bu işler için
-   önceki onay: parça bitince sormadan kur/commit/push).
+## Onaylar (tekrar sorma)
+- Parça bitip testler geçince **sormadan** cihazlara kur, commit et, push et.
+- Mac ve iPhone **aynı anda** güncellenmeli (eski+yeni sürüm birlikte çalışırsa önbellek farklı yazılır — SPEC §6).
+- CloudKit şemasını üretime aktarma (ayrı onay). Apple hesabında yeni kayıt gerekmez.
 
-## Durum
-- [x] 1 (4 rapor scratchpad/motor/)  - [x] 2 (docs/SPEC-MOTOR2.md v2)  - [~] 3 (denetim-1 bitti, v2 için denetim-2 + simülasyon 6-simulasyon.md sürüyor)  - [ ] 4
-- v3 yönü (denetim-2 + simülasyon sonrası): gün bazlı değerlendirme (gün başı S/D saklanır, günün cevaplarının bütünü
-  tek güncelleme; sıra bağımlılığı yok), gün 04:00'te döner, seçim/sayaç vadeye bakar, tanıma iki farklı günde zayıflığı
-  kaldırır, learnedAt yalnızca ilk kez. v3 sonrası: simülasyonu v3'e göre yeniden koştur (sim ajanı), gerekirse denetim-3.
-- v4 sonrası: denetim (10-denetim-v4.md) 6 Yüksek, simülasyon (9-simulasyon-v4.md) 2 Yüksek; oran kuralı karmaşa üretiyor.
-  Simülasyon ajanı V4F (oran + düzeltmeler) ile SADE (günün ilk hatırlama cevabı S/D'yi belirler; sonraki aynı gün yanlış
-  yalnızca zayıf + vade yarın) modellerini karşılaştırıyor → 11-karsilastirma.md. Seçilen modelle SPEC v5, sonra denetim.
-- V4F seçildi; SPEC v5 yazıldı. v5 için simülasyon (12-simulasyon-v5.md) + denetim sürüyor.
-- v5 denetimi (13-denetim-v5.md) yine 5 Yüksek: artımlı alanlar (dayStart*, isPrimary, tanıma lastReviewedAt) birbirinden
-  kopuyor. KARAR (yönetici): v6 mimarisi = durum ReviewLog'lardan yeniden oynatılarak hesaplanır (event sourcing):
-  Word'deki S/D/due/lapsedAt/learnedAt yalnızca önbellek; taban = geçiş anındaki mevcut değerler (baseAt), sonrası
-  loglardan gün gün (04:00) V4F kurallarıyla. Birincil/30 dk/yeniden sorma loglardan hesaplanır, saklanmaz. Geri alma =
-  log silme. İki cihaz aynı loglarla aynı sonuç. 12-simulasyon-v5.md bekleniyor, sonra sentezci v6.
-- SPEC v6 (replay) yazıldı; simülasyon (14-simulasyon-v6.md, sim_v6.py) + denetim (aa19… → 15-denetim-v6.md olarak kaydet) sürüyor.
-- v6: mimari doğrulandı (sıra/iki cihaz/geri alma 300/300). Kalan: tanıma anchor, göç tabanı (baseAt=son log, baseAnchorAt, baseLearnedAt), lapsedAt alanı, tetikleyici. SPEC v7 yazılıyor; sonra son sim + denetim, sonra kullanıcıya §9 soruları.
+## Kullanıcı kararları (SPEC §9'da da var)
+1. Aynı gün 1 doğru + 1 yanlış = "bilemedin" (1/3 eşiği).
+2. Widget/bildirim sorusu: önce vadesi gelmiş ve yeni olmayan kelimeler, yoksa ağırlıklı rastgele (yeniler hariç); widget boş kalmaz.
+3. Tur özetinde ✓/✗ = bu turdaki ilk cevap; "sonraki tekrar" metni günün sonucunu yansıtır; yüzde yok, "önce → sonra" vade.
+4. Yanlış bilinen kelime: listede/ayrıntıda turuncu halka + "Tekrar edilecek" + ne zaman ("Yarın"); Günlük Tekrar ve
+   "N zayıf" sayısına vadesi gelince girer.
+5. Tanıma oyunlarında tur içi yeniden sorma yok; Harfleri Diz / Ters Yön ipucu düğmesi yok; aynı desteyi tekrar oynarken tek satır not.
+
+## Nasıl çalışılacak
+- CLAUDE.md'yi oku (derleme, kurulum, tuzaklar). Kullanıcı bağlam şişmesinden çekiniyor: yönetici ol, işi ajanlara ver.
+- Parçalar **SIRALI**: A → B → C (SPEC §8). Her parça **ayrı, temiz bir ajan** (general-purpose, worktree); eline SPEC'i ve
+  parça adını ver. Paralel koşturma (Mac ısınıyor, tipler çakışıyor). Her parça kendi sonunda iOS testleri + Mac derlemesi
+  geçmeli; tip/imza değiştiren parça bütün çağıranları (grep) kendisi günceller — dosya listeleri yol göstericidir.
+- Son denetimde (SPEC v11) "A kodlamaya hazır" denmişti; B/C listeleri v12'de tamamlandı. v12 sonrası denetim sonucu aşağıda.
+- Her parçadan sonra yönetici: diff'e ve test sonucuna bak, main'e birleştir, bir sonraki parçayı ver.
+- A'dan sonra **simülasyonla karşılaştır**: `docs/motor/sim_v8.py` (Python, SPEC v8 kurallarının birebir uygulaması; sonraki
+  sürümlerde küçük eklemeler oldu: ilk cevap tablosu, widget seçimi, özet alanları, yeni kelime sınırı). SPEC §7.1
+  senaryolarını Swift birim testleriyle doğrula; sayılar tablo ile tutmalı. Tutmazsa önce SPEC'e bak, sonra koda.
+- Hepsi bitince: tüm testler, cihaz derlemesi, iPhone kurulumu, Mac Release kurulumu (CLAUDE.md'deki lsregister adımlarıyla),
+  commit/push. Kullanıcıya sade Türkçe özet ve neyi denemesi gerektiği (bilerek doğru/yanlış basarak tur özeti, widget,
+  yanlış kelimenin ertesi gün gelmesi, liste halkası).
+
+## Dosyalar
+- `docs/SPEC-MOTOR2.md` — tasarım (tek kaynak).
+- `docs/motor/` — dayanak raporlar: eski motor denetimi, tur içi denetim, iki web araştırması, v8 simülasyon raporu,
+  model karşılaştırması (oran modeli vs sade "günün ilk cevabı"), `sim_v8.py`.
+- Önceki SPEC sürümleri git geçmişinde (v7–v12 commit'leri).
+
+## Son durum
+- SPEC v12 yazıldı; son denetim sonucu: (aşağıya eklenecek)

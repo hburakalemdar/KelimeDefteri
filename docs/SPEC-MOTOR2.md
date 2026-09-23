@@ -1,25 +1,29 @@
 # Spec: Hafıza Motoru ve Tur İçi Oyun Mantığı — Yeniden Tasarım (Motor 2)
 
-**Sürüm 11 — kodlamadan önceki son sürüm, kendi başına yeterli.** Motor, kelimenin durumunu artımlı
+**Sürüm 12 — kodlamadan önceki son sürüm, kendi başına yeterli.** Motor, kelimenin durumunu artımlı
 alanlar yerine bir tabandan sonraki bütün cevapların gün gün yeniden oynatılmasıyla hesaplayan bir
-mimari kullanır (`replay(taban, loglar, now) -> MemoryState`). Bu sürüm, v10 denetiminin bütün
-maddelerini (1 Yüksek, 5 Orta, 2 Düşük) kapatır: **tur özeti artık gerçekten yüzdesiz** —
-`RoundEntry`/`RoundSummaryView.Entry` yüzde yerine `dueBefore`/`lapsedBefore` taşır (v10'un "mevcut
-yapı zaten yeterli" iddiası yanlıştı, §4.1); **§8 tamamen sıralı bir modele geçti** (A → B → C, paralel
-değil; bir tipi değiştiren parça onu kullanan bütün çağrı yerlerini — hangi parçanın alanında olursa
-olsun — aynı parçada günceller, her parçanın kendi sonunda iOS testleri + Mac derlemesi geçme
-zorunluluğu var); Ters Yön eşanlamının bütün parçaları (`ReverseChecker.Result.synonymOf`,
-`StudySession.Verdict.synonymOf`, `GradeOption`/`RecallGameView` switch'leri, "Aranan: X" mesajı)
-tek parçada (A) toplandı (§3.2); "N zayıf" sayaç/görünüm sahipliği netleşti — "Tekrar edilecek"
-etiketi, `MemoryRing`in turuncu `isLapsed` parametresi, `Leitner.dueDescription`in "Şimdi"siz metni
-tek dosya/parça atamasıyla (§4.2); `dailyCount` artık GERÇEKTEN günlük (loglardan `introducedToday`
-sayılıyor, v9/v10'un "tur başına" hatası düzeltildi, §2.6); §2.5'in ilk-gün koşulu düzeltildi
-("replay'in o günkü başlangıç durumunda S==0", tabana değil); §7.2 C'deki ikon iddiası Karar 4'le
-tutarlı hâle getirildi; §3.1'in "yer yoksa yeniden sorulmaz" davranış değişikliği ve §3.2'nin "aynı
-deste" notunun koşulu/dosyası §4.5'e ve ilgili bölümlere eklendi. Bu belge önceki sürümlere referans
-vermeden tek başına uygulanabilir.
+mimari kullanır (`replay(taban, loglar, now) -> MemoryState`). Bu sürüm, v11 denetiminin bütün
+maddelerini (2 Yüksek, 4 Orta, 3 Düşük) kapatır: **§8'in "dosya listesi kapsayıcıdır" ve "sonraki
+parça önceki parçanın tipine dokunmaz" kısıtları kaldırıldı** — artık dosya listeleri yol göstericidir,
+her parça değiştirdiği tip/imzanın bütün çağıranlarını grep ile bulup aynı parçada günceller (B'nin
+işi — `GameDeck` farklı-anlam sayımı, anlam-tabanlı Boşluğu Doldur çeldiricisi — bu sayede
+yapılabilir hâle geldi, §8); **Mac tur özeti artık bir sahibi var (C)**: `MacStudyView` tur bitince
+iOS'la aynı `RoundSummaryView`i gösterir, `continueDailyIfWeakRemain`in otomatik yeniden başlatması
+kaldırılır, `MacGamesView` de C'nin listesinde (§5, §8); Ters Yön eşanlamı için `StudySession`in
+defterdeki kelimeleri `start`ta sakladığı, `reveal(answer:now:)`in kendi imzasının değişmediği
+netleşti (§3.2); C'nin kabul ölçütü doğru bölümlere (§4.1/§4.2) atıfla ve **tek** "Tekrar edilecek"
+etiketiyle (tur özetinde değil, yalnızca listede/ayrıntıda; özetteki vade metni "Yarın" bir etiket
+değil) yeniden yazıldı; bildirimlerin ileri günlerdeki yeni kelime tahmini artık `0` değil,
+`min(günlük sınır, kalan yeni kelime)` — bildirimler susmuyor, `ReminderPlanner.plan`ın yeni imzası
+yazıldı (§2.6); §3.1'in "yer yoksa sormaz" kuralı `queueCount < 2`ye düzeltildi ("en az 2 kart"
+kuralı artık gerçekten korunuyor); Karar 4'ün metni §4.1'le tutarlı hâle getirildi, §4.5/5'teki
+kendiyle-çelişen "X gün gecikti kaldırıldı, yerine X gün gecikti geldi" cümlesi düzeltildi, "aynı
+deste" notu için `RoundSummaryView`e `roundStartedAt` parametresi eklendi, `WordsWindow:37`deki
+`isWeak` çağrısının `isDue`ye döneceği ve bunun A'nın işi olduğu netleşti, `MemoryStats.swift` C'nin
+listesinden çıkarıldı (bu sürümde dokunulmuyor), "son görülme" tek parçada (A: metin, §4.4) net.
+Bu belge önceki sürümlere referans vermeden tek başına uygulanabilir.
 
-Kaynaklar (tarihçe): `scratchpad/motor/1-ilerleme.md` … `20-denetim-v9.md`, `21-denetim-v10.md`.
+Kaynaklar (tarihçe): `scratchpad/motor/1-ilerleme.md` … `21-denetim-v10.md`, `22-denetim-v11.md`.
 Kod: `Shared/Word.swift`, `Shared/ReviewLog.swift`, `Shared/SharedStore.swift`,
 `Shared/Logic/Memory.swift`, `ReviewRecorder.swift`, `MemoryMigration.swift`, `StudySession.swift`,
 `GameRound.swift`, `WordPicker.swift`, `GameMode.swift`, `StoreMaintenance.swift`,
@@ -268,17 +272,37 @@ denetim v10 O3). Doğru sınır **bugün açılan ilk `ReviewLog`u bugüne ait o
 `dailyCount(weak: Int, new: Int, introducedToday: Int) -> (weak: Int, new: Int)` —
 `takenNew = min(new, max(0, dailyNewLimit − introducedToday), max(0, dailyLimit − min(weak,
 dailyLimit)))`. `StudySession.dailyCount(_:now:)` (kelime dizisinden hesaplayan sarmalayıcı) bu üçüncü
-değeri `introducedToday(words, now: now)`den geçirir; `ReminderPlanner`in bugünkü (offset 0) planı da
-aynı hesaba `introducedToday`i dahil eder (ileri günlerde zaten `new: 0` kullanıldığı için, §2.8,
-`introducedToday` yalnızca `offset == 0`da anlamlıdır).
+değeri `introducedToday(words, now: now)`den geçirir.
 
-`ReminderPlanner.plan` bu sınırı **gelecek 7 gün için de** kullanır (§2.8), ama yeni kelime yalnızca
-**bugünün** (offset 0) planına girer: `offset > 0` olan (yarından itibaren) günler için `dailyCount`e
-verilen `new` parametresi **0**dır (`newCount` yalnızca `offset == 0`da geçirilir, sonraki günlerde
-`0`). Gerekçe: yeni kelime tanıtımı yalnızca Günlük Tekrar'ın bugün açılmasıyla gerçekleşir; ileri
-günler için "kaç yeni kelime sorulacak" sorusunun anlamlı bir cevabı yoktur (kullanıcı yarın açmadan
-kaç yeni kelimenin tanıtılacağı bugünden bilinemez), bu yüzden ileri günlerin bildirim sayısı yalnızca
-o güne kadar vadesi gelecek çalışılmış (zayıf) kelimeleri sayar.
+**`ReminderPlanner.plan` bu sınırı gelecek 7 gün için de kullanır, ama ileri günlerde `new: 0`
+KULLANMAZ** (v10/v11 taslağının bu kararı, bildirimleri gereksiz yere susturduğu için değiştirildi,
+denetim v11 O4): çalışılmış kelimesi hep güçlü olan (vadesi hiç gelmeyen) bir kullanıcı, yeni kelime
+`0` sayıldığı için yarından itibaren **hiç bildirim almazdı**. Bunun yerine ileri günler için de
+**bugünkü mantıkla bir tahmin** kullanılır: `min(dailyNewLimit, newCount)` — yani "defterde kalan
+toplam yeni kelime sayısı, günlük sınıra kadar" (her ileri gün için **aynı** `newCount` kullanılır,
+günler arası düşüş simüle edilmez — kullanıcının o günlerde gerçekte kaç tanesini tanıtacağı önceden
+bilinemez, bu yüzden basit bir üst sınır tahmini yeterli; gerçek sayı zaten bildirim gönderilmeden
+hemen önce `ReminderScheduler` her arka plana geçişte planı yeniden kurduğu için kendiliğinden
+düzelir, §2.8). `introducedToday` yalnızca **bugün** (offset 0) için anlamlıdır — ileri günlerde `0`
+kabul edilir (o günün henüz hiç kelime tanıtmadığı varsayımıyla).
+
+**`ReminderPlanner.plan`ın yeni imzası:**
+
+    static func plan(
+        studiedDueDates: [Date], newCount: Int, introducedToday: Int,
+        hour: Int, minute: Int, now: Date, days: Int = 7, calendar: Calendar = .current
+    ) -> [Reminder]
+
+    dailyCount(studiedDueDates:newCount:introducedToday:at:offset:) =
+      let weak = studiedDueDates.count { $0 <= date }
+      let takenNew = offset == 0
+        ? StudySession.dailyCount(weak: weak, new: newCount, introducedToday: introducedToday).new
+        : StudySession.dailyCount(weak: weak, new: newCount, introducedToday: 0).new
+      return weak + takenNew   // StudySession.dailyCount zaten weak'i de dailyLimit'e göre kısıyor
+
+`introducedToday` yalnızca `ReminderScheduler.refresh`teki çağrıda hesaplanır (`introducedToday(words,
+now: now)`, §2.6'daki tanım) ve `plan`e geçirilir; `plan`in kendisi `nonisolated` kalır, kelime
+listesini görmez (yalnızca sayıları alır — bugünkü tasarım deseni).
 
 ### 2.7 `learnedAt`
 
@@ -428,19 +452,36 @@ yeniden sorma hakkı biterek "biten" sayılır — yanlış cevapla geri gitmez,
 
 **"Yer yoksa sormaz" bugün böyle değil, bu bir davranış değişikliği (§4.5'e eklendi):** kodda
 `WordPicker.reinsertionIndex(queueCount:)` her zaman bir konum döner (`min(2, queueCount)`);
-`queueCount == 0`ken bu `0` döner, yani yanlış bilinen kelime **hemen aynı kartta** yeniden gelir —
-"en az 2 kart arayla" kuralını bozar. Düzeltme: `reinsertionIndex(queueCount:) -> Int?` olur,
-`queueCount == 0`ken `nil` döner (yeniden ekleme yok, kelime "biten" sayılır — doğru bilinmeden);
-`StudySession.grade`deki tek çağıran (`Shared/Logic/StudySession.swift:315`) `nil` durumunda
-`queue.insert` çağırmaz. Bu, `WordPicker.swift`i değiştiren parça tarafından tek çağıranıyla birlikte
-yapılır (§8 A).
+`queueCount == 0`ken bu `0`, `queueCount == 1`ken bu `1` döner — ikisi de "en az 2 kart arayla"
+kuralını bozar (0'da kelime **hemen aynı kartta**, 1'de **yalnızca 1 kart arayla** geri gelir).
+Düzeltme: `reinsertionIndex(queueCount:) -> Int?` olur, **`queueCount < 2`ken `nil`** döner (yeniden
+ekleme yok, kelime "biten" sayılır — doğru bilinmeden), `queueCount >= 2`ken sabit `2` döner ("en az
+2 kart arayla" kuralı böylece her durumda korunur, ara değer kalmaz). `StudySession.grade`deki tek
+çağıran (`Shared/Logic/StudySession.swift:315`) `nil` durumunda `queue.insert` çağırmaz. Bu,
+`WordPicker.swift`i değiştiren parça tarafından tek çağıranıyla birlikte yapılır (§8 A).
 
 ### 3.2 Diğer tur içi kurallar
 
 - `GameDeck`in "en az 4 kelime" açılma koşulu ham kelime sayısına değil **farklı anlam sayısına**
-  bakar (ortak Türkçe anlamlı kelimeler tek kümede sayılır).
+  bakar (ortak Türkçe anlamlı kelimeler tek kümede sayılır). **Bu bir imza değişikliği (B'de,
+  §8):** `GameDeck`e `distinctMeaningCount: Int` alanı eklenir (`ChoiceQuiz.shareMeaning` ile
+  gruplanan Türkçe anlam sayısı); tuple tabanlı `init(entries: [(english: String, example: String)])`
+  `init(entries: [(english: String, example: String, turkish: String)])` olur (`turkish` yeni);
+  `unavailableReason(for:)`teki `.multipleChoice`/`.match` dalı `deck.count >= 4` yerine
+  `deck.distinctMeaningCount >= 4` okur. **Bütün çağıranlar B'de güncellenir:**
+  `Mac/MacGamesView.swift:222` ve `KelimeDefteri/Views/StudyView.swift:118`teki
+  `GameDeck(entries: words.map { ($0.english, $0.example) })` çağrıları `$0.turkish`i de ekler;
+  `KelimeDefteriTests/GameCatalogTests.swift`teki `deckSummary()` testi güncellenir (yeni alanı
+  doğrular), `requirements()` testindeki memberwise `GameDeck(count:withSentence:shortWords:)` çağrısı
+  yeni `distinctMeaningCount` parametresini alır (varsayılanı `count`, eski testler değişmeden geçer).
 - Çeldiriciler (Çoktan Seçmeli, Boşluğu Doldur) anlam-tabanlı seçilir: doğru cevapla ortak Türkçe
-  anlamı olan kelime asla çeldirici olmaz.
+  anlamı olan kelime asla çeldirici olmaz. **Boşluğu Doldur'da bu bugün eksik (B'de düzeltilir,
+  imza değişmez, yalnızca çağrı satırı):** `Shared/Games/FillBlankGameView.swift:68-69` ve
+  `Shared/Games/QuickMixGameView.swift:131`teki `ChoiceQuiz.Candidate(text: $0.english)` çağrıları
+  `meanings:`i vermiyor (`Candidate.init(text:meanings:)`in `meanings` parametresi zaten var, ama boş
+  geçiliyor), bu yüzden aynı Türkçe anlama sahip iki farklı İngilizce kelime birbirini çeldirici
+  olarak elemiyor; çağrılar `ChoiceQuiz.Candidate(text: $0.english, meanings: AnswerChecker.meanings(in:
+  $0.turkish))` olur.
 - Ters Yön'de ortak anlamlı iki kelimeden biri yazılırsa **"Doğru, ama bu kartta aranan: X"**
   mesajı gösterilir, not `hard` sayılır (yeni bir arayüz öğesi eklemeden — proaktif kart ipucu için
   bkz. §9 Kararlar/1: eklenmeyecek). **Artık paralel A/B ayrımı yok** (§8, sıralı model): bu özelliğin
@@ -451,9 +492,14 @@ yapılır (§8 A).
     `check`in imzası `check(_:expected:in words: [Word]) -> Result` olur (kodda bugün
     `check(_:expected:)`, `in:` parametresi yeni); gövde gerçek eşanlam tespitini yapar (defterde aynı
     Türkçe anlama sahip başka bir İngilizce kelime var mı, `words` üzerinde saf bir arama).
-  - `Shared/Logic/StudySession.swift`: `StudySession.Verdict`e de karşılık gelen bir
-    `.synonymOf(String)` durumu eklenir (`reveal()`, `ReverseChecker.Result.synonymOf`i
-    `StudySession.Verdict.synonymOf`e eşler); not `hard` olarak kaydedilir.
+  - `Shared/Logic/StudySession.swift`: **`reveal(answer:now:)`in kendi imzası değişmez** — `words`
+    listesi `reveal`e parametre olarak eklenmez, bunun yerine `StudySession.start(with words: [Word],
+    plan:, now:)` (kodda zaten var, imzası da değişmez) bu diziyi `private var words: [Word]` olarak
+    **saklar** (turun başında bir kez); `reveal()` `ReverseChecker.check(_:expected:in: self.words)`i
+    bu saklanan diziyle çağırır. `StudySession.Verdict`e de karşılık gelen bir `.synonymOf(String)`
+    durumu eklenir (`ReverseChecker.Result.synonymOf`i `StudySession.Verdict.synonymOf`e eşler); not
+    `hard` olarak kaydedilir. `reveal`in çağıranları (`RecallGameView.swift:380` ve ~15 test) imza
+    değişmediği için etkilenmez.
   - `Shared/Logic/GradeOption.swift`: `Verdict.gradeOptions` switch'i (satır ~22) ve
     `AnswerGrade.recall(verdict:...)` switch'i (satır ~46) yeni duruma karşılık verir (`.synonymOf`
     `.almost` gibi davranır: tek "Devam" düğmesi, not `hard`).
@@ -471,18 +517,28 @@ yapılır (§8 A).
   gösterilir; özet ✗/✓ ekrandaki durumla tutarlıdır.
 - "Bir Tur Daha" — kodda var olan tek düğme; "Aynı Kelimelerle Tekrar" diye ayrı bir düğme yoktur.
   Düğme metni açacağı akışı söyler.
-- Boşluğu Doldur'da kelimenin cümledeki iki geçişi de boşaltılır; "Neredeyse"de yazılan cevap da
-  gösterilir; Mac'te "Göster"in kısayolu (⌘↩) ile ekrandaki ipucu metni aynı tuşu gösterir; Hızlı
-  Tur kartındaki süre metni gerçek tahminle (~2 dakika, 25 sn/kelime) verilir.
+- Boşluğu Doldur'da kelimenin cümledeki iki geçişi de boşaltılır (`Shared/Logic/ClozeSentence.swift`
+  B'de değişir; **görünümü de aynı parçada** — `Shared/Games/FillBlankGameView.swift`teki `ClozeCard`
+  iki boşluğu render eder, dosya zaten B'nin listesinde, §8); "Neredeyse"de yazılan cevap da gösterilir
+  ve Mac'te "Göster"in kısayolu (⌘↩) ekrandaki ipucu metniyle aynı tuşu gösterir (ikisi de
+  `Shared/Games/RecallGameView.swift`te, A'nın zaten §3.2'de tamamen sahiplendiği dosya — ayrı bir
+  değişiklik gerekmiyor, mevcut davranış); Hızlı Tur kartındaki süre metni gerçek tahminle (~2 dakika,
+  25 sn/kelime) verilir (`Shared/Games/QuickMixGameView.swift`, B'nin listesinde — dosya A'da yalnızca
+  `RoundSummaryView.Entry` inşa satırı için, B'de kendi oyun mantığı/görünümü için ayrı ayrı geçer,
+  §8'deki sıralı model buna izin verir).
 
 **Aynı gün, aynı desteyi tekrar oynama notu** (§9 Kararlar/1): "Bu tur bugünün diğer cevaplarıyla
 birlikte değerlendiriliyor." — bu turun cevapları (30 dakikalık kapı hariç) günün oranına normal
 şekilde girer. **Koşul ve dosya:** not, tur özeti ekranında (`Shared/Games/RoundSummaryView.swift`,
-C sahipliğinde, §8) başlığın altında gösterilir; koşulu **turun bugün en az bir kez daha oynanmış
-olması**dır — yani `entries` içindeki kelimelerden en az biri, bu turdan önce **bugün** başka bir
-`ReviewLog` almışsa (`word.logs`de bugüne ait, bu turun kendi cevabından daha eski bir log varsa).
-Bu, "aynı deste" ifadesini "bugün en az ikinci kez görülen kelime" olarak somutlaştırır; tamamen yeni
-bir turda (bugün ilk kez oynanan kelimelerden oluşuyorsa) not gösterilmez.
+C sahipliğinde, §8) başlığın altında gösterilir. **Belirsizliği gidermek için** `RoundSummaryView`
+yeni bir parametre alır: `roundStartedAt: Date` (çağıranlar `round.startedAt`/`session.startedAt`ı
+geçirir — ikisi de zaten var olan alanlar, yeni bir şey saklamaz). Koşul: `entries` içindeki
+kelimelerden en az biri, `word.logs`de **`roundStartedAt`den önce, ama bugün** tarihli bir log
+taşıyorsa (yani bu turun kendi cevaplarından değil, bugün **daha önce başlamış başka bir turdan**
+kalma bir log) not gösterilir. `roundStartedAt`den sonraki loglar (bu turun kendi cevapları, tur içi
+yeniden sorma dahil) bu sayıma girmez — "aynı turda iki kez sorulan kelime" ile "bugün ayrı bir turda
+daha önce görülen kelime" böylece ayrılır. Tamamen yeni bir turda (bugün ilk kez oynanan kelimelerden
+oluşuyorsa) not gösterilmez.
 
 ---
 
@@ -524,11 +580,15 @@ kullanan bütün çağrı yerlerini birlikte yapıyor** (§8, sıralı model —
   `replay`den hesaplanmış güncel değer) okunur.
 - Üstteki "x/y doğru" sayısı değişmedi: `entries.count(where: \.correct)` (turdaki ilk cevaplar, §9
   Kararlar/4).
-- **C'nin işi** (`Shared/Games/RoundSummaryView.swift`in görsel tasarımı, A bitirdikten sonra, §8):
-  satır artık yüzde değil "önce → sonra" vade metni gösterir (ör. "Yeni → Yarın", "3 gün gecikti →
-  8 gün sonra"); `dueBefore == nil` ise "Yeni" yazar; `lapsedBefore` ya da `word.isLapsed` (sonraki
-  durum) turuncu vurgu alır (`MemoryRing`in yeni `isLapsed` parametresiyle, §4.2); kırmızı "Şimdi"
-  hiçbir yerde gösterilmez (§4.2, `Leitner.dueDescription`in A'da değişen çıktısına göre).
+- **C'nin işi** (`Shared/Games/RoundSummaryView.swift`in görsel tasarımı, B bitirdikten sonra, §8):
+  satır artık yüzde değil "önce → sonra" vade **metni** gösterir (ör. "Yeni → Yarın", "3 gün gecikti →
+  8 gün sonra" — bu, `Leitner.dueDescription`in döndürdüğü metnin ta kendisi, ayrı bir "etiket"
+  DEĞİL); `dueBefore == nil` ise "Yeni" yazar; `lapsedBefore` ya da `word.isLapsed` (sonraki durum)
+  turuncu vurgu alır (`MemoryRing`in yeni `isLapsed` parametresiyle, §4.2) — **"Tekrar edilecek"
+  etiketi burada gösterilmez**, o yalnızca listede/ayrıntıda kullanılır (§4.2, tek etiket kuralı);
+  kırmızı "Şimdi" hiçbir yerde gösterilmez (§4.2, `Leitner.dueDescription`in A'da değişen çıktısına
+  göre). C ayrıca `RoundSummaryView`e `roundStartedAt: Date` parametresi ekler ve bütün çağıranlarını
+  (yukarıdaki altı görünüm + `MacStudyView`) günceller (§3.2, "aynı deste" notu).
 
 ### 4.2 Renkler
 
@@ -545,13 +605,14 @@ sahipsiz kalmıştı, Orta bulgu — veri/imza A, görünüm C):**
   `isLapsed: Bool = false` (varsayılan `false` olduğu için mevcut bütün çağrı yerleri **derlenmeye
   devam eder**, tek tek güncellenmesi gerekmez); `true` iken halka rengi hafıza değerine bakmadan
   turuncu olur.
-- **C** (görünüm — hangi ekranda `isLapsed: word.isLapsed` **geçileceğine** ve "Tekrar edilecek"
-  etiketinin nerede gösterileceğine karar verir, §4.5/2): `KelimeDefteri/Views/WordListView.swift`,
-  `KelimeDefteri/Views/WordDetailView.swift`, `Mac/WordsWindow.swift`, `Shared/Games/
-  RoundSummaryView.swift` (§4.1'in "sonraki durum" vurgusu). Kırmızı "Şimdi"nin kaldırılmasının
-  görsel yansıması da C'dedir: `RoundSummaryView.swift`teki `due > .now ? .primary : .red` koşulu
-  kaldırılır (A'nın yeni metni zaten "Şimdi" döndürmediği için bu koşulun kırmızı dalı artık hiç
-  tetiklenmez, ama kod hâlâ orada durmasın diye C temizler).
+- **C** (görünüm, §4.5/5): **"Tekrar edilecek" etiketi tek bir yerde kullanılır — listede ve
+  ayrıntıda**, `KelimeDefteri/Views/WordListView.swift`, `KelimeDefteri/Views/WordDetailView.swift`,
+  `Mac/WordsWindow.swift` (`isLapsed: word.isLapsed` geçilir + "Tekrar edilecek" metni yazılır).
+  `Shared/Games/RoundSummaryView.swift`de **etiket YOK** — orada yalnızca `MemoryRing(isLapsed:)`in
+  turuncu vurgusu ve §4.1'deki "önce → sonra" vade metni var (§4.1, C'nin işi). Kırmızı "Şimdi"nin
+  kaldırılmasının görsel yansıması da C'dedir: `RoundSummaryView.swift`teki `due > .now ? .primary :
+  .red` koşulu kaldırılır (A'nın yeni metni zaten "Şimdi" döndürmediği için bu koşulun kırmızı dalı
+  artık hiç tetiklenmez, ama kod hâlâ orada durmasın diye C temizler).
 
 ### 4.3 Yüzde yalnızca ayrıntı/ilerleme ekranlarında
 
@@ -565,7 +626,7 @@ doğrudan **kelimenin en güncel `ReviewLog` tarihinden** okunur (tür fark etme
 kavramlar: biri motorun "S'yi son ne zaman değiştirdim" çıpası, öbürü kullanıcının "bu kelimeyi en
 son ne zaman gördüm" bilgisi.
 
-### 4.5 Kullanıcıya görünen değişiklikler (v9→v11, sade Türkçe)
+### 4.5 Kullanıcıya görünen değişiklikler (v9→v12, sade Türkçe)
 
 Bu liste, motorun iç kurallarından değil, kullanıcının ekranda **göreceği** farklardan oluşur; ayrı
 tutulmasının sebebi denetimde bu değişikliklerin belgede dağınık kalması (§9 Kararlar'daki kullanıcı
@@ -592,22 +653,35 @@ kararlarıyla karıştırılmamalı, onlar zaten karar; bunlar kararların doğa
    1 gün, tanımayla S<21'de 2 farklı günde — normal S-tabanlı vadeye döner). Kullanıcı böyle bir
    kelimeyi tanımada doğru bilse de "Yarın" yazısının hemen değişmediğini görebilir; bu bir hata değil
    (bkz. §7.1 tablosundaki "Zayıf kelime (S<21), tanımada 1. farklı günde doğru" satırı).
-5. **Zayıf kelime artık listede, ayrıntıda ve tur özetinde turuncu halka + "Tekrar edilecek" etiketiyle
+5. **Zayıf kelime artık listede ve ayrıntıda turuncu halka + "Tekrar edilecek" etiketiyle
    işaretleniyor** (önceden `MemoryRing` yalnızca sayısal hafıza değerine göre renkleniyordu, `isLapsed`
-   durumuna hiç bakmıyordu); "X gün gecikti" metni ve kırmızı "Şimdi" kaldırıldı, yerine nötr "Bugün"
-   ya da "X gün gecikti" yazısı geldi (§4.2).
+   durumuna hiç bakmıyordu); tur özetinde de turuncu halka görünür ama etiket yok, orada yalnızca
+   "önce → sonra" vade metni var (§4.1, madde 2). **Kırmızı "Şimdi" kaldırıldı**, yerine — kelime
+   gerçekten günler önce vadesi geçmişse — **yeni** bir "X gün gecikti" metni geldi (önceden bu metin
+   hiç yoktu, her aşırı-vadeli kelime de "Şimdi" yazıyordu); vade tam bugünse nötr "Bugün" yazar
+   (§4.2).
 6. **Günde en fazla 5 yeni kelime kuralı artık gerçekten günlük** (önceden Günlük Tekrar aynı gün
    içinde birden çok kez açılırsa her seferinde 5 yeni kelime daha veriyordu, §2.6).
-7. **Yanlış bilinen kelime, turda yeniden sorulacak yer kalmadıysa artık hiç yeniden sorulmuyor**
-   (önceden aynı karta hemen geri dönebiliyordu, "en az 2 kart arayla" kuralını bozuyordu, §3.1).
+7. **Yanlış bilinen kelime, turda yeniden sorulacak yer (en az 2 kart) kalmadıysa artık hiç yeniden
+   sorulmuyor** (önceden 1 kart arayla bile geri dönebiliyordu, "en az 2 kart arayla" kuralını
+   bozuyordu, §3.1).
+8. **Bildirimler artık ileri günlerde de susmuyor.** İleri günlerin (yarından itibaren 7 gün) yeni
+   kelime tahmini önceden `0`a sabitti — çalışılmış kelimesi hep güçlü olan (vadesi hiç gelmeyen) bir
+   kullanıcı yarından itibaren hiç bildirim almazdı; artık her gün için "bugünkü mantıkla" (günlük
+   sınıra kadar, deftedeki kalan yeni kelime sayısı kadar) bir tahmin kullanılıyor, bildirim
+   planlanmaya devam ediyor (§2.6, §2.8).
 
 ---
 
 ## 5. Mac eşitliği
 
+(Bu bölümdeki bütün maddelerin kod karşılığı **C**'nin işi, §8 — önceki sürümlerde hiçbir parça bunu
+üstlenmiyordu, v11 denetiminin Yüksek bulgusu.)
+
 - Hub (`MacGamesView`) `current == nil` olduğunda plana bakmaksızın uygun turu doğrudan başlatır.
-- Mac'te de iPhone'daki `RoundSummaryView`in bir eşdeğeri gösterilir; tur bitince kullanıcı "Bir Tur
-  Daha"ya basana kadar özet ekranda kalır, kendiliğinden yeniden başlamaz.
+- Mac'te de iPhone'daki `RoundSummaryView`in bir eşdeğeri gösterilir (aynı tip, `Mac/MacStudyView.swift`
+  kurar); tur bitince kullanıcı "Bir Tur Daha"ya basana kadar özet ekranda kalır, **kendiliğinden
+  yeniden başlamaz** — bugünkü `continueDailyIfWeakRemain()` (otomatik yeniden başlatma) kaldırılır.
 - "Hepsi Güçlü" yalnızca gerçekten iş kalmadığında gösterilir (yeni kelime bekleniyorsa ayrı bir
   durum metni).
 - Sayaç iPhone'daki ortak bileşenle (`GameProgressHeader`) birebir aynı `kalan` mantığını kullanır.
@@ -760,8 +834,12 @@ doğrulanacak.**)
   loglardan doğru okunuyor (geri almada da).
 - `dailyCount(weak:new:introducedToday:)`: aynı gün içinde ikinci kez açılan Günlük Tekrar, ilk
   turda tanıtılan yeni kelimeleri bir daha vermiyor; `introducedToday` doğru sayıyor (§2.6).
-- `WordPicker.reinsertionIndex(queueCount: 0) == nil`; `StudySession.grade` bu durumda `queue.insert`
+- `WordPicker.reinsertionIndex(queueCount: 0) == nil`, `reinsertionIndex(queueCount: 1) == nil`,
+  `reinsertionIndex(queueCount: 2) == 2`; `StudySession.grade` `nil` durumunda `queue.insert`
   çağırmıyor, kelime "biten" sayılıyor (§3.1).
+- `ReminderPlanner.plan`in yeni imzası: bugün (offset 0) `introducedToday`e göre kısıtlanıyor, ileri
+  günler (offset>0) `min(dailyNewLimit, newCount)` tahminini kullanıyor (`new: 0` DEĞİL) — çalışılmış
+  kelimesi hep güçlü bir defterde bile ileri günlere bildirim planlanıyor (§2.6, §2.8).
 - Ters Yön eşanlam: `ReverseChecker.check(_:expected:in:)` gerçek eşanlamı `.synonymOf` ile buluyor;
   `StudySession.reveal()` bunu `Verdict.synonymOf`e eşliyor, not `hard` kaydediliyor (§3.2).
 - `RoundEntry`/`RoundSummaryView.Entry`nin yeni alanları: `dueBefore` yeni kelimede `nil`, değilse
@@ -783,8 +861,13 @@ doğrulanacak.**)
 - `MemoryRing(isLapsed: true)`: hafıza değerine bakmadan turuncu; listede/ayrıntıda "Tekrar edilecek"
   etiketi görünüyor (§4.2, §4.5/5).
 - Mac hub `current==nil` → doğru tur; düğme metni; Kelimelerim/Ayarlar açılışında bütün defter
-  yeniden hesap tetiklendiği; Mac'in kendi tur özeti eşdeğeri A'nın `RoundEntry` alanlarını doğru okuyor.
-- Kelime Ayrıntı "son görülme" `logs.max(date)`ten.
+  yeniden hesap tetiklendiği.
+- Mac tur özeti: tur bitince `MacStudyView` `RoundSummaryView` gösteriyor; `continueDailyIfWeakRemain`
+  otomatik yeniden başlatması yok, kullanıcı "Bir Tur Daha"ya basmadan yeni tur başlamıyor (§5).
+- "Aynı deste" notu: `roundStartedAt`den önce bugün tarihli logu olan kelime varsa not gösteriliyor,
+  yalnızca turun kendi (tur içi yeniden sorma dahil) cevapları varsa gösterilmiyor (§3.2).
+- Kelime Ayrıntı "son görülme" `logs.max(date)`ten (A'da yazılan metin, §4.4 — bu testler C'nin
+  test listesinde çünkü ekranın geri kalanını C değiştiriyor, metnin kendisi A'da sabit).
 
 **Eski testler:** `LearnedDateTests`, `SameDayMemoryTests`, `ReviewFixesTests`, `LogicFixesTests`,
 `MemoryTests`, `StoreMaintenanceTests`, `ReviewRecorderTests`, `GameRoundTests` eski artımlı
@@ -815,12 +898,18 @@ okur) ve **kendi sonunda** iOS testleri (`KelimeDefteriTests`, simülatörde) ge
 derlenmelidir (kabul ölçütü, her parça için aynı: proje kökündeki CLAUDE.md'deki iki `xcodebuild`
 komutu). Bir sonraki parça, bir öncekinin bitmiş/test geçmiş hâli üzerine başlar.
 
-**Tek kural, bütün parçalar için geçerli:** bir parça bir tip/imza/alanı değiştiriyorsa, **o tipi
-kullanan bütün çağrı yerlerini** — hangi parçanın "doğal alanında" olursa olsun — **aynı parçada**
-günceller (derleme hatası bırakmadan). Sonraki parça yalnızca **kendi davranışını ekler**, önceki
-parçanın değiştirdiği tip/imzaya bir daha dokunmaz. (Bu, v10 denetiminin bulduğu "A'nın değiştirdiği
-tip B/C'nin dosyalarını kırıyor" riskini ortadan kaldırır: artık paralel çalışma olmadığı için A'nın
-B/C'nin dosyalarına dokunması sorun değil, aksine **zorunlu**.)
+**Tek kural, bütün parçalar için geçerli:** aşağıdaki dosya listeleri **yol göstericidir, kapsayıcı
+değildir.** Bir parça bir tip/imza/alanı değiştiriyorsa, **o tipi kullanan bütün çağrı yerlerini**
+`grep`/proje çapında arama ile bulup — hangi parçanın "doğal alanında" olursa olsun, listede olsun ya
+da olmasın — **aynı parçada** günceller (derleme hatası bırakmadan). **"Bir sonraki parça önceki
+parçanın değiştirdiği tipe dokunmaz" diye bir kısıt YOK** — v11'deki bu cümle kaldırıldı (denetim v11
+Yüksek bulgusu: B'nin işi bu kısıtla yapılamıyordu, çünkü `GameDeck.init` gibi B'nin doğal olarak
+değiştirmesi gereken tipler zaten A'nın listesinde değildi). Kural yalnızca şunu ister: hangi parça
+bir tipi/imzayı DEĞİŞTİRİYORSA, o değişikliğin bütün çağıranlarını da O PARÇADA günceller — sonraki
+parça o tipi aynen kullanmaya devam edebilir, kendi yeni değişikliklerini üstüne ekler. (Bu, v10
+denetiminin bulduğu "A'nın değiştirdiği tip B/C'nin dosyalarını kırıyor" riskini ortadan kaldırır:
+artık paralel çalışma olmadığı için hangi parçanın hangi dosyaya dokunduğu önemli değil, önemli olan
+her parçanın **kendi değişikliklerini** derlenir durumda bırakmasıdır.)
 
 **A — Motor + önbellek + göç + tur özeti verisi + testler:**
 `Shared/Word.swift` (`lapsedAt` + 7 `base*` alanı, `isLapsed`/`memory(at:)`/`isLearned`/`isDue`
@@ -832,10 +921,11 @@ kaldırılır), `Shared/Logic/MemoryMigration.swift` (`migrateBaseIfNeeded(word:
 §6; `fillLearnedDates` kaldırılır), **`Shared/Logic/MemoryCache.swift`** (yeni dosya: `refreshAll(in:)`,
 `observeRemoteChanges(context:)`), `Shared/SharedStore.swift` (`MemoryCache.observeRemoteChanges`
 `SharedStore.result`in `.success` dalına, `!isExtension` korumasıyla eklenir, §2.9),
-`Shared/Logic/WordPicker.swift` (`reinsertionIndex(queueCount:) -> Int?`, `queueCount == 0`ken `nil`,
+`Shared/Logic/WordPicker.swift` (`reinsertionIndex(queueCount:) -> Int?`, `queueCount < 2`ken `nil`,
 §3.1 — **tek çağıranıyla birlikte**), `Shared/Logic/StoreMaintenance.swift` (taban seçimi, eski
 kopyalama kodu kaldırılır), `Shared/Logic/ReminderPlanner.swift`/`ReminderScheduler.swift`
-(`isDue(at: fireDate)`, §2.8; ileri günlerde `new: 0`, `introducedToday`, §2.6),
+(`isDue(at: fireDate)`, §2.8; `plan`in yeni imzası — `introducedToday: Int` parametresi, ileri
+günlerde `min(dailyNewLimit, newCount)` tahmini (`new: 0` DEĞİL), §2.6),
 `Shared/Logic/GlanceQuiz.swift` (widget sorusu/cevabı, kendi sürecinde tek-kelime göç+replay; yeni
 kelime hariç tutma + boş kalmama, §2.8), `Shared/Leitner.swift` (`dueDescription`in "Şimdi"
 döndürmeyen yeni metni, §4.2), `Shared/Components.swift` (`MemoryRing`e varsayılanlı `isLapsed: Bool
@@ -844,22 +934,29 @@ döndürmeyen yeni metni, §4.2), `Shared/Components.swift` (`MemoryRing`e varsa
 switch'leri, §3.2), `Shared/Logic/ReverseChecker.swift` (`Result.synonymOf(String)` + `check(_:
 expected:in:)` — imza **ve** gerçek eşanlam mantığı birlikte, §3.2 — artık paralel B yok, tek parça
 hem yazar hem test eder), `Shared/Logic/StudySession.swift` (geri alma = log sil + yeniden hesapla;
-`RoundEntry` `dueBefore`/`lapsedBefore` alanlarını alır — `memoryBefore` kaldırılır, §4.1; `reveal()`
-`ReverseChecker.Result.synonymOf`i `Verdict.synonymOf`e eşler, §3.2; `dailyCount(weak:new:
-introducedToday:)`, §2.6), `Shared/Logic/GameRound.swift` (`RoundEntry`i dolduran `record`/`adopt`
-aynı yeni alanlarla, §4.1), `Shared/Logic/GameMode.swift` (yalnızca üst kısım: etiketler/`weight`),
+`RoundEntry` `dueBefore`/`lapsedBefore` alanlarını alır — `memoryBefore` kaldırılır, §4.1; `words`
+diziyi `start(with:plan:now:)`de `private var words: [Word]` olarak saklar, `reveal()` bunu
+`ReverseChecker.check(_:expected:in:)`e geçirip `Result.synonymOf`i `Verdict.synonymOf`e eşler —
+`reveal(answer:now:)`in kendi imzası değişmez, §3.2; `dailyCount(weak:new:introducedToday:)`, §2.6),
+`Shared/Logic/GameRound.swift` (`RoundEntry`i dolduran `record`/`adopt` aynı yeni alanlarla, §4.1),
+`Shared/Logic/GameMode.swift` (yalnızca üst kısım: etiketler/`weight` — alt kısım, `GameDeck`, B'de),
 `Shared/Games/RoundSummaryView.swift` (`Entry` tipinin tanımı `dueBefore`/`lapsedBefore`e döner,
 §4.1 — **görsel tasarım C'nin işi, A yalnızca derlenecek/doğru veriyi taşıyacak kadarını yapar**),
 `Shared/Games/RecallGameView.swift` (`RoundSummaryView.Entry` inşası, §4.1; **ve** `sensoryFeedback`/
 `verdictLabel` switch'leri + "Aranan: X" mesajı, §3.2), `Shared/Games/QuickMixGameView.swift`,
 `ChoiceGameView.swift`, `MatchGameView.swift`, `FillBlankGameView.swift`, `LettersGameView.swift`
-(altısında `RoundSummaryView.Entry` inşası `dueBefore`/`lapsedBefore`e çevrilir — yalnızca bu
-mekanik satır, oyun mantığına dokunulmaz), `Mac/MacStudyView.swift` (kendi tur özeti eşdeğerinin
-`RoundEntry` alanlarını kullanacak şekilde kablolanması), `KelimeDefteri/Views/WordDetailView.swift`
-("son görülme"; `MemoryRing(isLapsed:)`i kullanacak çağrı A'da DEĞİL, C'de — A yalnızca derlenmesini
-sağlar), `KelimeDefteri/Views/ContentView.swift` (`scenePhase` → `MemoryCache.refreshAll`),
+(altısında yalnızca `RoundSummaryView.Entry` inşa satırı `dueBefore`/`lapsedBefore`e çevrilir — bu
+dosyaların geri kalan oyun mantığı/görünümü A'da değişmez, B ve C sırayla kendi kısımlarını ekler),
+`KelimeDefteri/Views/WordDetailView.swift` ("son görülme" metni, §4.4 — **`isLapsed`/"Tekrar edilecek"
+etiketiyle ilgili hiçbir şey A'da değil, tamamı C'de**, aşağıda), `KelimeDefteri/Views/ContentView.swift`
+(`scenePhase` → `MemoryCache.refreshAll`),
 `KelimeDefteri/Views/StudyView.swift` (`StudySession.dailyCount`/`averageMemory` okuyan sayaç
-kısımları), `Mac/MacGamesView.swift` (menü penceresi açılışı → `refreshAll`), `Mac/WordsWindow.swift`,
+kısımları — `GameDeck`/oyun kartları kısmı B'de, §8 B), `Mac/MacGamesView.swift` (menü penceresi
+açılışı → `refreshAll`; hub/`gameGrid`in `GameDeck` inşası B'de, tur özeti/otomatik yeniden başlatma
+kaldırma C'de, §8 B/C), `Mac/WordsWindow.swift` (`refreshAll` tetiklemesi; **ayrıca** eski `isWeak`
+kaldırıldığı için `:37`deki `word.isWeak` çağrısı — A'nın kendi kaldırdığı bir API'nin son
+kullanıcısı olduğu için burada, C'de değil — `word.isDue(at: .now)`e döner, Günlük Tekrar'ın seçtiği
+kümeyle aynı anlamı taşır; hücrenin turuncu/"Tekrar edilecek" stili C'de),
 `Mac/MacSettingsView.swift` (pencere açılışı → `refreshAll`), `Shared/Logic/WeeklySummary.swift`
 (`learnedAt` artık göçte sıfırlanmadığı için doğru sayar), `KelimeDefteri/Views/SettingsView.swift`,
 `PreviewData.swift` (`migrateBaseIfNeeded` çağrısı, mevcut kutu-göçü çağrısının yanına — satır 65),
@@ -873,27 +970,68 @@ tasarım değil, yalnızca doğru veri).
 
 **B — Tur içi oyun mantığı + cevap kontrolü + çeldirici (A bitmiş, testleri geçmiş hâlin üstüne):**
 `Shared/Logic/ChoiceQuiz.swift`, `Shared/Logic/MatchBoard.swift`, `Shared/Logic/LetterPuzzle.swift`,
-`Shared/Logic/QuickMix.swift`, `Shared/Logic/GameMode.swift` (yalnızca alt kısım: `GameDeck`/açılma
-koşulu), `Shared/Logic/ClozeSentence.swift`, `Shared/AnswerChecker.swift`.
+`Shared/Logic/QuickMix.swift`, `Shared/Logic/ClozeSentence.swift`, `Shared/AnswerChecker.swift`.
 **B, A'nın §3.2'de zaten tamamladığı `ReverseChecker`e bir daha dokunmaz** (v10'daki A/B saplama
-ayrımı v11'de kaldırıldı, §3.2) — B yalnızca yukarıdaki dosyaların kendi iç oyun mantığını (çeldirici
-seçimi, eşleştirme, harf bulmacası) yazar/düzeltir, hiçbir paylaşılan tip değiştirmez.
+ayrımı v11'de kaldırıldı, §3.2).
 
-**B kabul ölçütü:** iOS testleri ve Mac derlemesi geçer; §7.2 B'deki testler geçer; A'nın bıraktığı
-hiçbir tip/imza değişmemiştir (diff bunu gösterir).
+**B'nin kendi imza değişiklikleri (ve bütün çağıranları, aynı parçada):**
+- `Shared/Logic/GameMode.swift` (alt kısım: `GameDeck`): `GameDeck`e `distinctMeaningCount: Int`
+  eklenir; tuple `init(entries:)` `turkish` alır; `unavailableReason(for:)`teki `.multipleChoice`/
+  `.match` dalı `distinctMeaningCount`e bakar (§3.2). **Çağıranlar:** `Mac/MacGamesView.swift:222`
+  (`gameGrid`teki `GameDeck(entries:)` çağrısı), `KelimeDefteri/Views/StudyView.swift:118` (`deck`
+  hesaplanan özellik), `KelimeDefteriTests/GameCatalogTests.swift` (`deckSummary()` yeni alanı
+  doğrular, `requirements()`teki memberwise çağrı güncellenir).
+- `Shared/Games/FillBlankGameView.swift:68-69`, `Shared/Games/QuickMixGameView.swift:131`:
+  `ChoiceQuiz.Candidate(text: $0.english)` çağrıları `meanings: AnswerChecker.meanings(in:
+  $0.turkish)`i de geçirir (anlam-tabanlı çeldirici, §3.2) — `Candidate`in kendi imzası değişmez,
+  yalnızca bu iki çağrı satırı.
+- `Shared/Games/FillBlankGameView.swift` (`ClozeCard`): `ClozeSentence`in B'de değişen iki-geçiş
+  davranışına göre render güncellenir (§3.2).
+- `Shared/Games/QuickMixGameView.swift`: Hızlı Tur kartındaki süre metni (~2 dakika, 25 sn/kelime,
+  §3.2) — bu dosyada A yalnızca `RoundSummaryView.Entry` inşa satırına dokunmuştu, geri kalanı B'nin.
+- `Shared/Games/MatchGameView.swift`, `LettersGameView.swift`: `MatchBoard`/`LetterPuzzle`deki
+  değişikliklere göre kendi render'ları (hata sahipliği, taş küçük harf gösterimi, §3.2) — bu iki
+  dosyada da A yalnızca `RoundSummaryView.Entry` inşa satırına dokunmuştu.
 
-**C — Özet/gösterge + Mac görsel tasarımı (B bitmiş hâlin üstüne):**
-`Shared/Games/RoundSummaryView.swift` (**görsel tasarım**: yüzde yerine "önce → sonra" vade metni,
-`dueBefore == nil` → "Yeni", `lapsedBefore`/güncel `word.isLapsed` → turuncu vurgu + "Tekrar edilecek"
-etiketi, kırmızı "Şimdi" stilinin kaldırılması, §4.1/§4.2), `Shared/Games/GameScaffold.swift`,
-`Mac/MacStudyView.swift` (görsel tasarım — A yalnızca veri kablolamasını yapmıştı), `Mac/MenuBarView.swift`,
-`Shared/Logic/MemoryStats.swift`, `KelimeDefteri/Views/WordListView.swift` (`MemoryRing(isLapsed:
-word.isLapsed)` + "Tekrar edilecek" etiketi), `KelimeDefteri/Views/WordDetailView.swift` (aynı,
-ayrıntı sayfasında), `Mac/WordsWindow.swift` (Kelimelerim tablosunda aynı).
+**B kabul ölçütü:** iOS testleri ve Mac derlemesi geçer; §7.2 B'deki testler geçer; B'nin değiştirdiği
+`GameDeck`/`ChoiceQuiz.Candidate` çağrı satırlarının hepsi derlenir (grep ile doğrulanır); A'nın
+`RoundEntry`/`ReverseChecker`/`Verdict` gibi tiplerine B dokunmamıştır.
+
+**C — Özet/gösterge + Mac tur özeti + Mac görsel tasarımı (B bitmiş hâlin üstüne):**
+- `Shared/Games/RoundSummaryView.swift` (**görsel tasarım**: yüzde yerine "önce → sonra" vade metni,
+  `dueBefore == nil` → "Yeni", `lapsedBefore`/güncel `word.isLapsed` → turuncu vurgu — **etiket YOK
+  burada**, §4.1/§4.2; kırmızı "Şimdi" stilinin kaldırılması; yeni `roundStartedAt: Date` parametresi
+  eklenir, §3.2), `Shared/Games/GameScaffold.swift`.
+- **Bütün `RoundSummaryView` çağıranları** (`roundStartedAt` yeni parametresi için, aynı parçada):
+  `Shared/Games/RecallGameView.swift`, `QuickMixGameView.swift`, `ChoiceGameView.swift`,
+  `MatchGameView.swift`, `FillBlankGameView.swift`, `LettersGameView.swift` (`round.startedAt`/
+  `session.startedAt` geçirilir).
+- **Mac tur özeti (§5, yeni — önceden hiçbir parça kurmuyordu):** `Mac/MacStudyView.swift` — tur
+  bitince (`session.current == nil`) iOS'takiyle **aynı** `RoundSummaryView`i gösterir (`session.
+  roundEntries`den `RoundSummaryView.Entry` kurar, iOS'taki `RecallGameView` ile birebir aynı
+  eşleme); `continueDailyIfWeakRemain()` ile turun **kendiliğinden yeniden başlatılması kaldırılır**
+  — yerine iOS'taki gibi "Bir Tur Daha" düğmesi (`RoundSummaryView`in `onAgain`i) kullanıcının kendi
+  seçimiyle yeni tur başlatır; `finished`/`ContentUnavailableView` yalnızca **gerçekten** iş
+  kalmadığında (`session.current == nil` VE tur hiç başlamamışsa, ör. ilk açılışta) gösterilir, tur
+  bittikten sonra değil.
+- `Mac/MacGamesView.swift`: hub'daki `case nil: hub` davranışı ve `page = .daily` sonrası dönüş akışı
+  Mac tur özetiyle tutarlı hâle getirilir (§5) — bu dosya artık **C'nin listesinde** (v11 denetiminin
+  bulduğu boşluk kapatıldı).
+- `Mac/MenuBarView.swift`.
+- `KelimeDefteri/Views/WordListView.swift`, `KelimeDefteri/Views/WordDetailView.swift`,
+  `Mac/WordsWindow.swift`: **"Tekrar edilecek" etiketi yalnızca burada** (`MemoryRing(isLapsed:
+  word.isLapsed)` + etiket metni, §4.2/§4.5). `Mac/WordsWindow.swift`teki turuncu/etiket stili, A'nın
+  `:37`de zaten `isDue`e çevirdiği veriyi okur (C burada yalnızca görseldir, A'nın düzelttiği satıra
+  bir daha dokunmaz).
+
+`Shared/Logic/MemoryStats.swift` **C'nin listesinden çıkarıldı** — v11 denetiminin sorduğu "C'de ne
+için değişiyor" sorusunun cevabı: hiçbir şey, bu sürümde dokunulmuyor (yüzde/İlerleme ekranı
+davranışı değişmiyor, §4.3).
 
 **C kabul ölçütü:** iOS testleri ve Mac derlemesi geçer; §7.2 C'deki testler geçer; tur özeti ekranı
-karar 2'deki tam görsel tanıma uyar (yüzde yok, "3 gün gecikti → 8 gün sonra" gibi metin, turuncu
-"Yarın tekrar", kırmızı "Şimdi" yok).
+§4.1/§4.2'deki tam görsel tanıma uyar (yüzde yok, "3 gün gecikti → 8 gün sonra" gibi "önce → sonra"
+vade metni, turuncu vurgu, kırmızı "Şimdi" yok — "Tekrar edilecek" etiketi yalnızca listede/ayrıntıda,
+tur özetinde değil); Mac'te tur bitince `RoundSummaryView` gösterilir, otomatik yeniden başlama yok.
 
 ---
 
@@ -922,8 +1060,10 @@ yazıldı (§2.4 [karar 2], §2.8/§4.5 [karar 3], §4.1/§4.5 [karar 4], §2.2/
    tanıtımı yalnızca Günlük Tekrar/Yeni Eklenenler üzerinden olur.
 
 4. **Tur özetinde ✓/✗ = bu turdaki ilk cevap** (günün notu değil); "sonraki tekrar" metni turdan
-   sonraki günün gerçek sonucunu yansıtır (§4.1 — mevcut `RoundEntry`/`Entry` yapısı zaten böyle
-   çalışıyor, yeniden kurulmadı). Üstteki "x/y doğru" sayısı da bu turdaki ilk cevaplardan sayılır.
+   sonraki günün gerçek sonucunu yansıtır. **✓/✗'in kaynağı** (`entry.correct`, turdaki ilk cevap)
+   **hiç değişmedi**; ama "sonraki tekrar"ı taşıyan `Entry`/`RoundEntry` tipi v11'de **değişti**
+   (yüzde yerine `dueBefore`/`lapsedBefore` vade bilgisi taşıyor, §4.1 — A bu tipi ve bütün çağrı
+   yerlerini günceller, §8). Üstteki "x/y doğru" sayısı da bu turdaki ilk cevaplardan sayılır.
 
 5. **"Zayıf" kelimesinin tek tanımı: `lapsedAt != nil`.** Yanlış bilinen kelime, listede ve ayrıntı
    sayfasında turuncu halka, "Tekrar edilecek" etiketi ve ne zaman tekrar sorulacağı ("Yarın" vb.)
