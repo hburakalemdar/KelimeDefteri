@@ -1,13 +1,19 @@
 # Spec: Hafıza Motoru ve Tur İçi Oyun Mantığı — Yeniden Tasarım (Motor 2)
 
-**Sürüm 9 — kodlamadan önceki son sürüm, kendi başına yeterli.** Motor, kelimenin durumunu artımlı
+**Sürüm 10 — kodlamadan önceki son sürüm, kendi başına yeterli.** Motor, kelimenin durumunu artımlı
 alanlar yerine bir tabandan sonraki bütün cevapların gün gün yeniden oynatılmasıyla hesaplayan bir
-mimari kullanır (`replay(taban, loglar, now) -> MemoryState`); bu sürüm o mimarideki son uç
-durumları (yeni kelimenin ilk cevabı, widget/bildirim seçimi, göç fonksiyonunun isim çakışması, tur
-özeti arayüzünün parça sınırı) kapatıyor. Bu belge önceki sürümlere referans vermeden tek başına
-uygulanabilir.
+mimari kullanır (`replay(taban, loglar, now) -> MemoryState`). Bu sürüm, v9 denetiminin bütün
+maddelerini (1 Yüksek, 7 Orta, 3 Düşük) kapatır: tur özeti veri yapısının parça sınırı (mevcut
+`StudySession.RoundEntry`/`RoundSummaryView.Entry` zaten doğru tasarlanmış, yeniden kurulmuyor —
+bkz. §4.1), tanıma yanlışında çıpanın davranışı (§1.3/§2.5), Ters Yön eşanlam kontrolünün A/B sınırı
+(§3.2), `dailyCount`in tek yerde uygulanması (§2.6), widget/bildirimin `isDue(at:)` kullanımı ve yeni
+kelime davranışı (§2.8), kullanıcıya görünen değişikliklerin ayrı listesi (§4.5), `learnedAt`in taban
+sınırındaki belirsizlikler ve `dueDate` biriminin netleştirilmesi (§2.7), kod adı düzeltmeleri (§2.9)
+ve §7.1'deki doğrulama iddiasının kapsamı. §9, sorulardan **kararlara** çevrildi. Bu belge önceki
+sürümlere referans vermeden tek başına uygulanabilir.
 
-Kaynaklar (tarihçe): `scratchpad/motor/1-ilerleme.md` … `19-denetim-v8.md`, `18-simulasyon-v8.md`.
+Kaynaklar (tarihçe): `scratchpad/motor/1-ilerleme.md` … `19-denetim-v8.md`, `18-simulasyon-v8.md`,
+`20-denetim-v9.md`.
 Kod: `Shared/Word.swift`, `Shared/ReviewLog.swift`, `Shared/SharedStore.swift`,
 `Shared/Logic/Memory.swift`, `ReviewRecorder.swift`, `MemoryMigration.swift`, `StudySession.swift`,
 `GameRound.swift`, `WordPicker.swift`, `GameMode.swift`, `StoreMaintenance.swift`,
@@ -27,11 +33,15 @@ Kod: `Shared/Word.swift`, `Shared/ReviewLog.swift`, `Shared/SharedStore.swift`,
    bildirim). Yanlış oranı 1/3'ten fazlaysa gün "yanlış"; azsa "zayıflatmayan doğru"; hiç yanlış
    yoksa günün en iyi doğrusu. Yanlışlar her zaman sayılır; yalnızca bir yanlıştan sonraki 30
    dakikadan az süre içindeki doğrular sayılmaz.
-3. Tanıma cevapları **hiçbir zaman "çıpayı" (büyüme hesabının başlangıç anını) ilerletmez**: kelime
-   henüz olgunlaşmadıysa (S<21) S'yi büyütebilir (tavan 20,9) ve vade eski çıpadan yeniden hesaplanır
-   (zaman ilerletilmeden, yalnızca S değiştiği için değişebilir); kelime zaten olgunsa (S≥21) hiçbir
-   şeyi değiştirmez. Olgun bir kelime zayıflarsa (S≥21 kalarak), zayıflığını **yalnız üretim**
-   kaldırabilir — tanıma tek başına kaldıramaz.
+3. Tanıma cevapları **doğru/zor bilindiğinde çıpayı hiçbir zaman ilerletmez** (büyüme hesabının
+   başlangıç anını): kelime henüz olgunlaşmadıysa (S<21) S'yi büyütebilir (tavan 20,9) ve vade eski
+   çıpadan yeniden hesaplanır (zaman ilerletilmeden, yalnızca S değiştiği için değişebilir); kelime
+   zaten olgunsa (S≥21) hiçbir şeyi değiştirmez. **Tanımada yanlış bilinen gün bu kuralın dışındadır:**
+   yanlış her zaman güçlü bir sinyaldir (hangi oyunda olursa olsun kelime o gün gerçekten
+   hatırlanamamıştır), bu yüzden çıpayı üretimdeki gibi bugüne ilerletir (§2.5, YANLIŞ dalı — grup
+   ayrımı yalnızca "kaynak" cevabın notu/oyunu için değil, bu dalda hiç bakılmaz). Olgun bir kelime
+   zayıflarsa (S≥21 kalarak), zayıflığını **yalnız üretim** kaldırabilir — tanıma tek başına
+   kaldıramaz.
 4. Seçim tek kurala indirgendi: `word.isDue(at: now)` (`dueDate <= now`). Ayrı bir "bugün yanlış
    yapılan hiçbir yerde seçilmesin" filtresi yok.
 5. Gün sabah 04:00'te döner; göç deterministik ve kayıpsız (taban, göç anındaki son logun tarihine
@@ -52,15 +62,18 @@ Kod: `Shared/Word.swift`, `Shared/ReviewLog.swift`, `Shared/SharedStore.swift`,
 3. Gün sınırı 04:00, takvim bileşenli gün farkı (§2.3).
 4. Günün notu = orana göre (üretim önce, yoksa tanıma); yanlışlar her zaman sayılır, yanlıştan
    sonraki <30 dakika içindeki doğrular sayılmaz (§2.4).
-5. Gün işlenmesi: yanlış → zayıflat + ertesi gün 04:00'e sabitle; değilse büyüt — tanıma günü
-   çıpayı hiç ilerletmez (S<21'de yalnız S/D büyür, S≥21'de hiçbir şey değişmez); zayıflık
-   üretimle (S seviyesi fark etmez) ya da (yalnız S<21'de) iki farklı günde tanımayla temizlenir (§2.5).
+5. Gün işlenmesi: yanlış → zayıflat + çıpayı bugüne ilerlet + ertesi gün 04:00'e sabitle (kaynak
+   üretim mi tanıma mı olduğuna bakılmaz — yanlış her zaman çıpayı ilerletir); değilse büyüt —
+   tanıma günü (yalnız doğru/zor bilinen gün) çıpayı hiç ilerletmez (S<21'de yalnız S/D büyür, S≥21'de
+   hiçbir şey değişmez); zayıflık üretimle (S seviyesi fark etmez) ya da (yalnız S<21'de) iki farklı
+   günde tanımayla temizlenir (§2.5).
 6. Büyüme/ceza formülleri sabit, `t` tam gün, çıpa = `anchorAt`; **yeni kelimenin ilk cevabı** ayrı,
    sabit bir tabloyla belirlenir (S=0'dan büyüme formülü tanımsız olduğu için) (§2.6).
 7. `learnedAt` = replay'de şartın ilk sağlandığı **günün 04:00'ü**; göç tabanı öğrenilmişse şart
    baştan sağlanmış sayılır (§2.7).
-8. Seçim = `word.isDue(at:)`, tek kural; hangi seçicinin hangi kelime kümesinden seçtiği §2.8'de
-   tek tek listelenir (Günlük Tekrar/widget/bildirim dahil, hepsi `isDue`).
+8. Vade formülü tek kural (`word.isDue(at:)`); hangi seçicinin bunu nasıl kullandığı §2.8'de tek tek
+   listelenir — Günlük Tekrar yalnızca `isDue`, widget/bildirim önce `isDue` sonra (boşsa) ağırlıklı
+   yedek (yeni hariç, §9 Kararlar/3), "ağırlıklı" oyunlar ve Yine de Çalış `isDue`e hiç bakmaz.
 9. Önbellek: cevap sonrası o kelime; öne gelince/Mac penceresi açılınca bütün defter; widget kendi
    sürecinde tek kelime — hepsi önce o kelimenin göçünü tetikler (`MemoryMigration.migrateBaseIfNeeded`,
    kutu göçünden farklı bir fonksiyon, §2.9, §6).
@@ -74,9 +87,12 @@ Kod: `Shared/Word.swift`, `Shared/ReviewLog.swift`, `Shared/SharedStore.swift`,
   gününe göre kümelenir.
 - Her gün için §2.4 (günün notu) ve §2.5 (günün işlenmesi) sırayla uygulanır; çıkan `MemoryState`
   bir sonraki günün girdisidir; son günün çıktısı `replay`in sonucudur.
-- `MemoryState = { stability, difficulty, dueDate, lapsedAt: Date?, learnedAt: Date?, anchorAt: Date,
-  dayGrade: DayGrade? }`. `dayGrade`, yalnızca `replay`in işlediği **son günün** notudur (önceki
-  günlerin notu saklanmaz); hiç gün işlenmediyse (loglar boşsa) `nil`. Tur özeti (§4.1) bunu okur.
+- `MemoryState = { stability, difficulty, dueDate, lapsedAt: Date?, learnedAt: Date?, anchorAt: Date }`.
+  **`dayGrade` alanı yok** — v9 taslağı tur özeti ikonu için `MemoryState`e bir `dayGrade` alanı
+  eklemeyi planlıyordu, ama §4.1'de açıklandığı gibi tur özeti ✓/✗'i günün notundan değil turdaki ilk
+  cevaptan okuyor (kod zaten böyle), bu yüzden `replay`in dışarı taşıması gereken ekstra bir "son
+  günün notu" değeri yok; günün notu yalnızca `replay`in **içinde**, §2.4/§2.5'in bir günden diğerine
+  geçerken kullandığı geçici bir değerdir.
 
 `Word` üzerindeki `stability`, `difficulty`, `dueDate`, `lastReviewedAt` (=`anchorAt` önbelleği),
 `lapsedAt`, `learnedAt` alanları bu fonksiyonun **önbelleğidir**. Yazan taraf (`ReviewRecorder`)
@@ -109,6 +125,9 @@ güncelle" yapar.
 **`!isNew && isDue(at: now)`** kullanır (yeni kelime `dueDate = .distantPast` olduğu için, `isNew`
 hariç tutulmazsa yanlışlıkla "zayıf" sayılırdı) — Günlük Tekrar'ın seçtiği kümeyle (yeniler hariç)
 birebir aynı kelimeler. "Güçlü" = `!isNew && !isDue(at: now)`. "Yeni" = `isNew`; üçü birbirini dışlar.
+**Not:** bu sayaç `isDue` kullanır, `isLapsed` DEĞİL — kelime rozeti/halkasının turuncu olması
+(`isLapsed`) için bkz. §4.2 ve §4.5'teki "zayıf" kelimesinin tek tanımı; ikisi kasıtlı olarak farklı
+kümeler olabilir (bir kelime zayıf olup vadesi henüz gelmemiş olabilir).
 
 `anchorAt`in ve `learnedAt`in "gün" değeri her zaman o günün **04:00'üdür** (cevabın gerçek saati
 değil) — `DayBoundary.start(of:)`in kendisi. Bu, §2.6'daki `t` hesabının (iki `anchorAt` arasındaki
@@ -219,13 +238,21 @@ Ekranda gösterilen anlık yüzde gerçek (kesirli) zamanla (`now − anchorAt`)
 formülündeki `t` tam gün. Zayıf kelimede ekran `min(R,0.5)`; halka rengi zayıf kelimede doğrudan
 `lapsedAt != nil`den turuncu (sayısal değere bakmaz).
 
-**Yeni kelime sınırı:** `bugünTanıtılan = words.count { kelimenin en eski ReviewLog'unun günü ==
-bugün }`; günlük bütçe `max(0, 5 − bugünTanıtılan)`. Bu hesap `Shared/Logic/StudySession.swift`teki
-mevcut `dailyCount(weak:new:)` fonksiyonunun yerini almaz, ona **girdi sağlar**: fonksiyonun imzası
-`dailyCount(weak: Int, new: Int, alreadyIntroducedToday: Int) -> (weak: Int, new: Int)` olarak
-genişler, `new` parametresi çağıran tarafından zaten `max(0, 5−bugünTanıtılan)` ile sınırlanmış
-gelir. Günlük Tekrar kartı, sekme rozeti ve bildirim planlaması aynı bu fonksiyonu çağırdığı için
-(mevcut kod deseni) üçü otomatik olarak aynı sayıyı gösterir — ayrı bir eşitleme gerekmez.
+**Yeni kelime sınırı — tek yerde uygulanır, ikinci bir sınır eklenmez:** günde en fazla 5 yeni
+kelimenin tanıtılması, mevcut `Shared/Logic/StudySession.swift`teki `dailyCount(weak: Int, new: Int)
+-> (weak: Int, new: Int)` fonksiyonunun `min(new, dailyNewLimit, ...)` satırıyla **zaten** sağlanır;
+imzası değişmez, yeni bir `alreadyIntroducedToday` parametresi **eklenmez**. Bu, ayrı bir sayaç
+gerektirmez çünkü kelime bir kez cevaplandığında `isNew` false olur ve `dailyNewWords`in seçtiği
+havuzdan kendiliğinden çıkar — "bugün kaç tanesi tanıtıldı" sorusunun cevabı zaten `!word.isNew`
+durumunda saklıdır, ayrıca sayılmaz.
+
+`ReminderPlanner.plan` bu sınırı **gelecek 7 gün için de** kullanır (§2.8), ama yeni kelime yalnızca
+**bugünün** (offset 0) planına girer: `offset > 0` olan (yarından itibaren) günler için `dailyCount`e
+verilen `new` parametresi **0**dır (`newCount` yalnızca `offset == 0`da geçirilir, sonraki günlerde
+`0`). Gerekçe: yeni kelime tanıtımı yalnızca Günlük Tekrar'ın bugün açılmasıyla gerçekleşir; ileri
+günler için "kaç yeni kelime sorulacak" sorusunun anlamlı bir cevabı yoktur (kullanıcı yarın açmadan
+kaç yeni kelimenin tanıtılacağı bugünden bilinemez), bu yüzden ileri günlerin bildirim sayısı yalnızca
+o güne kadar vadesi gelecek çalışılmış (zayıf) kelimeleri sayar.
 
 ### 2.7 `learnedAt`
 
@@ -236,8 +263,30 @@ gelir. Günlük Tekrar kartı, sekme rozeti ve bildirim planlaması aynı bu fon
     isLearned (canlı rozet) = stability ≥ 21 && lapsedAt == nil — replay'in son gündeki durumundan
     doğrudan okunur, learnedAt'ten AYRI.
 
-Taban öğrenilmişse (`baseLearnedAt != nil`), replay bu tarihle başlar ve "2 farklı gün" şartı
-**taban itibarıyla zaten sağlanmış** sayılır.
+**"Üretim katkısı" ZOR günü de sayar:** şart "YANLIŞ olmayan" diyor, yani hem ZOR (0<oran≤1/3, doğru
+sayılır ama zayıflatmaz) hem EN İYİ DOĞRU günü, grup üretimse "1 farklı gün" olarak sayılır — yalnızca
+dayGrade == YANLIŞ olan günler bu sayıma hiç girmez.
+
+**Taban, "kaç farklı gün" sayısını değil yalnızca "şart sağlandı mı"yı taşır:** `baseLearnedAt`
+ikili bir bayraktır (dolu/boş), "1/2 farklı gün" gibi kısmi bir ilerlemeyi saklayan ayrı bir alan
+**yok** — 7 taban alanına yeni bir sayaç eklenmez. Taban öğrenilmişse (`baseLearnedAt != nil`),
+replay bu tarihle başlar ve "2 farklı gün" şartı **taban itibarıyla zaten sağlanmış** sayılır. Taban
+öğrenilmemişse (`baseLearnedAt == nil`), "farklı gün" sayımı **sıfırdan**, yalnızca `replay`in
+işlediği (`date > baseAt`) loglardan başlar — tabandan önceki günlerde varsa bile hiçbir kısmi
+ilerleme taşınmaz. Bu, göçten hemen sonraki birkaç günde (taban öncesinde zaten 1 üretim günü
+gerçekleşmiş bir kelimenin) `learnedAt`in gerçekte olması gerekenden bir gün geç görünmesine yol
+açabilir; kabul edilebilir bir yaklaşıklık (bkz. §6'daki genel göç yaklaşıklığı ilkesi, aynı
+kategoride bir sadeleştirme).
+
+**`dueDate` birimi ve S<1 durumu:** `dueDate = anchorAt + stability gün` ifadesindeki "gün" 86.400
+saniyelik sabit bir birimdir (`anchorAt + stability × 86400` saniye, kesirli S'yi de doğru ekler —
+ör. S=20,9); bu, `t`nin hesaplandığı takvim-bileşenli gün farkından (§2.3) **farklı** bir birimdir,
+ikisi karıştırılmamalı. Bu dalda (`lapsedAt == nil`, yani ZOR/EN İYİ DOĞRU) S'nin 1'in altına inmesi
+**mümkün değildir**: dal yalnızca doğru/zor bilinen günlerde çalışır, ilk günün en düşük büyüme
+değeri (hard) 1,2'dir ve sonraki her büyüme çarpanı ≥1'dir (tanıma tavanı da `min(S',20,9)` olduğu
+için hep ≥ önceki S0); S<1 yalnızca "again" (yanlış) durumunda üretilir, o da her zaman sabit
+`dueDate = bugün + 1 gün` dalına girer (§2.5, YANLIŞ dalı), S-tabanlı formüle hiç girmez. Dolayısıyla
+`anchorAt + stability gün` ifadesinde S her zaman ≥1 gündür.
 
 `ReviewRecorder`deki eski "öğrenilmiş değilse `learnedAt`'i sil" dalı ve
 `MemoryMigration.fillLearnedDates` **tamamen kaldırılır**: `learnedAt` yalnızca `replay`in çıktısı.
@@ -246,24 +295,37 @@ Taban öğrenilmişse (`baseLearnedAt != nil`), replay bu tarihle başlar ve "2 
 
     isDue(word, now) = word.dueDate <= now
 
-İki tür seçici var; hangi kelimenin **hangi tür** seçiciye ait olduğu tek tek:
+Üç tür seçici var (widget/bildirim, §9 Kararlar/3 kararıyla, ikisi arasında bir karma seçici oldu);
+hangi kelimenin **hangi tür** seçiciye ait olduğu tek tek:
 
 **"Vadeye bakan" seçiciler** — yalnızca `isDue(at: now)` olan kelimeler arasından seçer, bugün
 zayıflayan kelimeyi doğal olarak yarına kadar bir daha almaz:
 - **Günlük Tekrar**: `words.filter { !$0.isNew && $0.isDue(at: now) }` (+ en fazla 5 yeni kelime, §2.6).
 - **Yeni Eklenenler**: Günlük Tekrar'ın almadığı yeni kelimeler (`isNew`, `isDue`e bakılmaz — yeni
   kelime zaten her zaman "vadeli").
-- **Widget** (`GlanceQuiz.question`) ve **bildirim** (`ReminderPlanner`in planladığı soru): **önce**
-  `words.filter { $0.isDue(at: now) }` içinden ağırlıklı seçim yapılır (§ aşağıdaki ağırlık kuralı).
-  Bu küme boşsa (hiçbir kelimenin vadesi gelmemişse) **soru gösterilmez** (widget "Bütün kelimeler
-  güçlü" durumuna döner, bildirim planlanmaz) — vadesiz bir kelimeye rastgele soru sorulmaz. Bildirim
-  için bu seçim **planlama anında** (bildirimin gönderilmesinden önceki gün, `ReminderScheduler`
-  çalıştığında) yapılır; kullanıcı bildirime günler sonra dokunsa bile soru o anda sabitlenmiş kalır
-  (mevcut davranış, değişmedi).
+- **Widget** (`GlanceQuiz.question`) ve **bildirim** (`ReminderPlanner`in planladığı soru): **yeni
+  kelimeler hiçbir zaman sorulmaz** (`!$0.isNew` her iki aşamada da uygulanır). Sıra: **önce**
+  `words.filter { !$0.isNew && $0.isDue(at: now) }` içinden `WordPicker`in mevcut ağırlıklandırma
+  fonksiyonuyla (`WordPicker.weight(memory:)`, Çoktan Seçmeli/Eşleştir gibi diğer ağırlıklı seçicilerin
+  kullandığı aynı fonksiyon) seçim yapılır. Bu küme boşsa `words.filter { !$0.isNew }` (yeni hariç
+  bütün defter) içinden yine ağırlıklı seçilir — **widget/bildirim asla boş kalmaz**, "Bütün kelimeler
+  güçlü" durumu yalnızca `!isNew` kümesi tamamen boşsa (defterde yeni olmayan hiç kelime yoksa) ya da
+  seçenek üretimi başarısız olursa (`GlanceQuiz.minimumWords`in altında kalırsa) görünür. Bildirim
+  için bu seçim, `word.dueDate <= reminder.fireDate` şartıyla, **`ReminderScheduler` planlama anında**
+  (bildirimin gönderilmesinden önceki gün) yapılır — yani `isDue(at: fireDate)` kullanılır, `now`
+  değil: `ReminderScheduler.refresh` her arka plana geçişte 7 gün ilerisi için plan kurar
+  (`ReminderPlanner.plan`), her bir `reminder.fireDate` için `GlanceQuiz.question(..., now:
+  reminder.fireDate, ...)` çağrılır (`ReminderScheduler.swift:75-77`); kullanıcı bildirime günler sonra
+  dokunsa bile soru o anda sabitlenmiş kalır (mevcut davranış, değişmedi).
+  **Yeni kelimenin dışlanması bir davranış değişikliği:** önceki sürümde yeni kelimenin vadesi hep
+  `.distantPast` olduğu için (`isDue` her zaman true) widget/bildirim neredeyse hep yeni kelime
+  sorardı ve günlük 5 yeni kelime bütçesini tüketirdi; artık widget/bildirim yalnızca çalışılmış
+  (zayıf ya da güçlü) kelimeler arasından sorar, yeni kelime tanıtımı yalnızca Günlük Tekrar/Yeni
+  Eklenenler üzerinden olur (bkz. §4.5).
 - **Yine de Çalış**: `isDue` kullanmaz — kelimeler zaten güçlü olduğu senaryo için tasarlandığından
   `isStruggling` (son 14 günde en az %40 yanlış) ve `weakest` (hafızası en düşük) sıralamasıyla
-  seçer; bu **kasıtlı bir istisna** (§ aşağıdaki "ağırlıklı" seçicilerle aynı mantık: kelimeler
-  vadeli olmasa da tekrar sunulabilir).
+  seçer; bu **kasıtlı bir istisna** (aşağıdaki "ağırlıklı, bütün defterden seçen" seçicilerle aynı
+  mantık: kelimeler vadeli olmasa da tekrar sunulabilir).
 
 **"Ağırlıklı, bütün defterden seçen" oyunlar** — `isDue`e bakmadan bütün defterden ağırlıklı seçer,
 bugün yanlış yapılan kelimeyi de alabilir (kasıtlı, §2.4'ün oran kuralına toparlanma şansı verir; 30
@@ -297,11 +359,16 @@ idempotent bir adım; sırası değişmez.
   saatte bir) bir zamanlayıcı **eklenmez** — pencereler zaten sık açılıp kapanıyor, gözlemci
   (aşağıda) CloudKit tarafını kapsıyor, ek bir zamanlayıcı gereksiz karmaşıklık olurdu.
 - **Uzak (iCloud) değişiklik bildirimi**: `MemoryCache.observeRemoteChanges(context:)`
-  (`Shared/Logic/MemoryCache.swift`) uygulamanın başlangıcında **bir kez** başlatılır — iOS'ta
-  `KelimeDefteriApp.init`/`ModelContainer` kurulduğu yerde, Mac'te `KelimeDefteriMacApp.init`'te
-  (her ikisi de zaten paylaşılan `SharedStore.makeContainer()`i çağırıyor, gözlemci oraya eklenir).
-  SwiftData'nın uzak değişiklik bildirimini dinler, gelince `refreshAll` çağırır (yine yalnızca
-  değişen alanlara yazarak). *[Cihazda doğrulanacak: bu bildirimin CloudKit içe aktarımında
+  (`Shared/Logic/MemoryCache.swift`), `Shared/SharedStore.swift`teki **`SharedStore.result`**in
+  `.success` dalında, **yalnızca `!isExtension` iken** eklenir (kod adı düzeltmesi: `SharedStore`de
+  `makeContainer()` diye bir fonksiyon ya da `KelimeDefteriApp.init`/`KelimeDefteriMacApp.init`e özel
+  bir kurulum noktası yok — hem iOS uygulaması hem Mac uygulaması hem de eklenti/widget aynı
+  `SharedStore.result`i çağırıyor, `!isExtension` koruması zaten mevcut kod deseni, §2.9'daki
+  tek-kelime göçünden farklı olarak). **`!isExtension` widget'ı da kapsar** (widget'lar da bir uzantı
+  paketidir, `Bundle.main.bundlePath.hasSuffix(".appex")`), bu yüzden gözlemci ana uygulamada ve
+  Mac'te çalışır, **Paylaş eklentisinde de widget sürecinde de çalışmaz** — ayrı bir widget-özel bayrağa
+  gerek yok. SwiftData'nın uzak değişiklik bildirimini dinler, gelince `refreshAll` çağırır (yine
+  yalnızca değişen alanlara yazarak). *[Cihazda doğrulanacak: bu bildirimin CloudKit içe aktarımında
   güvenilir geldiği gerçek cihazda teyit edilmeli.]*
 - **Widget/bildirim**: kendi sürecinde (`GlanceQuiz`/`ReminderQuiz`), yalnızca cevapladığı kelime
   için önce `migrateBaseIfNeeded(word:)`, sonra `replay`. `SharedStore`'un bazı kurulum adımlarını
@@ -340,14 +407,21 @@ yeniden sorma hakkı biterek "biten" sayılır — yanlış cevapla geri gitmez,
 - Çeldiriciler (Çoktan Seçmeli, Boşluğu Doldur) anlam-tabanlı seçilir: doğru cevapla ortak Türkçe
   anlamı olan kelime asla çeldirici olmaz.
 - Ters Yön'de ortak anlamlı iki kelimeden biri yazılırsa **"Doğru, ama bu kartta aranan: X"**
-  mesajı gösterilir, not `hard` sayılır (yeni bir arayüz öğesi eklemeden — proaktif kart ipucu §9/2'de
-  karar bekliyor). Sınır: **eşanlamlı olup olmadığını `Shared/Logic/ReverseChecker.swift` (B)
-  belirler** (defterde aynı Türkçe anlama sahip başka bir İngilizce kelime var mı, saf bir kontrol);
-  **mesajın kendisini `StudySession.swift` (A) üretir** (hangi `Verdict`e karşılık hangi metnin/notun
-  geleceği, motorun not-türetme mantığının bir parçası). `ReverseChecker`, `StudySession`'ın
-  çağırdığı saf bir fonksiyon olarak kalır — A, B bitmeden bu fonksiyonun imzasını sabit tutar
-  (`check(_:expected:in:) -> Verdict`, yeni bir `.synonymOf(String)` durumu B tarafından eklenir, A
-  bunu tüketir). Test: B tarafında eşanlam tespiti, A tarafında mesaj/not eşlemesi ayrı ayrı.
+  mesajı gösterilir, not `hard` sayılır (yeni bir arayüz öğesi eklemeden — proaktif kart ipucu için
+  bkz. §9 Kararlar/1: eklenmeyecek). Sınır, imza değişikliğiyle birlikte **A'ya** verilir, mantık
+  **B'ye**:
+  - **A** (`Shared/Logic/ReverseChecker.swift`ın imzasını genişletir + `StudySession.swift`):
+    `Verdict`e yeni bir `.synonymOf(String)` durumu ekler, `check`in imzasını
+    `check(_:expected:in words: [Word]) -> Verdict` yapar (kodda bugün `check(_:expected:)` var, `in:`
+    parametresi yeni). A bu aşamada eşanlam tespitini **saplama (stub)** olarak bırakır — `in:` alır
+    ama kullanmaz, hiçbir zaman `.synonymOf` döndürmez (mevcut exact/typo/wrong davranışı aynen
+    kalır); A'nın `StudySession`'daki "hangi `Verdict`e karşılık hangi mesaj/not" eşlemesi testleri bu
+    saplamayla tam çalışır ve B'yi beklemez.
+  - **B** (`Shared/Logic/ReverseChecker.swift`ın gövdesini doldurur): saplamanın yerine gerçek eşanlam
+    tespitini yazar (defterde aynı Türkçe anlama sahip başka bir İngilizce kelime var mı, `words`
+    üzerinde saf bir arama) — yalnızca `check`in **gövdesini** değiştirir, imzayı ya da `Verdict`
+    durumlarını bir daha değiştirmez, A'nın zaten geçen testleri bozulmaz.
+  Test: A tarafında mesaj/not eşlemesi (saplamayla), B tarafında gerçek eşanlam tespiti ayrı ayrı.
 - `AnswerChecker`: Türkçe ek listesine (-mek/-mak, -i/-ı/-u/-ü, -de/-da, -ler/-lar, -lik/-lık,
   -siz/-sız vb.) göre kontrol edilir ("kara" "karar"ı karşılamaz); kullanıcının cevabı virgülle
   bölünmez, tek tahmin olarak değerlendirilir.
@@ -360,32 +434,47 @@ yeniden sorma hakkı biterek "biten" sayılır — yanlış cevapla geri gitmez,
   gösterilir; Mac'te "Göster"in kısayolu (⌘↩) ile ekrandaki ipucu metni aynı tuşu gösterir; Hızlı
   Tur kartındaki süre metni gerçek tahminle (~2 dakika, 25 sn/kelime) verilir.
 
-**Aynı gün, aynı desteyi tekrar oynama notu** (§9/3): "Bu tur bugünün diğer cevaplarıyla birlikte
-değerlendiriliyor." — bu turun cevapları (30 dakikalık kapı hariç) günün oranına normal şekilde girer.
+**Aynı gün, aynı desteyi tekrar oynama notu** (§9 Kararlar/1): "Bu tur bugünün diğer cevaplarıyla
+birlikte değerlendiriliyor." — bu turun cevapları (30 dakikalık kapı hariç) günün oranına normal
+şekilde girer.
 
 ---
 
 ## 4. Tur özeti ve göstergeler
 
-### 4.1 İkon, "önce"/"sonra"
+### 4.1 İkon, "önce"/"sonra" — mevcut yapı korunuyor, yeniden kurulmuyor
 
-- **İkon**: günün notu `YANLIŞ` ise ✗, değilse (`ZOR` ya da doğru) ✓. Bunun için `replay`in
-  döndürdüğü `MemoryState`e bir alan eklenir: **`MemoryState.dayGrade: DayGrade?`** (o günün notu;
-  `replay` birden çok gün işlese de yalnızca **son işlenen günün** notu saklanır, önceki günlerin
-  notu tur özeti için gerekmez). `ReviewRecorder`, bir cevap kaydettikten sonra `replay`i çağırıp
-  aldığı `dayGrade`yi, o turun bu kelime için ürettiği `RoundSummaryView.Entry`ye geçirir.
-- **`RoundSummaryView.Entry`nin yeni biçimi** (eski `Entry(word:before:correct:)`in yerini alır):
-  `Entry(word: Word, before: EntrySnapshot, after: EntrySnapshot, dayGrade: DayGrade)`, burada
-  `EntrySnapshot = (dueDate: Date, lapsedAt: Date?)` (yüzde değil, vade/durum metni üretmeye yeten
-  minimum bilgi — §4.1 "önce"/"sonra" metinleri bundan türetilir). Bu tipi ve onu üreten
-  `GameRound.summaryEntries`i **A kurar** (`Shared/Logic/GameRound.swift`); **C yalnızca görünümü
-  çizer** (`RoundSummaryView.swift`, `EntrySnapshot`ten metne çeviren fonksiyon C'de olabilir ama
-  `Entry`in kendi alanlarına dokunmaz) — bu sınır A/C çakışmasını önler (önceki sürümde `Entry`in
-  alanlarını hem A hem C değiştirebiliyordu).
-- **"Önce"**: kelimenin turun başladığı andaki önbellek değeri (`before`) — tur başlamadan hemen
-  önce okunan `word.dueDate`/`lapsedAt`.
-- **"Sonra"**: turdan sonra `replay` çalıştırılınca çıkan yeni önbellek değeri (`after`).
-- Yüzde değil, vade/durum metni gösterilir (tur özetinde ve soru kartında sayısal yüzde yok).
+**Bu bölüm, v9'da planlanan `dayGrade`/`EntrySnapshot` tabanlı yeniden tasarımı iptal eder.** v9
+denetimi, bu yeniden tasarımın (`RoundSummaryView.Entry`i `GameRound.summaryEntries`e taşımak) A'nın
+tek başına derlenmesini engellediğini ve B/C'nin beş oyun görünümünü kırdığını tespit etti (Yüksek
+bulgu). İncelemede ortaya çıktı ki **mevcut kod zaten kullanıcı kararı §9 Kararlar/4'ün istediği davranışı
+uyguluyor** — yeni bir veri yapısına gerek yok:
+
+- Kodda bugün **iki** paralel özet-satırı türü var: `StudySession.RoundEntry(word:memoryBefore:
+  firstCorrect:)` (hatırlama akışı — Günlük Tekrar, Ters Yön, Hızlı Tur'un hatırlama sorusu) ve
+  `RoundSummaryView.Entry(word:before:correct:)` (özetin kendi görünüm tipi). İkisi de **kelime
+  başına yalnızca turdaki ilk cevabın doğruluğunu** (`firstCorrect`/`correct`) tutar — günün notunu
+  (`dayGrade`) değil. **Bu, §9 Kararlar/4'ün istediği tam olarak budur** ("✓/✗ = bu turdaki ilk
+  cevap, günün notu değil"), dolayısıyla `Entry`e yeni bir `dayGrade` alanı **eklenmez**.
+- "Sonraki tekrar" metni zaten `entry.word.dueDate`den, yani **canlı** (turdan sonra, o kelime için
+  o günün gerçek notuyla `replay`den hesaplanmış) değerden okunuyor (`RoundSummaryView.swift`
+  `memory(_:)` fonksiyonu, `let due = entry.word.dueDate`) — bu da §9 Kararlar/3'ün ikinci
+  şartını ("sonraki tekrar metni günün sonucunu yansıtır", §9 Kararlar/4) zaten karşılıyor, ayrı bir
+  `after` alanına gerek yok.
+- Üstteki "x/y doğru" sayısı (`RoundText.summary(correct: entries.count(where: \.correct), ...)`)
+  zaten `correct` (=turdaki ilk cevap) üzerinden sayılıyor — "bu turdaki ilk cevaplar" şartını
+  karşılıyor, ayrıca bir hesap eklenmez.
+- **Sonuç: `RoundSummaryView.Entry`, `StudySession.RoundEntry` ve `GameRound.record`/
+  `StudySession.record`'ın bunları dolduran kodu DEĞİŞMEZ.** Mimariyi değiştirmediği için A/B/C
+  parça sınırı da basitleşir: her görünüm dosyası (`RecallGameView`, `QuickMixGameView`,
+  `ChoiceGameView`, `MatchGameView`, `FillBlankGameView`, `LettersGameView`, `MacStudyView`) kendi
+  `RoundEntry`/`round.entries`ini olduğu gibi `RoundSummaryView.Entry`ye çevirir; A'nın diğer parçalar
+  (§8) tarafından hiçbir dosyada beklenmesi gerekmez, bu yüzden **A gerçekten tek başına derlenip
+  testleri geçer**.
+- **"Önce"** (`before`): kelimenin **turdaki ilk cevaptan önceki** önbellek hafızası (`word.memory(at:
+  now)`, cevap kaydedilmeden hemen önce okunur — bugün de böyle).
+- Yüzde değil, vade/durum metni gösterilir (tur özetinde ve soru kartında sayısal yüzde yok) — bu
+  kural değişmedi, `MemoryRing` ve `Leitner.dueDescription` zaten böyle kullanılıyor.
 
 ### 4.2 Renkler
 
@@ -403,6 +492,32 @@ metni gösterilir); sayısal yüzde yalnızca Kelime Ayrıntı sayfasında ve İ
 doğrudan **kelimenin en güncel `ReviewLog` tarihinden** okunur (tür fark etmeden). İkisi ayrı
 kavramlar: biri motorun "S'yi son ne zaman değiştirdim" çıpası, öbürü kullanıcının "bu kelimeyi en
 son ne zaman gördüm" bilgisi.
+
+### 4.5 Kullanıcıya görünen değişiklikler (v9→v10, sade Türkçe)
+
+Bu liste, motorun iç kurallarından değil, kullanıcının ekranda **göreceği** farklardan oluşur; ayrı
+tutulmasının sebebi denetimde bu değişikliklerin belgede dağınık kalması (§9 Kararlar'daki kullanıcı
+kararlarıyla karıştırılmamalı, onlar zaten karar; bunlar kararların doğal sonucu):
+
+1. **"Zayıf" artık tek anlama geliyor: `lapsedAt != nil`.** Bir kelime yanlış bilindiğinde hem
+   listede hem ayrıntı sayfasında turuncu halka, "Tekrar edilecek" etiketi ve ne zaman tekrar
+   sorulacağı ("Yarın" vb.) **her zaman** görünür — bu, kelimenin vadesi henüz gelmemiş olsa bile
+   değişmez. Ama "N zayıf" sayacı (Kelimelerim özeti) ve Günlük Tekrar'ın seçtiği küme yalnızca
+   **vadesi gelmiş** zayıf kelimeleri sayar/seçer (`isDue`, §2.2). Yani kullanıcı, vadesi henüz
+   gelmemiş zayıf bir kelimeyi listede turuncu görebilir ama o kelime "N zayıf" sayısına girmez ve
+   Günlük Tekrar'da sorulmaz — bu kasıtlı (kelime zaten ertesi güne kadar sorulmayacak, §2.5).
+2. **Tur özetindeki ✓/✗ ve üstteki "x/y doğru" değişmedi** (mevcut kod zaten §9 Kararlar/4'ü
+   uyguluyor, bkz. §4.1) — bunu ayrıca belirtmek gerekiyordu çünkü v9 taslağı bunu yanlışlıkla
+   "günün notu"na çevirmeyi planlıyordu; v10 bu planı iptal etti.
+3. **Widget ve bildirim artık yeni kelime sormuyor** (§2.8, §9 Kararlar/3): önceden widget/bildirim
+   genelde yeni kelime sorup günlük 5 yeni kelime bütçesini tüketiyordu; artık yalnızca çalışılmış
+   kelimeler arasından soruyor, hiçbir zaman boş kalmıyor (önce vadesi gelenler, yoksa ağırlıklı
+   rastgele — yine yeni hariç).
+4. **Vadesi geçmiş ve S<21 olan bir kelime, tanımada doğru bilinse bile vadesi hemen değişmeyebilir**
+   (§2.5: zayıf kelimede vade `lapsedAt + 1 gün`e sabittir, yalnızca zayıflık temizlenince — üretimle
+   1 gün, tanımayla S<21'de 2 farklı günde — normal S-tabanlı vadeye döner). Kullanıcı böyle bir
+   kelimeyi tanımada doğru bilse de "Yarın" yazısının hemen değişmediğini görebilir; bu bir hata değil
+   (bkz. §7.1 tablosundaki "Zayıf kelime (S<21), tanımada 1. farklı günde doğru" satırı).
 
 ---
 
@@ -507,7 +622,12 @@ taşıyor; dolayısıyla eski sürümle bu konuda bir uyumsuzluk yok.) Bu yüzde
 
 ### 7.1 Senaryo tablosu
 
-(D=5 başlangıç, hatırlama ağırlığı 1 aksi belirtilmezse; `sim_v8.py` ile doğrulandı.)
+(D=5 başlangıç, hatırlama ağırlığı 1 aksi belirtilmezse. İlk 10 satır — yeni kelime ilk cevap, S=30/
+S=300 senaryoları, 04:00 sınırı, iki cihaz eşitleme, geri alma — `sim_v8.py` ile doğrulandı. **v8/v9'da
+eklenen satırlar (aşağıda `*` işaretli: olgun-zayıf kelime ve tanıma-S<21 satırları) `sim_v8.py`
+kapsamında DEĞİL — bunlar `sim_v8.py`nin yazıldığı tarihten sonra eklendi; bu satırlar
+`sim_v8.py`yle değil, §7.2'deki A'nın `replay` birim testleriyle, uygulamada koşularak
+doğrulanacak.**)
 
 | Senaryo | S | D | vade metni | lapsedAt | learnedAt |
 |---|---|---|---|---|---|
@@ -522,11 +642,11 @@ taşıyor; dolayısıyla eski sürümle bu konuda bir uyumsuzluk yok.) Bu yüzde
 | S=30, art arda 2./3. gün yanlış (zaten zayıf, sabit ceza) | 5,70 / 2,85 | 6,57 / 7,19 | "Yarın" | bugün | — |
 | S=300 vadesinde yanlış (tavan bağlıyor) | 51,96 | 5,85 | "Yarın" | bugün | değişmez |
 | …ertesi gün doğru | 53,43 | 5,72 | "53 gün sonra" | temizlenir | değişmez |
-| Tanımada şansla doğru (S=10, vadesinde) | 20,90 (<21) | 5,00 | **"11 gün sonra"** (vade = eski çıpa + 20,9; çıpa hiç ilerlemediği için görsel süre S'den kısa görünür) | — | yazılmaz |
-| Zayıf kelime (S<21), tanımada 1. farklı günde doğru | S büyür, **vade değişmez** (`lapsedAt+1 gün` sabit) | — | gerçek zaman geçince metin "Bugün"a döner | kalır | — |
-| …2. farklı günde tanıma doğrusu | S büyür, vade artık ileri | — | **"12 gün sonra"** (çıpa hâlâ ilk yanlışın gününde, ilerlemedi) | temizlenir | — |
-| Olgun kelime (S≥21) zayıfladıktan sonra, iki farklı günde tanıma doğrusu | **temizlenmez** (§2.5a) — yalnız üretim kurtarabilir | — | vade sabit kalır (`lapsedAt+1 gün`); metin gerçek zamana göre değişir: o gün "Bugün", ertesi gün "1 gün gecikti", sonra artan sayıyla | kalır | — |
-| Olgun kelime (S≥21), yalnızca tanımayla her gün doğru | tamamen donuk (S/D/anchor/vade değişmez) | — | vadesi geldiğinde gerçek zamanla `isDue`, "X gün gecikti" | — | — |
+| *Tanımada şansla doğru (S=10, vadesinde) | 20,90 (<21) | 5,00 | **"11 gün sonra"** (vade = eski çıpa + 20,9; çıpa hiç ilerlemediği için görsel süre S'den kısa görünür) | — | yazılmaz |
+| *Zayıf kelime (S<21), tanımada 1. farklı günde doğru | S büyür, **vade değişmez** (`lapsedAt+1 gün` sabit) | — | gerçek zaman geçince metin "Bugün"a döner (§4.5/4'teki kullanıcıya görünen davranış) | kalır | — |
+| *…2. farklı günde tanıma doğrusu | S büyür, vade artık ileri | — | **"12 gün sonra"** (çıpa hâlâ ilk yanlışın gününde, ilerlemedi) | temizlenir | — |
+| *Olgun kelime (S≥21) zayıfladıktan sonra, iki farklı günde tanıma doğrusu | **temizlenmez** (§2.5a) — yalnız üretim kurtarabilir | — | vade sabit kalır (`lapsedAt+1 gün`); metin gerçek zamana göre değişir: o gün "Bugün", ertesi gün "1 gün gecikti", sonra artan sayıyla | kalır | — |
+| *Olgun kelime (S≥21), yalnızca tanımayla her gün doğru | tamamen donuk (S/D/anchor/vade değişmez) | — | vadesi geldiğinde gerçek zamanla `isDue`, "X gün gecikti" | — | — |
 | 23:58 yanlış / 00:02 doğru (04:00 sınırıyla aynı gün) | 11,40 | 5,85 | "Yarın" | bugün | — |
 | 03:58 yanlış / 04:02 doğru (farklı gün) | 13,38 | 5,72 | "13 gün sonra" | temizlenir | — |
 | İki cihaz: A yanlış yazar, B (görmeden) 2 doğru yazar; loglar eşitlenir | 56,05 (eksiksiz sonuç) | 5,34 | "56 gün sonra" | — | bugün |
@@ -608,30 +728,45 @@ kendi gün gruplamasından geliyor; eski "öğrenilmiş değilse `learnedAt`'i s
 `word, grade, mode, responseTime, now` kalır), `Shared/Logic/MemoryMigration.swift`
 (`migrateBaseIfNeeded(word:)` tek-kelime taban göçü, §6, kutu göçünden ayrı isim; `fillLearnedDates` kaldırılır),
 **`Shared/Logic/MemoryCache.swift`** (yeni dosya: `refreshAll(in:)`, `observeRemoteChanges(context:)`),
-`Shared/Logic/StudySession.swift` (geri alma = log sil + yeniden hesapla; Ters Yön "Doğru, ama
-aranan: X" mesajının üretimi), `Shared/Logic/GameRound.swift` (`GameRound.summaryEntries` —
-`RoundSummaryView.Entry(word:before:correct:)` çağrıları buraya taşınır, B'nin beş görünüm dosyası
-bunu artık doğrudan kurmaz), `Shared/Logic/WordPicker.swift` (2 kart aralığı; ekstra "bugün yanlış"
-filtresi yok), `Shared/Logic/GameMode.swift` (yalnızca üst kısım: etiketler/`weight`),
-`Shared/Logic/StoreMaintenance.swift` (taban seçimi, eski kopyalama kodu kaldırılır),
-`ReminderPlanner`/`ReminderScheduler`, `Shared/SharedStore.swift` (tek-kelime göçünün her süreçte
-çalıştığından emin olunur), `Shared/Logic/GlanceQuiz.swift` (widget sorusu/cevabı, kendi sürecinde
-tek-kelime göç+replay), `KelimeDefteri/Views/WordDetailView.swift` ("son görülme"),
-`KelimeDefteri/Views/ContentView.swift` (`scenePhase` → `MemoryCache.refreshAll`),
-`Mac/MacGamesView.swift` (menü penceresi açılışı → `refreshAll`), `Mac/WordsWindow.swift`,
+`Shared/Logic/StudySession.swift` (geri alma = log sil + yeniden hesapla; `RoundEntry` **değişmeden**
+kalır, §4.1; Ters Yön "Doğru, ama aranan: X" mesajının üretimi ve `ReverseChecker`in genişletilmiş
+imzasını çağırma, §3.2), `Shared/Logic/ReverseChecker.swift` (**yalnızca imza**: `Verdict.synonymOf`
+durumu + `check(_:expected:in:)` parametresi eklenir, gövde saplama kalır — gerçek eşanlam tespiti
+B'de, §3.2), `Shared/Logic/GameRound.swift` (`RoundEntry`i dolduran `record`/`adopt` **değişmeden**
+kalır, §4.1 — A bu dosyada yeni bir `summaryEntries` fonksiyonu KURMAZ), `Shared/Logic/WordPicker.swift`
+(2 kart aralığı; ekstra "bugün yanlış" filtresi yok), `Shared/Logic/GameMode.swift` (yalnızca üst
+kısım: etiketler/`weight`), `Shared/Logic/StoreMaintenance.swift` (taban seçimi, eski kopyalama kodu
+kaldırılır), `Shared/Logic/ReminderPlanner.swift`/`ReminderScheduler.swift` (`isDue(at: fireDate)`,
+§2.8; ileri günlerde `new: 0`, §2.6), `Shared/SharedStore.swift` (tek-kelime göçünün her süreçte
+çalıştığından emin olunur; `MemoryCache.observeRemoteChanges` `SharedStore.result`in `.success`
+dalına, `!isExtension` korumasıyla eklenir, §2.9), `Shared/Logic/GlanceQuiz.swift` (widget
+sorusu/cevabı, kendi sürecinde tek-kelime göç+replay; yeni kelime hariç tutma + boş kalmama, §2.8),
+`KelimeDefteri/Views/WordDetailView.swift` ("son görülme"), `KelimeDefteri/Views/ContentView.swift`
+(`scenePhase` → `MemoryCache.refreshAll`), `KelimeDefteri/Views/StudyView.swift` (yalnızca
+`StudySession.dailyCount`/`averageMemory` okuyan sayaç kısımları — Mac'teki eşdeğeri `MacGamesView`
+zaten A'da olduğu için tutarlılık amacıyla buraya eklendi; bu dosyada `RoundSummaryView.Entry` inşası
+yok), `Mac/MacGamesView.swift` (menü penceresi açılışı → `refreshAll`), `Mac/WordsWindow.swift`,
 `Mac/MacSettingsView.swift` (pencere açılışı → `refreshAll`), `Shared/Components.swift`
 (`DeckSummary`/`MemoryRing`in `isDue`/`isLapsed` okuması), `Shared/Logic/WeeklySummary.swift`
 (`learnedAt` artık göçte sıfırlanmadığı için doğru sayar), `KelimeDefteri/Views/SettingsView.swift`,
 `PreviewData.swift` (`migrateBaseIfNeeded` çağrısı, mevcut kutu-göçü çağrısının yanına — satır 65),
 `KelimeDefteriTests` (yukarıdaki eski/yeni test listesi).
 
+**Tur özeti mimarisi değişmediği için (§4.1) burada A→B/C arasında bir devir yok**: her görünüm
+dosyası kendi `RoundEntry`/`round.entries`ini bugünkü gibi `RoundSummaryView.Entry`ye çevirir. A'nın
+aşağıdaki B/C dosyalarında yapması gereken tek şey, `Word`/`GameMode` alanlarındaki değişikliklerin
+(`isWeak` kaldırılması gibi) bu dosyalarda **derlemeyi bozmamasını** sağlamaktır (ör. `word.isWeak
+(at:)` çağrıları `word.isDue(at:)`e dönmeli) — A bu dosyaların iş mantığını değiştirmez.
+
 **B — Tur içi oyun mantığı + cevap kontrolü + çeldirici (A bittikten sonra):**
 `Shared/Logic/ChoiceQuiz.swift`, `Shared/Logic/MatchBoard.swift`, `Shared/Logic/LetterPuzzle.swift`,
 `Shared/Logic/QuickMix.swift`, `Shared/Logic/GameMode.swift` (yalnızca alt kısım: `GameDeck`/açılma
-koşulu), `Shared/Logic/ClozeSentence.swift`, `Shared/Logic/ReverseChecker.swift`,
+koşulu), `Shared/Logic/ClozeSentence.swift`, `Shared/Logic/ReverseChecker.swift` (**yalnızca gövde**:
+A'nın eklediği saplamanın yerine gerçek eşanlam tespiti, §3.2 — imzayı bir daha değiştirmez),
 `Shared/AnswerChecker.swift`, `Shared/Games/FillBlankGameView.swift`, `MatchGameView.swift`,
-`LettersGameView.swift`, `ChoiceGameView.swift`, `QuickMixGameView.swift` — bu beş görünüm dosyası
-`RoundSummaryView.Entry`i doğrudan kurmaz, A'nın sağladığı `GameRound.summaryEntries`i okur.
+`LettersGameView.swift`, `ChoiceGameView.swift`, `QuickMixGameView.swift` (bu beş görünüm dosyası
+kendi `RoundEntry`lerini bugünkü gibi doğrudan `RoundSummaryView.Entry`ye çevirmeye devam eder,
+§4.1 — A'dan yeni bir tip beklemez).
 
 **C — Özet/gösterge + Mac:** `Shared/Games/RoundSummaryView.swift`, `Shared/Games/RecallGameView.swift`,
 `Shared/Games/GameScaffold.swift`, `Mac/MacStudyView.swift`, `Mac/MenuBarView.swift`,
@@ -639,34 +774,37 @@ koşulu), `Shared/Logic/ClozeSentence.swift`, `Shared/Logic/ReverseChecker.swift
 
 ---
 
-## 9. Kullanıcı kararı gereken noktalar
+## 9. Kararlar
 
-1. **Tanıma oyunlarında yanlış kelime tur içinde yeniden sorulsun mu?**
-   Önerilen varsayılan: **Hayır**. Artı: küçük desteyi tekrar döndürme sorunu olmaz. Eksi:
-   hatırlama oyunlarıyla tutarsız kalır.
+Aşağıdakiler soru değil, verilmiş kullanıcı kararlarıdır; belge boyunca ilgili bölümler bunlara göre
+yazıldı (§2.4 [karar 2], §2.8/§4.5 [karar 3], §4.1/§4.5 [karar 4], §2.2/§4.2/§4.5 [karar 5]).
 
-2. **Yeni arayüz öğeleri — Harfleri Diz'e "İpucu" düğmesi ve Ters Yön'e proaktif ayırt edici ipucu
-   eklensin mi?**
-   Önerilen varsayılan: **Hayır**. Artı: "gereksiz seçenek yok" ilkesiyle uyumlu. Eksi: Harfleri
-   Diz'de ince ayrım kaybolur; Ters Yön'deki belirsizlik yalnızca cevap-sonrası mesajla ele alınır.
+1. **Tur içi yeniden sorma ve yeni arayüz öğeleri.** Tanıma oyunlarında (Çoktan Seçmeli, Eşleştir,
+   Boşluğu Doldur, Hızlı Tur karışık) yanlış bilinen kelime tur içinde yeniden **sorulmaz** (§3.1 —
+   yalnızca hatırlama/Ters Yön tur içi yeniden sorar). Harfleri Diz'e "İpucu" düğmesi ve Ters Yön'e
+   proaktif ayırt edici ipucu **eklenmez** (Ters Yön'deki belirsizlik yalnızca cevap-sonrası
+   "Doğru, ama aranan: X" mesajıyla ele alınır, §3.2). Aynı gün, aynı desteyi tekrar oynarken tek
+   satırlık bir not **gösterilir**: "Bu tur bugünün diğer cevaplarıyla birlikte değerlendiriliyor."
+   (§3.2, son paragraf).
 
-3. **Aynı gün, aynı desteyi tekrar oynarken not gösterilsin mi?**
-   Önerilen varsayılan: **Evet** — "Bu tur bugünün diğer cevaplarıyla birlikte değerlendiriliyor."
-   Artı: kullanıcı sayının neden hemen değişmediğini/değiştiğini anlar. Eksi: ekstra metin.
+2. **Aynı gün içinde bir kez doğru, bir kez yanlış bilinen kelime "bilemedin" sayılır.** 1/3 eşiği
+   değişmedi (§2.4): gün içindeki cevapların üçte birinden fazlası yanlışsa gün "bilemedin"
+   (kelime ertesi güne erteleniyor, dayanıklılığı düşüyor); azsa "zor bildin" (kelime zayıflamıyor).
+   Günde tam 2 cevaptan biri yanlışsa (1/2 oranı) bu her zaman "bilemedin"e düşer — kural tek ve
+   basit kalır, en yaygın örneği ("yanlış cevabım hiç işlenmiyordu") en güçlü biçimde çözer.
 
-4. **Aynı gün içinde bir kez doğru, bir kez yanlış bildiğin bir kelime: "bilemedin" mi sayılsın,
-   "zor bildin" mi?**
-   Şu anki kural, gün içindeki cevapların **üçte birinden fazlası** yanlışsa o günü "bilemedin"
-   sayıyor (kelime ertesi güne erteleniyor, dayanıklılığı düşüyor); üçte biri ya da azı yanlışsa
-   "zor bildin" sayıyor (kelime zayıflamıyor). Günde tam **2 cevap** varsa (ör. sabah bir kez, akşam
-   bir kez) ve biri yanlışsa, bu 1/2 oranı zaten 1/3'ü aştığı için "bilemedin" sayılıyor — günde 2
-   cevap, ilginç biçimde günde 1 ya da 3 cevaba göre daha kötü bir sonuç veriyor. Sayılar (vadeye
-   **bakmadan her gün** oynayan, %90 doğrulukla bilen bir kullanıcının 120 günde 500 kelimeden
-   kaçını "Öğrenildi"ye taşıdığı): günde 1 cevap → 241, günde 2 cevap → **102** (en kötü), günde 3
-   cevap → 366. (Uygulamanın asıl beklediği kullanım biçiminde — vadesi geldiğinde yalnızca bir kez
-   çalışmak — bu farkın etkisi küçük: 500'ün 486–499'u zaten "Öğrenildi"ye ulaşıyor; yukarıdaki
-   sayılar yalnızca "her gün zorla tekrar çalışma" gibi aşırı bir kullanım biçimini gösteriyor.)
-   Önerilen varsayılan: **Şu anki kural kalsın** (1/3 eşiği değişmesin). Artı: kural tek ve basit
-   kalır; en yaygın örnek (bir kelimeyi bir kez doğru bir kez yanlış bilmek) kullanıcının asıl
-   şikâyetini ("yanlış cevabım hiç işlenmiyordu") en güçlü biçimde çözer. Eksi: günde tam iki kez
-   çalışan, iyi bilen bir kullanıcı için beklenmedik bir sertlik.
+3. **Widget ve bildirimin soru seçimi:** önce vadesi gelmiş (`isDue`) ve **yeni olmayan** kelimeler
+   arasından; bu küme boşsa yeni hariç bütün defterden ağırlıklı rastgele — widget/bildirim hiçbir
+   zaman boş kalmaz (§2.8). Yeni kelimeler widget'ta ya da bildirimde **hiç sorulmaz**; yeni kelime
+   tanıtımı yalnızca Günlük Tekrar/Yeni Eklenenler üzerinden olur.
+
+4. **Tur özetinde ✓/✗ = bu turdaki ilk cevap** (günün notu değil); "sonraki tekrar" metni turdan
+   sonraki günün gerçek sonucunu yansıtır (§4.1 — mevcut `RoundEntry`/`Entry` yapısı zaten böyle
+   çalışıyor, yeniden kurulmadı). Üstteki "x/y doğru" sayısı da bu turdaki ilk cevaplardan sayılır.
+
+5. **"Zayıf" kelimesinin tek tanımı: `lapsedAt != nil`.** Yanlış bilinen kelime, listede ve ayrıntı
+   sayfasında turuncu halka, "Tekrar edilecek" etiketi ve ne zaman tekrar sorulacağı ("Yarın" vb.)
+   ile gösterilir — bu, kelimenin vadesi henüz gelmemiş olsa bile geçerlidir. Günlük Tekrar ve "N
+   zayıf" sayacı ise yalnızca **vadesi de gelmiş** (`isDue`) zayıf kelimeleri sayar/seçer; bu ikinci
+   kısıtlama "zayıf"ın anlamını değiştirmez, yalnızca "ne zaman sorulur/sayılır"ı belirler (§2.2,
+   §4.5).
