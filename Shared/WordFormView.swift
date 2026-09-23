@@ -46,6 +46,7 @@ struct WordFormView: View {
     #if os(iOS)
     /// "Bugün Eklenenler"den dokunulup düzenlenen kelime.
     @State private var editingToday: Word?
+    @State private var confirmDelete = false
     #endif
     @State private var showDictionary = false
     @State private var didLoad = false
@@ -322,6 +323,19 @@ struct WordFormView: View {
         Section("Ayrıntılar") {
             TextField("Kitaptaki cümle", text: $example, axis: .vertical)
                 .lineLimit(1...5)
+        }
+
+        if let editingWord {
+            // Kişiler'deki gibi formun en altında; onay ister.
+            Section {
+                Button("Kelimeyi Sil", role: .destructive) { confirmDelete = true }
+                    .frame(maxWidth: .infinity)
+            }
+            .confirmationDialog("“\(editingWord.english)” silinsin mi?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Kelimeyi Sil", role: .destructive) { delete(editingWord) }
+            } message: {
+                Text("Çalışma geçmişi de silinir.")
+            }
         }
 
         if onFinish == nil && editingWord == nil && !addedToday.isEmpty {
@@ -707,6 +721,14 @@ struct WordFormView: View {
         saveFailed = true
         return false
     }
+
+    #if os(iOS)
+    private func delete(_ word: Word) {
+        context.delete(word)
+        guard commit() else { return }
+        dismiss()
+    }
+    #endif
 
     private func cancel() {
         if hasChanges {

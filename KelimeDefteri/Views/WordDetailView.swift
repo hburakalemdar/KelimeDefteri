@@ -6,8 +6,22 @@ struct WordDetailView: View {
     let word: Word
     @Query private var words: [Word]
     @State private var isEditing = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        // Düzenle formundan silinince sayfa boş kalır ve geri döner; silinmiş kaydın alanları okunmaz.
+        if isGone {
+            Color.clear.onAppear { dismiss() }
+        } else {
+            content
+        }
+    }
+
+    private var isGone: Bool {
+        word.isDeleted || word.modelContext == nil || !words.aliveIDs.contains(word.persistentModelID)
+    }
+
+    private var content: some View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
