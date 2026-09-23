@@ -41,3 +41,84 @@ nonisolated enum GameMode: String, CaseIterable, Sendable {
         }
     }
 }
+
+// MARK: - Oyun merkezi
+
+extension GameMode {
+    /// Oyun merkezinde kartı gösterilen oyunlar, sırasıyla. Her oyun yapıldıkça buraya eklenir.
+    static let hubGames: [GameMode] = [.quickRound]
+
+    /// Kartın altındaki tek satırlık açıklama.
+    var cardDetail: String {
+        switch self {
+        case .dailyReview: "Zayıflayan kelimeler"
+        case .quickRound: "5 kelime, 1 dakika"
+        case .multipleChoice: "4 seçenekten doğrusu"
+        case .match: "Kelimeleri anlamlarıyla eşle"
+        case .fillBlank: "Kitaptaki cümleyi tamamla"
+        case .letters: "Harflerden kelimeyi kur"
+        case .reverse: "Türkçeden İngilizceye"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .dailyReview: "rectangle.stack.fill"
+        case .quickRound: "bolt.fill"
+        case .multipleChoice: "checklist"
+        case .match: "square.grid.2x2.fill"
+        case .fillBlank: "text.cursor"
+        case .letters: "textformat.abc"
+        case .reverse: "arrow.left.arrow.right"
+        }
+    }
+
+    /// Kelime sayısı yetmiyorsa kartta açıklama yerine yazılacak neden; oynanabiliyorsa `nil`.
+    func unavailableReason(for deck: GameDeck) -> String? {
+        switch self {
+        case .dailyReview, .quickRound, .reverse:
+            deck.count >= 1 ? nil : "En az 1 kelime gerekli"
+        case .multipleChoice, .match:
+            deck.count >= 4 ? nil : "En az 4 kelime gerekli"
+        case .fillBlank:
+            deck.withSentence >= 4 ? nil : "Cümlesi olan 4 kelime gerekli"
+        case .letters:
+            deck.shortWords >= 1 ? nil : "En fazla 14 harfli kelime gerekli"
+        }
+    }
+}
+
+/// Oyunların oynanabilirliği için defterin özeti.
+nonisolated struct GameDeck: Equatable {
+    var count: Int
+    /// Kitaptaki cümlesinde kelimenin kendisi geçen kelimeler (Boşluğu Doldur).
+    var withSentence: Int
+    /// En fazla 14 harfli kelimeler (Harfleri Diz).
+    var shortWords: Int
+
+    static let maxLetters = 14
+
+    init(count: Int, withSentence: Int, shortWords: Int) {
+        self.count = count
+        self.withSentence = withSentence
+        self.shortWords = shortWords
+    }
+
+    /// (İngilizce, cümle) çiftlerinden.
+    init(entries: [(english: String, example: String)]) {
+        count = entries.count
+        withSentence = entries.count { Self.sentence($0.example, contains: $0.english) }
+        shortWords = entries.count { (1...Self.maxLetters).contains(Self.letterCount($0.english)) }
+    }
+
+    /// Büyük/küçük harf ve aksan farkı gözetmeden cümlede kelimenin kendisi geçiyor mu.
+    static func sentence(_ sentence: String, contains word: String) -> Bool {
+        let needle = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return false }
+        return sentence.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    }
+
+    static func letterCount(_ word: String) -> Int {
+        word.count { $0.isLetter }
+    }
+}

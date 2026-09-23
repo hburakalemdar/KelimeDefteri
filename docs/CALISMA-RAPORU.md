@@ -101,3 +101,32 @@
 - Eşleştir gibi süre ölçülmeyen oyunların cevapları ortalama süreye katılmaz.
 - Mac'te ayrıntı sayfası yok (tablo zaten sıralanabilir "Hafıza" sütunu taşıyor); ayrıntı istatistiği yalnızca iOS'ta.
 - Ayarlar'daki eski "Sırada" süzgeci kaydı yeni seçeneklere uymadığı için "Tümü"ye döner.
+
+### C1 · Oyun merkezi, Günlük Tekrar, Hızlı Tur, tur özeti (23 Eylül 2026)
+- Çalış sekmesi oyun merkezi oldu: alt başlık "Hafıza %86 · 2 kelime zayıfladı", Günlük Tekrar kartı (başlık, satır,
+  56 pt ortalama hafıza halkası, Başla / Yine de Çalış), "Oyunlar" başlığı ve 2 sütunlu oyun kartları (şimdilik Hızlı Tur).
+  Boş defterde eski "Defterin Boş" görünümü.
+- `RecallGameView`: eski Çalış kartı ve cevap çubuğu aynen, tam ekran; solda ✕ (`role: .close`), üstte ince ilerleme ve "1/5".
+  Kapatınca o ana kadarki cevaplar kayıtlı kalır.
+- `RoundSummaryView` (bütün oyunlarda ortak): "Tur Bitti", "4/5 doğru · 20 sn", her kelime için ilk cevabın doğruluğu ve
+  "%59 → ◯ %99"; Bir Tur Daha / Bitti.
+- `StudySession.Plan`: `.daily` (zayıflar, en fazla 20, en fazla 5 yeni), `.extraPractice` (en zayıf 10), `.quick` (5 kelime,
+  bütün defterden ağırlıklı), `.weak` (Mac menü penceresi, sınırsız). Tur özeti için `roundEntries`, süre için `startedAt/finishedAt`.
+- `RoundText` (tahmini süre, süre, özet satırı), `GameMode` kart bilgileri ve `GameDeck` ile oynanabilirlik koşulları (bütün
+  oyunlar için, testli). `SettingsIcon`'a boyut parametresi.
+- Testler: `RoundTextTests`, `GameCatalogTests`, `StudyPlanTests` (3). 82 testin hepsi geçti. Mac'e kuruldu.
+
+**Verilen kararlar**
+- Günlük Tekrar satırı yeni kelimeleri ayrı söyler: "2 kelime zayıfladı · 2 yeni · yaklaşık 2 dk"; yalnızca yeni varsa
+  "3 yeni kelime". Alt başlıktaki sayı yalnızca çalışılmış zayıf kelimeler.
+- Satır parçaları ("yaklaşık 2 dk") bölünmez boşlukla yazılır; satır yalnızca " · " aralarında kırılır.
+- Tur özetinde her kelime için ilk cevap sayılır (yanlış bilinip sonra bilinen kelime "yanlış"). Satırın başına ✓/✕ simgesi kondu.
+- Cevaptan hemen sonra hafıza tanım gereği %99–100 görünür; spec'teki "önce → sonra" gösterimi korundu. İleride "sonra" yerine
+  sıradaki tekrar günü göstermek daha bilgilendirici olabilir.
+- "Bir Tur Daha" aynı türde yeni tur açar; Günlük Tekrar'da zayıf kelime kalmadıysa en zayıf 10 kelimeyle devam eder.
+- Eski bitiş ekranındaki "Her Gün Hatırlat" kısayolu kalktı; hatırlatma Ayarlar'da.
+- Oyun merkezindeki sayılar her dakika ve oyun kapanınca tazelenir.
+- Mac menü penceresi değişmedi (spec: oyunlar Mac'e sonra gelecek); karışık sıra ve `ReviewLog` orada da çalışıyor.
+
+**Bilinen eksikler**
+- iPhone bu turda bağlı değildi (`devicectl`: unavailable); kurulum atlandı, sonraki görevde yeniden denenecek.

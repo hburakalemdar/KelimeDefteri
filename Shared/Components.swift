@@ -98,13 +98,15 @@ enum DeckSummary {
 struct SettingsIcon: View {
     let systemName: String
     let color: Color
+    /// Ayarlar satırında 30, oyun kartında 44.
+    var size: CGFloat = 30
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.system(size: 15, weight: .semibold))
+            .font(.system(size: size / 2, weight: .semibold))
             .foregroundStyle(.white)
-            .frame(width: 30, height: 30)
-            .background(color.gradient, in: .rect(cornerRadius: 7, style: .continuous))
+            .frame(width: size, height: size)
+            .background(color.gradient, in: .rect(cornerRadius: size * 7 / 30, style: .continuous))
             .accessibilityHidden(true)
     }
 }

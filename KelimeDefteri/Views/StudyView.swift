@@ -1,19 +1,29 @@
 import SwiftData
 import SwiftUI
 
+/// Çalış sekmesi: oyun merkezi. Üstte Günlük Tekrar kartı, altında oyunlar.
+/// Her oyun tam ekran açılır; kapatınca buraya dönülür.
 struct StudyView: View {
     var onAddTapped: () -> Void
 
-    @Query(sort: \Word.dueDate) private var words: [Word]
-    @State private var session = StudySession()
-    @State private var answer = ""
-    @State private var showSettings = false
-    @AppStorage(ReminderSettings.enabledKey) private var reminderEnabled = false
-    @Environment(\.scenePhase) private var scenePhase
-    @FocusState private var answerFocused: Bool
-    @Namespace private var glassNamespace
+    /// Oyun merkezinden açılan tur.
+    enum Game: Identifiable {
+        case daily, extraPractice, mode(GameMode)
 
-    private var hasAnswer: Bool { !answer.trimmingCharacters(in: .whitespaces).isEmpty }
+        var id: String {
+            switch self {
+            case .daily: "daily"
+            case .extraPractice: "extra"
+            case .mode(let mode): mode.rawValue
+            }
+        }
+    }
+
+    @Query(sort: \Word.dueDate) private var words: [Word]
+    @State private var showSettings = false
+    @State private var activeGame: Game?
+    /// Hafıza zamanla azaldığı için sayılar her dakika tazelenir.
+    @State private var now = Date.now
 
     var body: some View {
         NavigationStack {
@@ -29,237 +39,120 @@ struct StudyView: View {
                 .sheet(isPresented: $showSettings) {
                     NavigationStack { SettingsView() }
                 }
-                .sensoryFeedback(.selection, trigger: session.reviewedCount)
+                .fullScreenCover(item: $activeGame, onDismiss: { now = .now }) { game in
+                    gameView(game)
+                }
         }
-        .onAppear {
-            // Sekmeye dönünce sıraya yeni giren kelimeler (ör. "Yeniden Çalış") de gelsin.
-            if session.current == nil && !session.isPracticeAll {
-                session.start(with: words, practiceAll: false)
-            } else {
-                session.sync(with: words)
-            }
-        }
-        .onChange(of: words.count) {
-            session.sync(with: words)
-        }
-        // Gece yarısı geçince ya da uygulamaya dönülünce zamanı gelen kelimeler de sıraya girsin.
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { session.sync(with: words) }
-        }
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 
     @ViewBuilder
     private var content: some View {
         if words.isEmpty {
             emptyDeck
-        } else if let word = session.current {
+        } else {
             ScrollView {
-                VStack(spacing: 16) {
-                    ProgressView(value: progress)
-                        .accessibilityLabel("Tur ilerlemesi")
-                    card(for: word)
+                VStack(alignment: .leading, spacing: 28) {
+                    dailyCard
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Oyunlar")
+                            .font(.title3.bold())
+                            .padding(.horizontal, 4)
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                            ForEach(GameMode.hubGames, id: \.self) { mode in
+                                GameCard(mode: mode, unavailableReason: mode.unavailableReason(for: deck)) {
+                                    activeGame = .mode(mode)
+                                }
+                            }
+                        }
+                    }
                 }
                 .padding(.horizontal)
                 .padding(.top, 4)
                 .padding(.bottom, 24)
             }
-            .scrollDismissesKeyboard(.interactively)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                bottomBar
-                    .padding(.horizontal)
-                    .padding(.vertical, 12)
-            }
-            .animation(.snappy, value: session.phase)
-        } else {
-            finished
         }
+    }
+
+    @ViewBuilder
+    private func gameView(_ game: Game) -> some View {
+        switch game {
+        case .daily: RecallGameView(plan: .daily, mode: .dailyReview)
+        case .extraPractice: RecallGameView(plan: .extraPractice, mode: .dailyReview)
+        case .mode(let mode):
+            switch mode {
+            default: RecallGameView(plan: .quick, mode: .quickRound)
+            }
+        }
+    }
+
+    // MARK: - Özet
+
+    private var averageMemory: Double? { MemoryStats.average(words.map { $0.memory(at: now) }) }
+    private var dailyCount: (weak: Int, new: Int) { StudySession.dailyCount(words, now: now) }
+
+    private var deck: GameDeck {
+        GameDeck(entries: words.map { ($0.english, $0.example) })
     }
 
     private var subtitle: String {
-        if words.isEmpty { return "" }
-        if session.current != nil {
-            return "\(session.remaining + 1) kelime kaldı"
-        }
-        return DeckSummary.text(for: words)
+        guard !words.isEmpty else { return "" }
+        guard let averageMemory else { return "\(words.count) yeni kelime" }
+        let weak = dailyCount.weak
+        return "Hafıza \(MemoryStats.text(averageMemory)) · " + (weak > 0 ? "\(weak) kelime zayıfladı" : "hepsi güçlü")
     }
 
-    /// Turda cevaplanan kartların oranı. Bilinmeyen kelime sıraya yeniden girdiği için
-    /// toplam da onunla büyür.
-    private var progress: Double {
-        let total = session.reviewedCount + session.remaining + 1
-        return Double(session.reviewedCount) / Double(total)
-    }
+    // MARK: - Günlük Tekrar
 
-    // MARK: - Kart
-
-    private func card(for word: Word) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 6) {
-                if !word.source.isEmpty {
-                    Image(systemName: "book.closed")
-                    Text(word.source)
-                        .lineLimit(1)
+    private var dailyCard: some View {
+        let count = dailyCount
+        let hasWork = count.weak + count.new > 0
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Günlük Tekrar")
+                        .font(.title2.bold())
+                    Text(Self.keepingPartsTogether(hasWork ? RoundText.daily(weak: count.weak, new: count.new) : allStrongText))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 12)
-                MemoryRing(memory: word.memory(), size: 12, text: .trailing)
+                Spacer(minLength: 8)
+                MemoryRing(memory: averageMemory, size: 56, text: .center)
+                    .accessibilityLabel(averageMemory.map { "Defterin ortalama hafızası \(MemoryStats.text($0))" } ?? "Yeni defter")
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-
-            HStack(alignment: .firstTextBaseline) {
-                Text(word.english)
-                    .font(.system(.largeTitle, design: .serif, weight: .semibold))
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(2)
-                Spacer(minLength: 12)
-                Button("Telaffuzu dinle", systemImage: "speaker.wave.2.fill") {
-                    Speaker.shared.speak(word.english)
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+            Button {
+                activeGame = hasWork ? .daily : .extraPractice
+            } label: {
+                Text(hasWork ? "Başla" : "Yine de Çalış")
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
             }
-
-            if !word.example.isEmpty {
-                Text(AttributedString(quoting: word.example, highlighting: word.english))
-                    .font(.system(.body, design: .serif).italic())
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if case .revealed(let verdict) = session.phase {
-                answerReveal(for: word, verdict: verdict)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
+            .buttonStyle(.glassProminent)
+            .controlSize(.large)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
-        .contentShape(.rect(cornerRadius: 26, style: .continuous))
-        .onTapGesture {
-            if session.phase == .asking { reveal(withAnswer: false) }
-        }
-        .accessibilityAddTraits(session.phase == .asking ? .isButton : [])
-        .accessibilityHint(session.phase == .asking ? "Türkçesini göster" : "")
     }
 
-    private func answerReveal(for word: Word, verdict: StudySession.Verdict) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Divider()
-                .padding(.bottom, 4)
-            verdictLabel(verdict)
-            Text(word.turkish)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.tint)
-                .fixedSize(horizontal: false, vertical: true)
-            if !word.definition.isEmpty {
-                Text(word.definition)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if verdict == .incorrect {
-                Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Doğru Say'a bas.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            let related = word.related(in: words)
-            if !related.isEmpty {
-                Label {
-                    Text("İlişkili: ") + Text(related.prefix(3).map(\.english).joined(separator: ", ")).fontWeight(.medium)
-                } icon: {
-                    Image(systemName: "link")
-                }
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
-        }
+    /// "yaklaşık 3 dk" gibi parçalar satır sonunda bölünmesin; satır yalnızca " · " aralarında kırılır.
+    private static func keepingPartsTogether(_ text: String) -> String {
+        text.components(separatedBy: " · ")
+            .map { $0.replacingOccurrences(of: " ", with: "\u{00A0}") }
+            .joined(separator: " · ")
     }
 
-    private func verdictLabel(_ verdict: StudySession.Verdict) -> some View {
-        let (text, icon, color): (String, String, Color) = switch verdict {
-        case .correct: ("Doğru", "checkmark.circle.fill", .green)
-        case .incorrect: ("Tam tutmadı", "xmark.circle.fill", .red)
-        case .peeked: ("Cevaba baktın. Biliyor muydun?", "eye.fill", .secondary)
+    private var allStrongText: String {
+        var text = "Bütün kelimeler güçlü"
+        if let next = words.map(\.dueDate).filter({ $0 > now }).min() {
+            text += " · sıradaki tekrar " + Leitner.dueDescription(for: next, now: now).lowercased(with: Locale(identifier: "tr_TR"))
         }
-        return Label(text, systemImage: icon)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(color)
+        return text
     }
 
-    // MARK: - Alt çubuk
-
-    @ViewBuilder
-    private var bottomBar: some View {
-        switch session.phase {
-        case .asking:
-            // Mesajlar'daki gibi tek eylem düğmesi: alan boşken "Göster", yazınca "Kontrol et".
-            GlassEffectContainer(spacing: 10) {
-                HStack(spacing: 10) {
-                    TextField("Türkçesi", text: $answer)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.done)
-                        .focused($answerFocused)
-                        .onSubmit { reveal(withAnswer: true) }
-                        .padding(.horizontal, 18)
-                        .frame(height: 48)
-                        .glassEffect(.regular.interactive(), in: .capsule)
-
-                    if hasAnswer {
-                        Button("Kontrol et", systemImage: "arrow.up") { reveal(withAnswer: true) }
-                            .labelStyle(.iconOnly)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 48, height: 48)
-                            .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
-                            .glassEffectID("action", in: glassNamespace)
-                    } else {
-                        Button("Göster") { reveal(withAnswer: false) }
-                            .font(.body.weight(.semibold))
-                            .padding(.horizontal, 18)
-                            .frame(height: 48)
-                            .glassEffect(.regular.interactive(), in: .capsule)
-                            .glassEffectID("action", in: glassNamespace)
-                            .accessibilityHint("Türkçesini gösterir")
-                    }
-                }
-            }
-            .animation(.snappy(duration: 0.25), value: hasAnswer)
-        case .revealed(let verdict):
-            HStack(spacing: 12) {
-                ForEach(verdict.gradeOptions) { gradeButton($0) }
-            }
-            .sensoryFeedback(verdict == .correct ? .success : .warning, trigger: verdict)
-        }
-    }
-
-    @ViewBuilder
-    private func gradeButton(_ option: GradeOption) -> some View {
-        let button = Button {
-            session.grade(known: option.known)
-            answer = ""
-        } label: {
-            Label(option.title, systemImage: option.systemImage)
-                .font(.body.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-        }
-        .controlSize(.large)
-        if option.isPrimary {
-            button.buttonStyle(.glassProminent)
-        } else {
-            button.buttonStyle(.glass).foregroundStyle(option.known ? .green : .red)
-        }
-    }
-
-    private func reveal(withAnswer: Bool) {
-        if !withAnswer { answer = "" }
-        answerFocused = false
-        session.reveal(answer: withAnswer ? answer : nil)
-    }
-
-    // MARK: - Boş ve bitti ekranları
+    // MARK: - Boş defter
 
     private var emptyDeck: some View {
         ContentUnavailableView {
@@ -272,44 +165,51 @@ struct StudyView: View {
                 .controlSize(.large)
         }
     }
+}
 
-    private var finished: some View {
-        ContentUnavailableView {
-            Label(session.isPracticeAll ? "Tur Bitti" : "Hepsi Güçlü", systemImage: "checkmark.circle")
-        } description: {
-            Text(finishedDescription)
-        } actions: {
-            VStack(spacing: 12) {
-                Button {
-                    session.start(with: words, practiceAll: true)
-                } label: {
-                    Text("Yine de Çalış").frame(minWidth: 160)
-                }
-                .buttonStyle(.glassProminent)
-                Button(action: onAddTapped) {
-                    Text("Kelime Ekle").frame(minWidth: 160)
-                }
-                .buttonStyle(.glass)
-                if !reminderEnabled {
-                    Button("Her Gün Hatırlat", systemImage: "bell") { showSettings = true }
-                        .buttonStyle(.borderless)
-                        .padding(.top, 4)
+/// Oyun merkezindeki kart: renkli simge, ad ve tek satır açıklama. Oynanamıyorsa soluk ve nedenini yazar.
+struct GameCard: View {
+    let mode: GameMode
+    let unavailableReason: String?
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 12) {
+                SettingsIcon(systemName: mode.systemImage, color: mode.color, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mode.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(unavailableReason ?? mode.cardDetail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
                 }
             }
-            .controlSize(.large)
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 18, style: .continuous))
+            .contentShape(.rect(cornerRadius: 18, style: .continuous))
         }
+        .buttonStyle(.plain)
+        .disabled(unavailableReason != nil)
+        .opacity(unavailableReason == nil ? 1 : 0.5)
     }
+}
 
-    private var finishedDescription: String {
-        var lines: [String] = []
-        if session.reviewedCount > 0 {
-            lines.append("Bu turda \(session.reviewedCount) cevap verdin.")
+extension GameMode {
+    var color: Color {
+        switch self {
+        case .dailyReview: .blue
+        case .quickRound: .orange
+        case .multipleChoice: .blue
+        case .match: .green
+        case .fillBlank: .purple
+        case .letters: .pink
+        case .reverse: .cyan
         }
-        if let next = words.map(\.dueDate).filter({ $0 > .now }).min() {
-            let when = Leitner.dueDescription(for: next)
-            lines.append("Sıradaki tekrar: \(when.lowercased(with: Locale(identifier: "tr_TR"))).")
-        }
-        return lines.joined(separator: "\n")
     }
 }
 

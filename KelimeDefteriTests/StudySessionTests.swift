@@ -225,3 +225,63 @@ struct StudySessionTests {
         #expect(target.lastReviewedAt == start.addingTimeInterval(8))
     }
 }
+
+struct StudyPlanTests {
+    private func makeSession() -> StudySession {
+        StudySession(seed: 3, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+    }
+
+    private func studied(_ english: String, weak: Bool) -> Word {
+        let word = Word(english: english, turkish: "anlam")
+        word.reviewCount = 1
+        word.stability = weak ? 1 : 30
+        word.lastReviewedAt = Date.now.addingTimeInterval(weak ? -5 * 86_400 : 0)
+        return word
+    }
+
+    private func drain(_ session: StudySession, known: Bool = true) -> [Word] {
+        var asked: [Word] = []
+        while let current = session.current, asked.count < 100 {
+            asked.append(current)
+            session.grade(known: known)
+        }
+        return asked
+    }
+
+    @Test func dailyTakesAtMostTwentyAndFiveNew() {
+        let words = (0..<18).map { studied("w\($0)", weak: true) }
+            + (0..<10).map { Word(english: "n\($0)", turkish: "yeni") }
+            + (0..<5).map { studied("s\($0)", weak: false) }
+        #expect(StudySession.dailyCount(words) == (weak: 18, new: 2))
+        let session = makeSession()
+        session.start(with: words, plan: .daily)
+        let asked = drain(session)
+        #expect(asked.count == 20)
+        #expect(asked.count { $0.english.hasPrefix("n") } <= 5)
+        #expect(!asked.contains { $0.english.hasPrefix("s") })
+    }
+
+    @Test func quickTakesFiveFromWholeDeck() {
+        let words = (0..<12).map { studied("s\($0)", weak: false) }
+        let session = makeSession()
+        session.start(with: words, plan: .quick)
+        #expect(drain(session).count == 5)
+    }
+
+    @Test func roundEntriesKeepFirstAnswerAndMemoryBefore() {
+        let first = studied("first", weak: true)
+        let second = studied("second", weak: true)
+        let session = makeSession()
+        session.start(with: [first, second], plan: .daily)
+        let opening = session.current!
+        session.grade(known: false)
+        _ = drain(session)
+        #expect(session.roundEntries.count == 2)
+        let entry = session.roundEntries.first { $0.word === opening }!
+        #expect(!entry.firstCorrect)
+        // Önceki hafıza cevaptan önce alınır: zayıftı, cevaptan sonra güçlendi.
+        #expect(entry.memoryBefore! < 0.9)
+        #expect(opening.memory()! > entry.memoryBefore!)
+        #expect(session.roundEntries.filter(\.firstCorrect).count == 1)
+    }
+}
