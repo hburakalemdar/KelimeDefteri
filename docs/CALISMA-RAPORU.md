@@ -83,3 +83,21 @@
 
 **Bilinen eksikler**
 - Günlük Tekrar'ın 20/5 sınırı C1'de bağlanacak.
+
+### B4 · Kelime istatistiği (23 Eylül 2026)
+- Ayrıntı sayfası: "Hafıza" bölümü (56 pt halka ortasında yüzde; yanında durum: Yeni / Zayıfladı / Güçlü / Öğrenildi
+  ve tek satır açıklama; Sıradaki tekrar, Görülme, Doğru bilme, Son görülme (göreli), Ortalama cevap süresi, Eklendi).
+  "Geçmiş" bölümü: son 30 gösterim yeşil/kırmızı nokta, altında oyunlara göre sayılar.
+- `Shared/Logic/WordStats.swift` (saf, testli): son 30 kayıt, oyun sayıları, ortalama süre. `WordStatsTests` (3).
+- Kelimelerim: süzgeç Tümü / Zayıf / Güçlü / Yeni; sıralama Eklenme Tarihi / A–Z / Hafıza / En Zor.
+- Örnek veriye (`-demo`) cevap geçmişi eklendi. 74 testin hepsi geçti. iPhone'a ve Mac'e kuruldu.
+
+**Verilen kararlar**
+- Halka yüzdeyi zaten gösterdiği için ayrıntıdaki başlık "Hafıza %78" yerine kelimenin durumunu söyler ("Zayıfladı").
+- "Görülme" ve "Doğru bilme" kayıt sayısı yerine `reviewCount`/`correctCount`'tan gelir: kayıtlar B3'te başladı,
+  sayaçlar eski çalışmaları da içerir. Her yeni cevap ikisini birlikte artırdığı için ileride fark kapanmaz ama doğru kalır.
+- Süzgeçte Zayıf, Güçlü ve Yeni birbirini dışlar (Zayıf = çalışılmış ve %90 altı). Günlük Tekrar ise yenileri de sayar.
+- "Hafıza" ve "En Zor" sıralamalarında yeni kelimeler sona konur; hafızası ve zorluğu henüz ölçülmedi.
+- Eşleştir gibi süre ölçülmeyen oyunların cevapları ortalama süreye katılmaz.
+- Mac'te ayrıntı sayfası yok (tablo zaten sıralanabilir "Hafıza" sütunu taşıyor); ayrıntı istatistiği yalnızca iOS'ta.
+- Ayarlar'daki eski "Sırada" süzgeci kaydı yeni seçeneklere uymadığı için "Tümü"ye döner.

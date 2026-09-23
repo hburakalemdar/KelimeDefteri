@@ -3,37 +3,39 @@ import SwiftUI
 
 struct WordListView: View {
     enum Filter: String, CaseIterable, Identifiable {
-        case all, due, learning, learned
+        case all, weak, strong, new
         var id: Self { self }
 
         var title: String {
             switch self {
             case .all: "Tümü"
-            case .due: "Zayıf"
-            case .learning: "Öğreniliyor"
-            case .learned: "Öğrenildi"
+            case .weak: "Zayıf"
+            case .strong: "Güçlü"
+            case .new: "Yeni"
             }
         }
 
-        func includes(_ word: Word) -> Bool {
+        /// Zayıf, Güçlü ve Yeni birbirini dışlar: yeni kelimenin hafızası henüz yok.
+        func includes(_ word: Word, now: Date) -> Bool {
             switch self {
             case .all: true
-            case .due: word.isWeak
-            case .learning: !word.isLearned
-            case .learned: word.isLearned
+            case .weak: !word.isNew && word.isWeak(at: now)
+            case .strong: !word.isNew && !word.isWeak(at: now)
+            case .new: word.isNew
             }
         }
     }
 
     enum Sort: String, CaseIterable, Identifiable {
-        case newest, alphabetical, nextReview
+        case newest, alphabetical, memory, hardest
         var id: Self { self }
 
         var title: String {
             switch self {
             case .newest: "Eklenme Tarihi"
             case .alphabetical: "A–Z"
-            case .nextReview: "Sıradaki Tekrar"
+            case .memory: "Hafıza"
+            case .hardest: "En Zor"
             }
         }
     }
@@ -47,15 +49,18 @@ struct WordListView: View {
 
     private var rows: [Word] {
         let query = AnswerChecker.fold(searchText)
+        let now = Date.now
         let matching = words.filter { word in
-            filter.includes(word) && (query.isEmpty
+            filter.includes(word, now: now) && (query.isEmpty
                 || AnswerChecker.fold(word.english).contains(query)
                 || AnswerChecker.fold(word.turkish).contains(query))
         }
         return switch sort {
         case .newest: matching
         case .alphabetical: matching.sorted { $0.english.localizedStandardCompare($1.english) == .orderedAscending }
-        case .nextReview: matching.sorted { $0.dueDate < $1.dueDate }
+        // Yeni kelimelerin hafızası ve zorluğu henüz belli değil; bu iki sıralamada sona kalırlar.
+        case .memory: matching.sorted { ($0.memory(at: now) ?? 2) < ($1.memory(at: now) ?? 2) }
+        case .hardest: matching.sorted { ($0.isNew ? -1 : $0.difficulty) > ($1.isNew ? -1 : $1.difficulty) }
         }
     }
 

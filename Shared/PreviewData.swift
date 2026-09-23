@@ -57,6 +57,24 @@ enum PreviewData {
             container.mainContext.insert(word)
         }
         MemoryMigration.migrateIfNeeded(context: container.mainContext)
+
+        // Ayrıntı sayfasındaki geçmiş için örnek cevaplar: önce yanlışlar, sonra doğrular.
+        let modes: [GameMode] = [.dailyReview, .dailyReview, .match, .multipleChoice, .dailyReview, .quickRound]
+        for (word, _, _, _, reviews, correct) in samples where reviews > 0 {
+            let last = word.lastReviewedAt ?? now
+            for index in 0..<reviews {
+                let mode = modes[index % modes.count]
+                let log = ReviewLog(
+                    date: last.addingTimeInterval(-Double(reviews - 1 - index) * 2 * 86_400),
+                    mode: mode.rawValue,
+                    correct: index >= reviews - correct,
+                    grade: index >= reviews - correct ? 3 : 1,
+                    responseTime: mode == .match ? 0 : Double(3 + index % 5)
+                )
+                container.mainContext.insert(log)
+                log.word = word
+            }
+        }
         return container
     }()
 }

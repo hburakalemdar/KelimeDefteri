@@ -276,7 +276,7 @@ kısa bir satırla ne yapıldığını rapora ekle, commit + push.
 - [x] **B3 · Motoru bağla.** Her cevap `AnswerGrade` çıkarır, motoru uygular, `ReviewLog` yazar
       (`ReviewRecorder`, testli). `WordPicker` R ağırlığına geçer. `MemoryRing` her yerde, "Kutu" hiçbir yerde (§4, §5.10).
       Rozet ve bildirim zayıf kelime sayısıyla. iOS ve Mac.
-- [ ] **B4 · Kelime istatistiği.** §5.10 ayrıntı sayfası ve Kelimelerim süzgeç/sıralama.
+- [x] **B4 · Kelime istatistiği.** §5.10 ayrıntı sayfası ve Kelimelerim süzgeç/sıralama.
 - [ ] **C1 · Oyun merkezi, Günlük Tekrar, Hızlı Tur, tur özeti.** §5.1–5.3.
 - [ ] **C2 · Çoktan Seçmeli.** §5.4
 - [ ] **C3 · Eşleştir.** §5.5

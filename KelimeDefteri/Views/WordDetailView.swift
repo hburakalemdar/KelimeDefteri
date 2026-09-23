@@ -78,21 +78,8 @@ struct WordDetailView: View {
                 }
             }
 
-            Section("İlerleme") {
-                LabeledContent("Hafıza") {
-                    MemoryRing(memory: word.memory(), size: 18, text: .trailing)
-                }
-                LabeledContent("Sıradaki tekrar", value: Leitner.dueDescription(for: word.dueDate))
-                LabeledContent("Tekrar sayısı", value: "\(word.reviewCount)")
-                if word.reviewCount > 0 {
-                    LabeledContent(
-                        "Doğru bilme",
-                        value: (Double(word.correctCount) / Double(word.reviewCount))
-                            .formatted(.percent.precision(.fractionLength(0)))
-                    )
-                }
-                LabeledContent("Eklendi", value: word.createdAt.formatted(date: .long, time: .omitted))
-            }
+            memorySection
+            historySection
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -101,6 +88,97 @@ struct WordDetailView: View {
         .sheet(isPresented: $isEditing) {
             NavigationStack {
                 WordFormView(mode: .edit(word))
+            }
+        }
+    }
+}
+
+// MARK: - Hafıza ve geçmiş
+
+extension WordDetailView {
+    private var stats: WordStats {
+        WordStats(entries: (word.logs ?? []).map {
+            WordStats.Entry(date: $0.date, mode: $0.mode, correct: $0.correct, responseTime: $0.responseTime)
+        })
+    }
+
+    private var memorySection: some View {
+        Section("Hafıza") {
+            let memory = word.memory()
+            HStack(spacing: 16) {
+                MemoryRing(memory: memory, size: 56, text: .center)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(memoryTitle(memory))
+                        .font(.headline)
+                    Text(memoryDetail(memory))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(.vertical, 4)
+
+            if !word.isNew {
+                LabeledContent("Sıradaki tekrar", value: Leitner.dueDescription(for: word.dueDate))
+            }
+            LabeledContent("Görülme", value: "\(word.reviewCount)")
+            if word.reviewCount > 0 {
+                LabeledContent(
+                    "Doğru bilme",
+                    value: (Double(word.correctCount) / Double(word.reviewCount))
+                        .formatted(.percent.precision(.fractionLength(0)))
+                )
+            }
+            if let last = word.lastReviewedAt {
+                LabeledContent("Son görülme", value: last.formatted(.relative(presentation: .named)))
+            }
+            if let average = stats.averageResponseTime {
+                LabeledContent(
+                    "Ortalama cevap süresi",
+                    value: "\(average.formatted(.number.precision(.fractionLength(1)))) sn"
+                )
+            }
+            LabeledContent("Eklendi", value: word.createdAt.formatted(date: .long, time: .omitted))
+        }
+    }
+
+    /// Halka yüzdeyi gösterdiği için yazı kelimenin durumunu anlatır.
+    private func memoryTitle(_ memory: Double?) -> String {
+        guard let memory else { return "Yeni" }
+        if memory < Memory.targetRetention { return "Zayıfladı" }
+        return word.isLearned ? "Öğrenildi" : "Güçlü"
+    }
+
+    private func memoryDetail(_ memory: Double?) -> String {
+        guard let memory else { return "Henüz çalışılmadı; ilk turda sorulacak." }
+        if memory < Memory.targetRetention { return "Hatırlama ihtimali %90'ın altına indi; tekrar zamanı." }
+        return word.isLearned ? "Uzun aralıklarla sorulur." : "Zayıflayınca yeniden sorulur."
+    }
+
+    @ViewBuilder
+    private var historySection: some View {
+        let stats = stats
+        if !stats.recent.isEmpty {
+            Section {
+                VStack(alignment: .leading, spacing: 10) {
+                    FlowLayout(spacing: 5) {
+                        ForEach(Array(stats.recent.enumerated()), id: \.offset) { _, entry in
+                            Circle()
+                                .fill(entry.correct ? Color.green : Color.red)
+                                .frame(width: 9, height: 9)
+                        }
+                    }
+                    .accessibilityElement()
+                    .accessibilityLabel("Son \(stats.recent.count) gösterimde \(stats.recent.count { $0.correct }) doğru")
+                    Text(stats.countsText)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("Geçmiş")
+            } footer: {
+                Text("Soldan sağa eskiden yeniye son \(stats.recent.count) gösterim; yeşil doğru, kırmızı yanlış.")
             }
         }
     }
