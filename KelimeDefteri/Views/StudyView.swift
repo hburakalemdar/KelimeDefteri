@@ -8,12 +8,13 @@ struct StudyView: View {
 
     /// Oyun merkezinden açılan tur.
     enum Game: Identifiable {
-        case daily, extraPractice, mode(GameMode)
+        case daily, extraPractice, recent, mode(GameMode)
 
         var id: String {
             switch self {
             case .daily: "daily"
             case .extraPractice: "extra"
+            case .recent: "recent"
             case .mode(let mode): mode.rawValue
             }
         }
@@ -95,6 +96,7 @@ struct StudyView: View {
         switch game {
         case .daily: RecallGameView(plan: .daily, mode: .dailyReview)
         case .extraPractice: RecallGameView(plan: .extraPractice, mode: .dailyReview)
+        case .recent: RecallGameView(plan: .recent, mode: .dailyReview)
         case .mode(let mode):
             switch mode {
             case .multipleChoice: ChoiceGameView()
@@ -145,10 +147,29 @@ struct StudyView: View {
             }
             .buttonStyle(.glassProminent)
             .controlSize(.large)
+            recentRow
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
+    }
+
+    /// Günlük Tekrar'ın bugün almadığı yeni kelimeler varsa onlarla ayrı tur; yoksa satır hiç görünmez.
+    @ViewBuilder
+    private var recentRow: some View {
+        let waiting = StudySession.recentWaitingCount(words, now: now)
+        if waiting > 0 {
+            HStack(spacing: 12) {
+                Text(RoundText.recentWaiting(waiting))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Button("Tanış") { activeGame = .recent }
+                    .font(.subheadline.weight(.semibold))
+                    .buttonStyle(.glass)
+                    .accessibilityHint("En son eklenen yeni kelimelerle kısa bir tur açar")
+            }
+        }
     }
 
     /// "yaklaşık 3 dk" gibi parçalar satır sonunda bölünmesin; satır yalnızca " · " aralarında kırılır.

@@ -32,4 +32,9 @@ nonisolated enum RoundText {
         parts.append(estimate(wordCount: weak + new))
         return parts.joined(separator: " · ")
     }
+
+    /// Günlük Tekrar kartındaki Yeni Eklenenler satırı: "12 yeni kelime sırada".
+    static func recentWaiting(_ count: Int) -> String {
+        "\(count) yeni kelime sırada"
+    }
 }

@@ -26,6 +26,8 @@ final class StudySession {
         case daily
         /// Hepsi güçlüyken "Yine de Çalış": önce son günlerde zorlanılanlar, kalan yere en zayıflar; toplam 10.
         case extraPractice
+        /// Yeni Eklenenler: Günlük Tekrar'ın bugün almadığı hiç çalışılmamış kelimeler; en yeni eklenen 10'u.
+        case recent
         /// Hızlı Tur: bütün defterden ağırlıklı 5 kelime.
         case quick
         /// Ters Yön: bütün defterden ağırlıklı 10 kelime.
@@ -41,6 +43,7 @@ final class StudySession {
 
     nonisolated static let dailyLimit = 20
     nonisolated static let dailyNewLimit = 5
+    nonisolated static let recentLimit = 10
     static let quickCount = 5
     static let reverseCount = 10
 
@@ -124,6 +127,8 @@ final class StudySession {
             dailyWords(words, now: now, avoidingFirst: previousFirst)
         case .extraPractice:
             extraPracticeWords(words, now: now, avoidingFirst: previousFirst)
+        case .recent:
+            ordered(Self.recentWords(words, now: now), now: now, avoidingFirst: previousFirst)
         case .quick:
             ordered(words, now: now, avoidingFirst: previousFirst, limit: Self.quickCount)
         case .reverse:
@@ -140,8 +145,33 @@ final class StudySession {
     private func dailyWords(_ words: [Word], now: Date, avoidingFirst previousFirst: String?) -> [Word] {
         let count = Self.dailyCount(words, now: now)
         let weak = ordered(words.filter { !$0.isNew && $0.isWeak(at: now) }, now: now, limit: count.weak)
-        let new = ordered(words.filter(\.isNew), now: now, limit: count.new)
-        return ordered(weak + new, now: now, avoidingFirst: previousFirst)
+        return ordered(weak + Self.dailyNewWords(words, now: now), now: now, avoidingFirst: previousFirst)
+    }
+
+    // MARK: Yeni kelimelerin paylaşımı
+
+    /// Hiç çalışılmamış kelimeler eklenme sırasıyla (eşitse İngilizce yazılışa göre); sıra her açılışta aynı.
+    private static func newWordsOldestFirst(_ words: [Word]) -> [Word] {
+        words.filter(\.isNew).sorted {
+            $0.createdAt != $1.createdAt ? $0.createdAt < $1.createdAt : AnswerChecker.fold($0.english) < AnswerChecker.fold($1.english)
+        }
+    }
+
+    /// Günlük Tekrar'ın bugünkü yenileri: en önce eklenenler (sırası gelen bekletilmez).
+    static func dailyNewWords(_ words: [Word], now: Date = .now) -> [Word] {
+        Array(newWordsOldestFirst(words).prefix(dailyCount(words, now: now).new))
+    }
+
+    /// Yeni Eklenenler turunun kelimeleri: Günlük Tekrar'ın almadığı yeniler, en yeni eklenen önce, en fazla 10.
+    /// Günlük Tekrar en eskileri aldığı için ikisi aynı kelimeyi sormaz.
+    static func recentWords(_ words: [Word], now: Date = .now) -> [Word] {
+        let queued = newWordsOldestFirst(words).dropFirst(dailyCount(words, now: now).new)
+        return Array(queued.reversed().prefix(recentLimit))
+    }
+
+    /// Günlük Tekrar'ın bugün almadığı yeni kelime sayısı; 0 ise Günlük Tekrar kartındaki satır görünmez.
+    static func recentWaitingCount(_ words: [Word], now: Date = .now) -> Int {
+        words.count(where: \.isNew) - dailyCount(words, now: now).new
     }
 
     /// Zorlanılan kelimeler ağırlıklı karışık sırayla önde; kalan yer hafızası en düşüklerle dolar.
