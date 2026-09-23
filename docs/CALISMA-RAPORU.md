@@ -160,3 +160,17 @@
 - Eşleştir'de cevap süresi kaydedilmez (ortalama cevap süresine katılmaz); tur süresi özette görünür.
 - Sağ sütun hiçbir zaman sol sütunla aynı sırada gelmez.
 - Başlıkta "3/10" sayısı yok (soru sırası olmayan oyun); yalnızca çubuk ve altında süre/hata.
+
+### C4 · Boşluğu Doldur (23 Eylül 2026)
+- `FillBlankGameView`: 10 soru, yalnızca cümlesinde kelimenin kendisi geçen kelimeler. Cümle serif, kelimenin yeri `_____`;
+  altında ampul simgesiyle Türkçe ilk anlam, soluk kitap adı. 4 serif İngilizce cam seçenek; davranış Çoktan Seçmeli ile aynı.
+- `ClozeSentence` (saf, testli): büyük/küçük harf ve aksan gözetmeden kelimeyi bulur, önünde harf olmamalı, arkasından ek gelebilir.
+  Oyun merkezindeki koşul (`GameDeck.withSentence`) da artık aynı kuralı kullanıyor.
+- Testler: `ClozeSentenceTests` (3). 94 testin hepsi geçti. iPhone ve Mac'e kuruldu.
+
+**Verilen kararlar**
+- "tombstone" ↔ "tombstones" gibi ekli hâller kabul edilir; boşluk yalnızca kelimeyi kaplar, ek görünür kalır ("_____s").
+  Böylece çoğul/çekimli cümleler de oyuna girer. "art" ↔ "start" gibi kelime içi eşleşme kabul edilmez.
+- Boşluk yalnızca doğru seçimde değil, yanlış seçimde de doğru kelimeyle dolar: kullanıcı doğrusunu cümle içinde görsün.
+- Yanlış seçenekler cümlesi olmayan kelimelerden de gelebilir (yalnızca sorulan kelimenin cümlesi gerekli).
+- Kitap adı kartta soluk küçük satır olarak kaldı (Çalış kartındaki kaynak satırının karşılığı).

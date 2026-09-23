@@ -46,7 +46,7 @@ nonisolated enum GameMode: String, CaseIterable, Sendable {
 
 extension GameMode {
     /// Oyun merkezinde kartı gösterilen oyunlar, sırasıyla. Her oyun yapıldıkça buraya eklenir.
-    static let hubGames: [GameMode] = [.quickRound, .multipleChoice, .match]
+    static let hubGames: [GameMode] = [.quickRound, .multipleChoice, .match, .fillBlank]
 
     /// Kartın altındaki tek satırlık açıklama.
     var cardDetail: String {
@@ -111,11 +111,9 @@ nonisolated struct GameDeck: Equatable {
         shortWords = entries.count { (1...Self.maxLetters).contains(Self.letterCount($0.english)) }
     }
 
-    /// Büyük/küçük harf ve aksan farkı gözetmeden cümlede kelimenin kendisi geçiyor mu.
+    /// Cümlede kelimenin kendisi geçiyor mu (bkz. `ClozeSentence`).
     static func sentence(_ sentence: String, contains word: String) -> Bool {
-        let needle = word.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return false }
-        return sentence.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        ClozeSentence(sentence: sentence, word: word) != nil
     }
 
     static func letterCount(_ word: String) -> Int {
