@@ -411,3 +411,11 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
   hafızası en düşüklerle dolar (toplam 10).
 - Düzenle formunda "Kelimeyi Sil" (iPhone). Ekle › Bugün Eklenenler'den kaydırarak silme kaldırıldı.
 - 205 testin hepsi geçti.
+
+### Yeni Eklenenler ve öğrenilen kelime sayısı (23 Eylül 2026)
+- Günlük Tekrar kartında, Günlük Tekrar'ın bugün almadığı yeni kelime varsa "N yeni kelime sırada · Tanış" satırı
+  (`StudySession` `.recent`): en yeni eklenen önce en fazla 10, Günlük Tekrar gibi hafızaya yazar. Günlük Tekrar'ın günlük
+  5 yenisi artık en önce eklenenlerden seçilir (iki tur çakışmasın). iPhone ve Mac.
+- `Word.learnedAt` (yalnızca ekleme): öğrenildiği cevapta yazılır, yanlışta silinir; mevcut öğrenilmişlere geçişte
+  `lastReviewedAt`. "Bu Hafta"da "Öğrendiğin kelime · 42 (bu hafta +4)". Geçişin ilk haftası +N biraz şişebilir.
+- 215 testin hepsi geçti.
