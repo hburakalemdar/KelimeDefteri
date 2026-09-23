@@ -8,9 +8,8 @@ süreler) başlangıç önerisidir: ekranda daha iyi görünen bir çözüm vars
 `docs/CALISMA-RAPORU.md`'ye yaz. Ama **uygulamanın mevcut tasarım desenine bağlı kal** (§4):
 yeni ekranlar bugünkü ekranların devamı gibi görünmeli, ayrı bir uygulama gibi değil.
 
-**Karar verme:** Küçük kararları kendin ver ve rapora yaz. Yalnızca geri dönüşü zor ya da kullanıcının
-deneyimini belirgin şekilde değiştiren bir yol ayrımında kullanıcıya sor (AskUserQuestion, önerini ilk
-seçenek yap).
+**Karar verme:** Kullanıcıya soru sorma. Her kararı kendin ver: en sade, Apple uygulamalarına ve
+mevcut desene en yakın seçeneği seç, `docs/CALISMA-RAPORU.md`'ye "Verilen kararlar" altında gerekçesiyle yaz.
 
 **Kullanıcının verdiği kararlar (23 Eylül 2026):**
 - Çalış sekmesi: üstte Günlük Tekrar kartı, altında 2 sütunlu oyun kartları.
