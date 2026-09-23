@@ -1,7 +1,7 @@
 # Kelime Defteri
 
 Teknik kitap okurken karşılaşılan İngilizce kelimeleri kaydedip aralıklı tekrarla
-(Leitner sistemi) öğrenmek için iPhone, iPad ve Mac uygulaması. SwiftUI + SwiftData + CloudKit,
+(FSRS unutma eğrisine dayanan hafıza modeli) ve kısa oyunlarla öğrenmek için iPhone, iPad ve Mac uygulaması. SwiftUI + SwiftData + CloudKit,
 iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
 
 ## Özellikler
@@ -10,38 +10,45 @@ iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
   İngilizce tanım, kitaptaki cümle ve kaynak kitap.
   - *Türkçesini bul:* Apple'ın cihaz üstü çeviri motoruyla (Translation framework) öneri.
   - *Sözlük:* iOS'un yerleşik sözlüğünde İngilizce tanıma bakma.
-- **Çalış:** İngilizce kelime ve cümle gösterilir; Türkçesini yazıp kontrol ettirirsin ya da
-  karta dokunup Türkçesini görürsün. Telaffuzu dinleyebilirsin.
-- **Aralıklı tekrar:** Bilinen kelime üst kutuya çıkar ve 1 / 3 / 7 / 16 / 35 gün sonra tekrar
-  sorulur; bilinmeyen başa döner ve aynı turda bir daha sorulur.
-- **Kelimelerim:** süzme (sırada / öğreniliyor / öğrenildi) ve sıralama; kelimeye dokununca anlamı,
-  cümlesi ve ilerlemesiyle ayrıntı sayfası.
-- **İlerleme:** Ayarlar › İlerleme'de kelimelerin kutulara dağılımı (grafik).
+- **Çalış (oyun merkezi):** Üstte **Günlük Tekrar** (zayıflayan kelimeler, en fazla 20, en fazla 5 yeni),
+  altında oyunlar: **Hızlı Tur** (5 karışık soru), **Çoktan Seçmeli**, **Eşleştir**, **Boşluğu Doldur**
+  (kitaptaki cümle), **Harfleri Diz**, **Ters Yön** (Türkçeden İngilizceye). Her tur sonunda özet:
+  kaç doğru, ne kadar sürdü, her kelimenin hafızası nasıl değişti.
+- **Hafıza:** Her kelimenin hatırlama ihtimali (%) zamanla azalır; %90'ın altına inen kelime tekrara gelir.
+  Not kullanıcıya sorulmaz, cevaptan çıkarılır (hız, cevaba bakma, yazım hatası). Seçeneklerden tanımak
+  kendin hatırlamaktan daha az sayılır. Sıra karışıktır, zayıf kelime öne gelme eğilimindedir.
+- **Kelimelerim:** Tümü / Zayıf / Güçlü / Yeni süzgeci; Eklenme / A–Z / Hafıza / En Zor sıralaması.
+  Ayrıntı sayfasında hafıza halkası, görülme, doğru bilme, son görülme, ortalama cevap süresi ve
+  son 30 cevabın geçmişi.
+- **İlerleme:** Ayarlar › İlerleme'de hafıza dağılımı (Yeni / %0–50 … %95+) ve ortalama hafıza.
 - **Hoşgörülü kontrol:** Büyük/küçük harf, Türkçe karakter (ş/s, ı/i…) ve noktalama fark etmez.
 - **Paylaş menüsünden ekleme:** Books, Safari ya da PDF okuyucuda metni seç › Paylaş › Kelime Defteri.
   Cümle paylaşıldıysa kelimeleri düğme olarak gelir, bilinmeyene dokunulur; Apple Books'ta kitap adı
   kaynak olarak otomatik dolar.
 - **iCloud eşitleme:** Kelimeler iCloud'da yedeklenir; iPhone ve Mac'te aynı defter.
-- **Mac: menü çubuğu uygulaması.** Dock'ta görünmez; menü çubuğundaki kitap simgesi sıradaki kelime
+- **Mac: menü çubuğu uygulaması.** Dock'ta görünmez; menü çubuğundaki kitap simgesi zayıf kelime
   sayısını gösterir. Tıklayınca Çalış / Ekle penceresi açılır (klavyeyle: Return kontrol, ← Bilemedim,
   → Bildim). Kelimelerim penceresinde sıralanabilir tablo, arama, çift tıkla düzenleme, ⌫ ile silme.
   Ayarlar'da oturum açılınca başlatma ve hatırlatma.
 - **Mac kısayolu ⇧⌘E:** Önizleme'de (veya herhangi bir uygulamada) metni seç, ⇧⌘E'ye bas ya da
   sağ tık › Servisler › Kelime Defteri'ne Ekle. Uygulama kapalıysa kendisi açılır; kelime ayrı bir
   pencerede eklenir ve saniyeler içinde telefona gelir.
-- **Günlük hatırlatma:** Seçilen saatte sırada kelime varsa bildirim; ikonda sıradaki kelime sayısı.
+- **Günlük hatırlatma:** Seçilen saatte zayıflayan kelime varsa bildirim; ikonda zayıf kelime sayısı.
 
 ## Proje yapısı
 
 ```
 KelimeDefteri/        iPhone/iPad uygulaması
   App/                Giriş noktası
-  Views/              SwiftUI ekranları
+  Views/              SwiftUI ekranları (StudyView = oyun merkezi)
+    Games/            Oyun ekranları ve ortak soru parçaları, tur özeti
 Mac/                  Yerel macOS menü çubuğu uygulaması: MenuBarExtra, Kelimelerim tablosu,
                       Ayarlar, ⇧⌘E servisi (AppDelegate)
 Shared/               iOS, Mac ve paylaşım eklentisinde ortak: Word modeli, SharedStore
-                      (App Group veritabanı), Leitner, AnswerChecker, SharedTextParser, WordFormView
-  Logic/              StudySession, hatırlatma planlama/zamanlama, Speaker
+                      (App Group veritabanı), ReviewLog, AnswerChecker, SharedTextParser, WordFormView
+  Logic/              Hafıza motoru (Memory), ReviewRecorder, WordPicker, StudySession, GameRound,
+                      oyun mantıkları (ChoiceQuiz, MatchBoard, ClozeSentence, LetterPuzzle, ReverseChecker,
+                      QuickMix), hatırlatma, Speaker
 KelimeEkle/           iOS Paylaş menüsü eklentisi (Share Extension)
 Config/               Entitlements ve Info.plist'ler (KelimeDefteriMac-* Mac uygulaması için)
 KelimeDefteriTests/   Swift Testing birim testleri

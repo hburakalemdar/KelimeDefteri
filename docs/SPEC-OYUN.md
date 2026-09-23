@@ -284,7 +284,7 @@ kısa bir satırla ne yapıldığını rapora ekle, commit + push.
 - [x] **C5 · Harfleri Diz.** §5.7
 - [x] **C6 · Ters Yön.** §5.8
 - [x] **C7 · Hızlı Tur karışık.** §5.9
-- [ ] **Z · Rapor.** `docs/CALISMA-RAPORU.md` tamamlanır (§7).
+- [x] **Z · Rapor.** `docs/CALISMA-RAPORU.md` tamamlanır (§7).
 
 ## 7. Her turda çalışma kuralları
 

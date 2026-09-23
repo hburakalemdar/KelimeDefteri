@@ -27,7 +27,7 @@ Mac düzeni `macFields`).
 
 ```bash
 # Testler (simülatör)
-xcodebuild test -project KelimeDefteri.xcodeproj -scheme KelimeDefteri -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath build
+xcodebuild test -project KelimeDefteri.xcodeproj -scheme KelimeDefteri -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath build -parallel-testing-enabled NO -collect-test-diagnostics never
 
 # Kullanıcının iPhone 14'ü
 xcodebuild -project KelimeDefteri.xcodeproj -scheme KelimeDefteri -destination 'id=<IPHONE_UDID>' -derivedDataPath build -allowProvisioningUpdates build
@@ -46,8 +46,9 @@ Sonra `lsregister -f -R /Applications/KelimeDefteri.app` ve `/System/Library/Cor
 
 Ekran görüntüsü için (yalnızca DEBUG): `xcrun simctl launch booted com.burakalemdar.KelimeDefteri -demo`
 gerçek defter yerine örnek kelimelerle açar; `-shareDemo` ek olarak Paylaş eklentisinin formunu gösterir.
-Simülatör ekran görüntüsü: `xcrun simctl io booted screenshot x.png`. Testleri `-parallel-testing-enabled NO`
-ile koş; paralelde simülatör kopyaları açılamayıp testler 0 sn'de "failed" görünebiliyor.
+Simülatör ekran görüntüsü: `xcrun simctl io booted screenshot x.png`. Testleri `-parallel-testing-enabled NO
+-collect-test-diagnostics never` ile koş; paralelde simülatör kopyaları açılamayıp testler 0 sn'de "failed"
+görünebiliyor, bir test başarısız olunca da `simctl diagnose` dakikalarca takılabiliyor.
 
 Uygulama simgesi Icon Composer biçiminde: `KelimeDefteri/AppIcon.icon` ve `Mac/AppIcon.icon` (aynı dosyanın
 iki kopyası; biri değişirse ötekini de güncelle). Katmanlar `Assets/` içinde 1024×1024 saydam PNG

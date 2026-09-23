@@ -1,6 +1,45 @@
 # Çalışma raporu: Oyunlaştırma
 
-`docs/SPEC-OYUN.md` görevlerinin `/loop` ile yürütülmesinin kaydı.
+`docs/SPEC-OYUN.md` görevlerinin `/loop` ile yürütülmesinin kaydı (23 Eylül 2026).
+
+## Özet
+
+Bütün görevler bitti (A1, B1–B4, C1–C7); hiçbiri `[~]` kalmadı. 109 birim testin hepsi geçiyor.
+Her görev `main`'e ayrı commit olarak gitti. B3'ten sonra her görev iPhone 14'e ve Mac'e kuruldu; yalnızca
+C1 turunda telefon bağlı değildi, C2 ile birlikte kuruldu.
+
+**Uygulamada ne değişti**
+- **Kutu sistemi yerine hafıza.** Her kelimenin hatırlama ihtimali (%) var ve zamanla azalıyor; %90'ın altına
+  inen kelime tekrara geliyor. "Kutu" hiçbir ekranda kalmadı; her yerde renkli hafıza halkası var.
+- **Not sorulmuyor.** Cevaptan çıkarılıyor: hız, cevaba bakma, "Doğru Say", yazım hatası. Tanıma oyunları
+  (seçenekli) hatırlama oyunlarından daha az etki ediyor.
+- **Her cevap kaydediliyor** (`ReviewLog`); kelime ayrıntısında geçmiş ve istatistik bunlardan geliyor.
+- **Çalış sekmesi oyun merkezi oldu:** Günlük Tekrar kartı ve 6 oyun (Hızlı Tur, Çoktan Seçmeli, Eşleştir,
+  Boşluğu Doldur, Harfleri Diz, Ters Yön). Her tur ortak bir özetle biter.
+- **Sıra karışık:** zayıf kelime öne gelme eğiliminde, aynı kelime art arda gelmiyor, yeni tur öncekinin ilk
+  kelimesiyle başlamıyor.
+- **Mac:** hafıza halkası, sıralanabilir "Hafıza" sütunu, "Hepsi Güçlü / Yine de Çalış", karışık sıra ve kayıt.
+  Oyunlar Mac'e henüz gelmedi (spec böyle istiyordu).
+- **Eski veri korunuyor:** ilk açılışta kutu bilgisi bir kere hafıza değerlerine çevrildi; iCloud şemasında
+  hiçbir alan silinmedi ya da adı değişmedi.
+
+**Önemli kararlar (ayrıntısı görev bölümlerinde)**
+- Tur özetinde "sonraki hafıza" cevaptan hemen sonra ölçüldüğü için hep ~%99 görünüyor (tanım gereği).
+  Spec'e sadık kalındı; ileride yerine "sıradaki tekrar: 5 gün sonra" göstermek daha bilgilendirici olabilir.
+- Karışık Hızlı Tur'da her soru kendi oyununun adıyla ve ağırlığıyla kaydediliyor; Eşleştir karışık tura girmiyor.
+- Harfleri Diz'de 3+ hata cevabı açmakla aynı sayılıyor; yanlış dolu diziliş kırmızı kalıyor.
+- Boşluğu Doldur ekli hâlleri kabul ediyor ("tombstones"), kelime içi eşleşmeyi kabul etmiyor ("start" ≠ "art").
+- Kelimelerim süzgecinde Zayıf / Güçlü / Yeni birbirini dışlıyor; Günlük Tekrar ise yenileri de sayıyor.
+
+**Bilinen eksikler ve sonraki adımlar**
+- Oyunlar yalnızca iPhone/iPad'de; Mac menü penceresinde yalnızca hatırlama çalışması var.
+- CloudKit şeması hâlâ geliştirme ortamında; `ReviewLog` ve yeni alanlar TestFlight/App Store öncesi üretime
+  aktarılmalı (Apple Developer hesabında işlem, onay gerekir).
+- Güncellenmemiş bir cihazdan iCloud'la gelen eski kayıtlar bir sonraki açılışta geçirilir.
+- Kutu aralıkları (`Leitner.intervalsInDays`) yalnızca geçiş için kodda duruyor; bütün cihazlar geçtikten sonra
+  kaldırılabilir. `Word.box` alanı CloudKit kuralı gereği silinmedi.
+- Test sırasında görülen tuzak: `xcodebuild test` bir test başarısız olunca `simctl diagnose` ile dakikalarca
+  bekleyebiliyor; `-collect-test-diagnostics never` bunu önlüyor.
 
 ## Görevler
 
