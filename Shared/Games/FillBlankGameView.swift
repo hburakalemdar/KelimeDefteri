@@ -13,6 +13,9 @@ struct FillBlankGameView: View {
         let correctIndex: Int
     }
 
+    /// Mac'te oyun merkezine dönüş; iOS'ta `nil` (tam ekran kapanır).
+    var onClose: (() -> Void)? = nil
+
     @Query private var words: [Word]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -22,21 +25,10 @@ struct FillBlankGameView: View {
     @State private var didStart = false
 
     var body: some View {
-        NavigationStack {
+        GameScaffold(showsBar: !round.isFinished, onClose: close) {
+            GameProgressHeader(done: round.index, total: round.count)
+        } content: {
             content
-                .background(Color(.systemGroupedBackground))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if !round.isFinished {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(role: .close) { close() }
-                                .accessibilityLabel("Kapat")
-                        }
-                        ToolbarItem(placement: .principal) {
-                            GameProgressHeader(done: round.index, total: round.count)
-                        }
-                    }
-                }
         }
         .pausesClock { round.pauseClock() } resume: { round.resumeClock() }
         .onAppear { if !didStart { startRound() } }
@@ -98,7 +90,7 @@ struct FillBlankGameView: View {
 
     private func close() {
         context.saveLogging()
-        dismiss()
+        if let onClose { onClose() } else { dismiss() }
     }
 }
 
@@ -119,9 +111,7 @@ struct ClozeCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
+        .gameCard()
     }
 
     private var sentence: AttributedString {

@@ -6,6 +6,8 @@ import SwiftUI
 struct RecallGameView: View {
     let plan: StudySession.Plan
     let mode: GameMode
+    /// Mac'te oyun menü penceresinin içinde açılır; kapatınca oyun merkezine dönülür. iOS'ta `nil` (tam ekran kapanır).
+    var onClose: (() -> Void)? = nil
 
     @Query(sort: \Word.dueDate) private var words: [Word]
     @Environment(\.dismiss) private var dismiss
@@ -14,23 +16,12 @@ struct RecallGameView: View {
     @State private var didStart = false
 
     var body: some View {
-        NavigationStack {
+        GameScaffold(showsBar: session.current != nil, onClose: close) {
+            GameProgressHeader(done: session.finishedWordCount, total: session.wordCount)
+        } content: {
             content
-                .background(Color(.systemGroupedBackground))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if session.current != nil {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(role: .close) { close() }
-                                .accessibilityLabel("Kapat")
-                        }
-                        ToolbarItem(placement: .principal) {
-                            GameProgressHeader(done: session.finishedWordCount, total: session.wordCount)
-                        }
-                    }
-                }
-                .sensoryFeedback(.selection, trigger: session.reviewedCount)
         }
+        .sensoryFeedback(.selection, trigger: session.reviewedCount)
         .pausesClock {
             session.pauseClock()
             // Uygulama arka planda kapatılabilir; açık cevap kaybolmasın.
@@ -77,13 +68,16 @@ struct RecallGameView: View {
     private func close() {
         session.gradePendingAnswer()
         context.saveLogging()
-        dismiss()
+        if let onClose { onClose() } else { dismiss() }
     }
 }
 
 
+
 /// Tek bir hatırlama sorusu: kart ve altta cevap çubuğu (Göster / ↑, sonra not düğmeleri).
 /// Günlük Tekrar, Hızlı Tur, Ters Yön ve karışık Hızlı Tur kullanır; cevabı `session` değerlendirir ve kaydeder.
+/// Mac'te klavyeyle oynanır: Return kontrol eder (boşken gösterir), sonra Return öne çıkan notu,
+/// ← Bilemedim, → Bildim seçer.
 struct RecallQuestionView: View {
     let session: StudySession
     /// İlişkili kelimeleri bulmak için bütün defter.
@@ -93,9 +87,11 @@ struct RecallQuestionView: View {
 
     @State private var answer = ""
     @FocusState private var answerFocused: Bool
+    #if os(iOS)
     /// Klavyenin en son kapandığı an; karta dokunuş klavyeyi kapatmak için miydi, anlamak için.
     @State private var keyboardHiddenAt = Date.distantPast
     @Namespace private var glassNamespace
+    #endif
 
     private var hasAnswer: Bool { !answer.trimmingCharacters(in: .whitespaces).isEmpty }
 
@@ -104,24 +100,27 @@ struct RecallQuestionView: View {
         if let word = session.current, !word.isGone(from: words.aliveIDs) {
             ScrollView {
                 card(for: word)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
+                    .gamePagePadding()
             }
+            #if os(iOS)
             .scrollDismissesKeyboard(.interactively)
+            #else
+            .scrollBounceBehavior(.basedOnSize)
+            #endif
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 bottomBar
-                    .padding(.horizontal)
-                    .padding(.vertical, 12)
+                    .gameBarPadding()
             }
             .animation(.snappy, value: session.phase)
             // Yazarak cevaplamak asıl yol: klavye her kartta açık gelir. Bakmak isteyen "Göster"e basar.
             .onAppear { answerFocused = true }
             // Kelime silinip sıra kendiliğinden ilerlerse önceki kelimeye yazılan cevap yeni kartta kalmasın.
             .onChange(of: session.current.map(ObjectIdentifier.init)) { answer = "" }
+            #if os(iOS)
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
                 keyboardHiddenAt = .now
             }
+            #endif
             .sensoryFeedback(trigger: session.phase) { _, phase in
                 guard case .revealed(let verdict) = phase else { return nil }
                 return switch verdict {
@@ -151,7 +150,7 @@ struct RecallQuestionView: View {
                     .minimumScaleFactor(0.6)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                englishHeadline(word, font: .system(.largeTitle, design: .serif, weight: .semibold))
+                englishHeadline(word, font: GameStyle.headline)
                 exampleSentence(word)
             }
 
@@ -160,12 +159,11 @@ struct RecallQuestionView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 26, style: .continuous))
-        .contentShape(.rect(cornerRadius: 26, style: .continuous))
+        .gameCard()
+        .contentShape(.rect(cornerRadius: GameStyle.cardRadius, style: .continuous))
         .onTapGesture {
             guard session.phase == .asking else { return }
+            #if os(iOS)
             // Klavye açıkken karta dokunmak yalnızca klavyeyi kapatır. Pencerenin genel dokunuşu
             // (`dismissesKeyboardOnTap`) klavyeyi bu dokunuştan önce kapatmış olabilir; ona da bakılır.
             if answerFocused || Date.now.timeIntervalSince(keyboardHiddenAt) < 0.4 {
@@ -173,6 +171,9 @@ struct RecallQuestionView: View {
             } else {
                 reveal(withAnswer: false)
             }
+            #else
+            reveal(withAnswer: false)
+            #endif
         }
         .accessibilityAddTraits(session.phase == .asking ? .isButton : [])
         .accessibilityHint(session.phase == .asking ? (session.isReverse ? "İngilizcesini göster" : "Türkçesini göster") : "")
@@ -191,6 +192,9 @@ struct RecallQuestionView: View {
             .labelStyle(.iconOnly)
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
+            #if os(macOS)
+            .help("Telaffuzu dinle")
+            #endif
         }
     }
 
@@ -257,48 +261,83 @@ struct RecallQuestionView: View {
     private var bottomBar: some View {
         switch session.phase {
         case .asking:
-            // Mesajlar'daki gibi tek eylem düğmesi: alan boşken "Göster", yazınca "Kontrol et".
-            GlassEffectContainer(spacing: 10) {
-                HStack(spacing: 10) {
-                    TextField(session.isReverse ? "İngilizcesi" : "Türkçesi", text: $answer)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.done)
-                        .focused($answerFocused)
-                        // Alan boşken "Bitti" yalnızca klavyeyi kapatır; bakmak için "Göster" var.
-                        .onSubmit {
-                            if hasAnswer { reveal(withAnswer: true) } else { answerFocused = false }
-                        }
-                        .padding(.horizontal, 18)
-                        .frame(height: 48)
-                        .glassEffect(.regular.interactive(), in: .capsule)
-
-                    if hasAnswer {
-                        Button("Kontrol et", systemImage: "arrow.up") { reveal(withAnswer: true) }
-                            .labelStyle(.iconOnly)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 48, height: 48)
-                            .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
-                            .glassEffectID("action", in: glassNamespace)
-                    } else {
-                        Button("Göster") { reveal(withAnswer: false) }
-                            .font(.body.weight(.semibold))
-                            .padding(.horizontal, 18)
-                            .frame(height: 48)
-                            .glassEffect(.regular.interactive(), in: .capsule)
-                            .glassEffectID("action", in: glassNamespace)
-                            .accessibilityHint(session.isReverse ? "İngilizcesini gösterir" : "Türkçesini gösterir")
-                    }
-                }
-            }
-            .animation(.snappy(duration: 0.25), value: hasAnswer)
+            askBar
         case .revealed(let verdict):
             HStack(spacing: 12) {
                 ForEach(verdict.gradeOptions) { gradeButton($0) }
             }
         }
     }
+
+    #if os(iOS)
+    /// Mesajlar'daki gibi tek eylem düğmesi: alan boşken "Göster", yazınca "Kontrol et".
+    private var askBar: some View {
+        GlassEffectContainer(spacing: 10) {
+            HStack(spacing: 10) {
+                TextField(session.isReverse ? "İngilizcesi" : "Türkçesi", text: $answer)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.done)
+                    .focused($answerFocused)
+                    // Alan boşken "Bitti" yalnızca klavyeyi kapatır; bakmak için "Göster" var.
+                    .onSubmit {
+                        if hasAnswer { reveal(withAnswer: true) } else { answerFocused = false }
+                    }
+                    .padding(.horizontal, 18)
+                    .frame(height: 48)
+                    .glassEffect(.regular.interactive(), in: .capsule)
+
+                if hasAnswer {
+                    Button("Kontrol et", systemImage: "arrow.up") { reveal(withAnswer: true) }
+                        .labelStyle(.iconOnly)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
+                        .glassEffectID("action", in: glassNamespace)
+                } else {
+                    Button("Göster") { reveal(withAnswer: false) }
+                        .font(.body.weight(.semibold))
+                        .padding(.horizontal, 18)
+                        .frame(height: 48)
+                        .glassEffect(.regular.interactive(), in: .capsule)
+                        .glassEffectID("action", in: glassNamespace)
+                        .accessibilityHint(session.isReverse ? "İngilizcesini gösterir" : "Türkçesini gösterir")
+                }
+            }
+        }
+        .animation(.snappy(duration: 0.25), value: hasAnswer)
+    }
+    #else
+    /// Tek eylem düğmesi: alan boşken "Göster", yazınca "Kontrol et". Return ikisini de yapar.
+    private var askBar: some View {
+        HStack(spacing: 8) {
+            TextField(session.isReverse ? "İngilizcesi" : "Türkçesi", text: $answer)
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+                .focused($answerFocused)
+                .onSubmit { reveal(withAnswer: hasAnswer) }
+                .padding(.horizontal, 12)
+                .frame(height: 30)
+                .glassEffect(.regular, in: .capsule)
+            if hasAnswer {
+                Button("Kontrol et", systemImage: "arrow.up") { reveal(withAnswer: true) }
+                    .labelStyle(.iconOnly)
+                    .fontWeight(.semibold)
+                    .buttonStyle(.glassProminent)
+                    .buttonBorderShape(.circle)
+                    .help("Kontrol et (↩)")
+            } else {
+                Button("Göster") { reveal(withAnswer: false) }
+                    .buttonStyle(.glass)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .help(session.isReverse ? "İngilizcesini göster (↩)" : "Türkçesini göster (↩)")
+            }
+        }
+        .controlSize(.large)
+        .animation(.snappy(duration: 0.2), value: hasAnswer)
+    }
+    #endif
 
     @ViewBuilder
     private func gradeButton(_ option: GradeOption) -> some View {
@@ -311,9 +350,17 @@ struct RecallQuestionView: View {
             Label(option.title, systemImage: option.systemImage)
                 .font(.body.weight(.semibold))
                 .frame(maxWidth: .infinity)
+                #if os(iOS)
                 .padding(.vertical, 6)
+                #endif
         }
         .controlSize(.large)
+        #if os(macOS)
+        // Öne çıkan düğme Return ile, diğerleri ← (bilemedim) / → (bildim) ile basılır.
+        .keyboardShortcut(option.isPrimary ? .defaultAction : KeyboardShortcut(option.known ? .rightArrow : .leftArrow, modifiers: []))
+        .help(option.isPrimary ? "\(option.title) (↩)" : "\(option.title) (\(option.known ? "→" : "←"))")
+        #endif
+        // Mac'te renk verilen cam düğme de dolu görünüyor; öne çıkmayanın yalnızca yazısı renkli.
         if option.isPrimary {
             button.buttonStyle(.glassProminent)
         } else {
@@ -323,49 +370,9 @@ struct RecallQuestionView: View {
 
     private func reveal(withAnswer: Bool) {
         if !withAnswer { answer = "" }
+        #if os(iOS)
         answerFocused = false
+        #endif
         session.reveal(answer: withAnswer ? answer : nil)
-    }
-}
-
-extension View {
-    /// Uygulama arka plana gidince cevap süresini durdurur, geri gelince sürdürür.
-    func pausesClock(_ pause: @escaping () -> Void, resume: @escaping () -> Void) -> some View {
-        modifier(ClockPauser(pause: pause, resume: resume))
-    }
-}
-
-private struct ClockPauser: ViewModifier {
-    let pause: () -> Void
-    let resume: () -> Void
-    @Environment(\.scenePhase) private var scenePhase
-
-    func body(content: Content) -> some View {
-        content.onChange(of: scenePhase) { old, new in
-            if new == .active { resume() } else if old == .active { pause() }
-        }
-    }
-}
-
-/// Oyunların üstündeki ince ilerleme çubuğu ve "3/10".
-struct GameProgressHeader: View {
-    let done: Int
-    let total: Int
-    /// Eşleştir gibi soru sırası olmayan oyunlarda yalnızca çubuk gösterilir.
-    var showsCount = true
-
-    var body: some View {
-        HStack(spacing: 10) {
-            ProgressView(value: Double(done), total: Double(max(total, 1)))
-                .frame(width: 150)
-            if showsCount {
-                Text("\(min(done + 1, total))/\(total)")
-                    .font(.subheadline.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(total) kelimeden \(min(done + 1, total)). kelime")
     }
 }

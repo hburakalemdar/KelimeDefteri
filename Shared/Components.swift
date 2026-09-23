@@ -105,7 +105,6 @@ enum DeckSummary {
     }
 }
 
-#if os(iOS)
 /// Ayarlar uygulamasındaki gibi renkli kare içinde beyaz simge.
 struct SettingsIcon: View {
     let systemName: String
@@ -122,7 +121,6 @@ struct SettingsIcon: View {
             .accessibilityHidden(true)
     }
 }
-#endif
 
 extension AttributedString {
     /// Kitaptaki cümleyi tırnak içinde, geçen kelimeyi kalın ve belirgin gösterir.

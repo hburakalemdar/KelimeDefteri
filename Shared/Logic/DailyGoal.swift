@@ -12,8 +12,16 @@ nonisolated enum DailyGoal {
     static let defaultTarget = 30
     static let key = "dailyGoal"
 
-    /// Hedefin saklandığı yer: App Group, böylece widget da aynı hedefi okur.
-    static var defaults: UserDefaults { UserDefaults(suiteName: SharedStore.appGroupID) ?? .standard }
+    /// Hedefin saklandığı yer. iOS'ta App Group, böylece widget da aynı hedefi okur. Mac'te widget yok ve
+    /// App Group ayarları sistem izin uyarısı çıkarabilir; hedef uygulamanın kendi ayarlarında durur
+    /// (Mac Ayarlar penceresinden seçilir).
+    static var defaults: UserDefaults {
+        #if os(macOS)
+        .standard
+        #else
+        UserDefaults(suiteName: SharedStore.appGroupID) ?? .standard
+        #endif
+    }
 
     /// Kayıtlı hedef; hiç seçilmemiş ya da geçersizse varsayılan.
     static func target(in defaults: UserDefaults = defaults) -> Int {

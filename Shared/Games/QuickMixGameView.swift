@@ -20,6 +20,9 @@ struct QuickMixGameView: View {
     /// Hatırlama sorularının oturumu önceki turun ilk kelimesini değiştirmesin diye ayrı ayar deposu kullanır.
     private static let scratchDefaults = UserDefaults(suiteName: "QuickMix.scratch") ?? .standard
 
+    /// Mac'te oyun merkezine dönüş; iOS'ta `nil` (tam ekran kapanır).
+    var onClose: (() -> Void)? = nil
+
     @Query private var words: [Word]
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -30,21 +33,10 @@ struct QuickMixGameView: View {
     @State private var didStart = false
 
     var body: some View {
-        NavigationStack {
+        GameScaffold(showsBar: !round.isFinished, onClose: close) {
+            GameProgressHeader(done: round.index, total: round.count)
+        } content: {
             content
-                .background(Color(.systemGroupedBackground))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    if !round.isFinished {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button(role: .close) { close() }
-                                .accessibilityLabel("Kapat")
-                        }
-                        ToolbarItem(placement: .principal) {
-                            GameProgressHeader(done: round.index, total: round.count)
-                        }
-                    }
-                }
         }
         .pausesClock {
             round.pauseClock()
@@ -194,6 +186,6 @@ struct QuickMixGameView: View {
     private func close() {
         recallSession?.gradePendingAnswer()
         context.saveLogging()
-        dismiss()
+        if let onClose { onClose() } else { dismiss() }
     }
 }
