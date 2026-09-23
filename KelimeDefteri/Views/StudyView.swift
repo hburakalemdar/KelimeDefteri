@@ -57,10 +57,15 @@ struct StudyView: View {
                         Text("Oyunlar")
                             .font(.title3.bold())
                             .padding(.horizontal, 4)
-                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                            ForEach(GameMode.hubGames, id: \.self) { mode in
-                                GameCard(mode: mode, unavailableReason: mode.unavailableReason(for: deck)) {
-                                    activeGame = .mode(mode)
+                        // Grid: bir satırdaki iki kart, açıklaması iki satıra inse de aynı boyda kalır.
+                        Grid(horizontalSpacing: 12, verticalSpacing: 12) {
+                            ForEach(Array(stride(from: 0, to: GameMode.hubGames.count, by: 2)), id: \.self) { start in
+                                GridRow {
+                                    ForEach(GameMode.hubGames[start ..< min(start + 2, GameMode.hubGames.count)], id: \.self) { mode in
+                                        GameCard(mode: mode, unavailableReason: mode.unavailableReason(for: deck)) {
+                                            activeGame = .mode(mode)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -164,7 +169,7 @@ struct StudyView: View {
     }
 }
 
-/// Oyun merkezindeki kart: renkli simge, ad ve tek satır açıklama. Oynanamıyorsa soluk ve nedenini yazar.
+/// Oyun merkezindeki kart: renkli simge, ad ve kısa açıklama. Oynanamıyorsa soluk ve nedenini yazar.
 struct GameCard: View {
     let mode: GameMode
     let unavailableReason: String?
@@ -181,12 +186,13 @@ struct GameCard: View {
                     Text(unavailableReason ?? mode.cardDetail)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
+                        // Büyük yazıda kesilmesin, iki satıra insin; yazı küçültülmez.
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color(.secondarySystemGroupedBackground), in: .rect(cornerRadius: 18, style: .continuous))
             .contentShape(.rect(cornerRadius: 18, style: .continuous))
         }

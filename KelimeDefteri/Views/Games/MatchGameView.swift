@@ -31,7 +31,12 @@ struct MatchGameView: View {
                                 .accessibilityLabel("Kapat")
                         }
                         ToolbarItem(placement: .principal) {
-                            GameProgressHeader(done: board?.matched.count ?? 0, total: round.count, showsCount: false)
+                            let gone = goneIDs
+                            GameProgressHeader(
+                                done: board?.matched.subtracting(gone).count ?? 0,
+                                total: round.count - gone.count,
+                                showsCount: false
+                            )
                         }
                     }
                 }
@@ -39,7 +44,9 @@ struct MatchGameView: View {
                 .sensoryFeedback(.warning, trigger: shakes)
                 .sensoryFeedback(.selection, trigger: selectionKey)
         }
+        .pausesClock { round.pauseClock() } resume: { round.resumeClock() }
         .onAppear { if !didStart { startRound() } }
+        .onChange(of: words.aliveIDs) { removeDeletedWords() }
     }
 
     private var selectionKey: String { "\(selectedLeft ?? -1)-\(selectedRight ?? -1)" }
@@ -54,21 +61,23 @@ struct MatchGameView: View {
                 onDone: close
             )
         } else if let board {
+            let gone = goneIDs
             ScrollView {
                 VStack(spacing: 16) {
                     statusRow(board)
                     HStack(alignment: .top, spacing: 12) {
                         VStack(spacing: 10) {
-                            ForEach(board.left, id: \.self) { id in
+                            ForEach(board.left.filter { !gone.contains($0) }, id: \.self) { id in
                                 tile(id: id, isLeft: true, board: board)
                             }
                         }
                         VStack(spacing: 10) {
-                            ForEach(board.right, id: \.self) { id in
+                            ForEach(board.right.filter { !gone.contains($0) }, id: \.self) { id in
                                 tile(id: id, isLeft: false, board: board)
                             }
                         }
                     }
+                    .animation(.snappy, value: gone)
                 }
                 .padding(.horizontal)
                 .padding(.top, 8)
@@ -173,7 +182,7 @@ struct MatchGameView: View {
             Task {
                 try? await Task.sleep(for: .seconds(0.35))
                 withAnimation(.snappy) { justMatched = nil }
-                if board.isComplete {
+                if isComplete(board) {
                     try? await Task.sleep(for: .seconds(0.3))
                     round.finish()
                 }
@@ -186,6 +195,28 @@ struct MatchGameView: View {
                 withAnimation(.snappy) { wrongPair = nil }
             }
         }
+    }
+
+    /// Tur sürerken silinen kelimelerin turdaki kimlikleri; iki kutusu da tahtadan kalkar.
+    private var goneIDs: Set<Int> {
+        let alive = words.aliveIDs
+        return Set(round.words.indices.filter { round.words[$0].isGone(from: alive) })
+    }
+
+    /// Silinenler dışındaki bütün çiftler eşleşti mi.
+    private func isComplete(_ board: MatchBoard) -> Bool {
+        board.matched.union(goneIDs).count == board.left.count
+    }
+
+    private func removeDeletedWords() {
+        guard let board, !round.isFinished else { return }
+        let gone = goneIDs
+        guard !gone.isEmpty else { return }
+        if let selectedLeft, gone.contains(selectedLeft) { self.selectedLeft = nil }
+        if let selectedRight, gone.contains(selectedRight) { self.selectedRight = nil }
+        if let wrongPair, gone.contains(wrongPair.left) || gone.contains(wrongPair.right) { self.wrongPair = nil }
+        // Kalan çiftler zaten eşleşmişse tur kalanlarla biter.
+        if isComplete(board) { round.finish() }
     }
 
     private func close() {
