@@ -315,3 +315,39 @@ Oyunlaştırma işinin eleştirel incelemesinde bulunan sorunlardan 1–8 düzel
 - Hatırlama sorularında klavye her kartta açık gelir; yazmadan bakmak için "Göster" duruyor.
 - Eşleştir'de yanlış çiftte yalnızca soldaki (anlamı aranan) kelime yanlış sayılır; anlamı yanlış yere verilen kelime sayılmaz.
 - Testler: `RoundProgressTests` (1), `MatchBoardTests` güncellendi. 130 testin hepsi geçti.
+
+### Genel inceleme düzeltmeleri (23 Eylül 2026)
+iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden incelendi; bulunanların hepsi düzeltildi.
+
+**Kararlar**
+- Sekme ve simge rozeti ile hatırlatma bildirimi Günlük Tekrar'ın soracağı sayıyı gösterir (zayıflar + en fazla 5 yeni,
+  toplam en fazla 20; `StudySession.dailyCount`, `ReminderPlanner`). Önceden yeni kelimelerin hepsini sayıyordu.
+- Kelimelerim özeti süzgeçlerle birebir: "9 kelime · 2 zayıf · 4 güçlü · 3 yeni" (`DeckSummary.group`). "Öğrenildi" Ayarlar'da.
+- Halka rengi "zayıf" sınırında değişir: %90 ve üstü yeşil (`Memory.targetRetention`); İlerleme dilimleri de %90'da bölünür.
+- Arama süzgeçten bağımsız, bütün defterde yapılır.
+
+**Mantık**
+- Duraklatılmış saat yeni kart/tur başlayınca silinmiyor; tur süresi de arka planı saymıyor (`resumeClock` `startedAt`'i kaydırır).
+- Mac: çalışma oturumu Çalış ↔ Ekle geçişinde korunuyor (`MenuBarView`); pencere yeni bir günde açılırsa açık cevap kaydedilip
+  yeni tur başlıyor; tur bitince kendiliğinden yeni tur yalnızca çalışılmış zayıf kelime kaldıysa başlıyor.
+- Bir kelimenin başka bir günde verilen cevabı turda yeniden "ilk cevap" sayılır.
+- Yanlış bilinen kelime hemen arkasından (arada başka kart olmadan) doğru yazılırsa zayıf kalır; lapse ancak araya başka kart
+  girince kalkar (`ReviewRecorder.record(clearsLapse:)`).
+- Yanlış cevaptan sonra hafıza %50 görünür (%49 değil; `Memory.lapseTarget`). Yanlış bilinen kelime "öğrenildi" sayılmaz.
+- Eski biçimli kelime seçimden ve özetten önce geçirilir. Silinmiş kelimeye cevap yazılmaz.
+
+**Ekranlar**
+- Klavye her kartta açık; alan boşken "Bitti" ya da karta dokunmak yalnızca klavyeyi kapatır (cevabı açmaz).
+- Tur ortasında (ör. başka cihazdan) silinen kelimenin sorusu atlanır, Eşleştir'de kutuları kalkar, özetten çıkar.
+- Eşleştir saati arka planda durur; Hızlı Tur'da arka planda kurulan soru duraklatılmış başlar.
+- Ters Yön'de "Neredeyse" etiketi doğru kelimeyi tekrar yazmaz. Tur özeti Türkçe anlamı kesmiyor (kendi kartı, iki satır).
+- Oyun kartı alt yazıları kısaldı ("Anlamıyla eşle", "Cümleyi tamamla"), küçülmüyor, satırdaki kartlar eşit boyda.
+- Sekme rozeti dakikada bir ve uygulama öne gelince tazelenir.
+- Ekle/Paylaş: "Zaten defterinde" uyarısı klavyenin altında kalmaz; geç gelen çeviri başka kelimeye yazılmaz; Türkçe alanı
+  küçük harfle başlar, Return kaydeder; çeviri hata yazısı Türkçe yazılınca kalkar; düzenleme varsayılan kitabı değiştirmez;
+  "Bugün Eklenenler" satırına dokununca düzenlenir, sola kaydırınca silinir.
+- Düzenleme formu değişiklik varken aşağı çekilerek kapanmaz, ✕'te "Değişiklikleri at?" sorar.
+- Ayarlar: hatırlatma kapalıyken açıklama buna göre; rozet metni yeni tanımla.
+- Simülatörde sürekli çıkan "PosterBoard beklenmedik şekilde kesildi" uyarısı simülatörün kendi bozuk duvar kâğıdı kaydından
+  geliyordu (uygulamayla ilgisi yok); simülatör sıfırlandı (`xcrun simctl erase`).
+- Testler: `LogicFixesTests`, `GameViewFixesTests`, `FormFixesTests`. 150 testin hepsi geçti.

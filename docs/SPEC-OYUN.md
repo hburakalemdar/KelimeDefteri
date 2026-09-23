@@ -101,7 +101,7 @@ Harfleri Diz `0.8`, tanıma oyunları `0.6`.
 
 **Türetilen kavramlar** (`Word` uzantısı):
 - `memory(at:)` → `Double?` (yeni ise `nil`)
-- `isWeak` → yeni **ya da** `R < 0.9`. Günlük Tekrar ve sekme rozeti bunu sayar.
+- `isWeak` → yeni **ya da** `R < 0.9`. Günlük Tekrar bunu sayar; sekme ve simge rozeti ile bildirim Günlük Tekrar'ın soracağı sayıyı (en fazla 20, 5'i yeni) gösterir.
 - `isLearned` → `stability ≥ 21` gün (eski `box ≥ maxBox` tanımının yerini alır).
 
 **Testler (zorunlu):** R(S,S)=0.9; yeni kelimenin ilk notları; doğru cevap S'yi büyütür, easy > good > hard;
@@ -172,8 +172,8 @@ Desenin kuralları:
 |---|---|---|---|---|
 | Hızlı Tur | `bolt.fill` | turuncu | 5 kelime, 1 dakika | ≥ 1 kelime |
 | Çoktan Seçmeli | `checklist` | mavi | 4 seçenekten doğrusu | ≥ 4 kelime |
-| Eşleştir | `square.grid.2x2.fill` | yeşil | Kelimeleri anlamlarıyla eşle | ≥ 4 kelime |
-| Boşluğu Doldur | `text.cursor` | mor | Kitaptaki cümleyi tamamla | cümlesi olan ≥ 4 kelime |
+| Eşleştir | `square.grid.2x2.fill` | yeşil | Anlamıyla eşle | ≥ 4 kelime |
+| Boşluğu Doldur | `text.cursor` | mor | Cümleyi tamamla | cümlesi olan ≥ 4 kelime |
 | Harfleri Diz | `textformat.abc` | pembe | Harflerden kelimeyi kur | ≤ 14 harfli ≥ 1 kelime |
 | Ters Yön | `arrow.left.arrow.right` | camgöbeği | Türkçeden İngilizceye | ≥ 1 kelime |
 
@@ -181,7 +181,7 @@ Desenin kuralları:
 - Defter boşsa ekranın tamamı mevcut "Defterin Boş" görünümü.
 - Her oyun `fullScreenCover` ile açılır: sol üstte kapat (✕, `role: .close`), üstte ince ilerleme çubuğu
   ve "3/10". Oyun ortasında kapatılırsa o ana kadarki cevaplar kaydedilmiş kalır.
-- Sekme rozeti: zayıf kelime sayısı.
+- Sekme rozeti: Günlük Tekrar'ın soracağı kelime sayısı (kartta yazanla aynı).
 
 ### 5.2 Günlük Tekrar ve Hızlı Tur (C1)
 
