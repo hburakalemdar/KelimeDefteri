@@ -54,6 +54,12 @@ enum ReviewRecorder {
             // Bugün önce yanlış sonra doğru bilindi: tekrar zamanı motorun hesabına döner.
             word.dueDate = last.addingTimeInterval(word.stability * Memory.dayLength)
         }
+        // Öğrenildiği ilk cevabın tarihi; zayıflayan ya da dayanıklılığı düşen kelimede silinir.
+        if !word.isLearned {
+            word.learnedAt = nil
+        } else if word.learnedAt == nil {
+            word.learnedAt = now
+        }
         word.reviewCount += 1
         if grade.isCorrect { word.correctCount += 1 }
 

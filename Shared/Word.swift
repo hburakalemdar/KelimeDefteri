@@ -30,6 +30,9 @@ final class Word {
     /// Zorluk: 1 (kolay) … 10 (zor).
     var difficulty: Double = 5
     var lastReviewedAt: Date?
+    /// Kelimenin öğrenilmiş sayılmaya başladığı cevabın tarihi; öğrenilmiş değilse `nil`.
+    /// Eski kelimelerde ilk değer son tekrar tarihidir (`MemoryMigration.fillLearnedDates`).
+    var learnedAt: Date? = nil
     @Relationship(deleteRule: .cascade, inverse: \ReviewLog.word)
     var logs: [ReviewLog]?
 
