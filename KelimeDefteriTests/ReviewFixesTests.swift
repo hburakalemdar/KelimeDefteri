@@ -165,3 +165,67 @@ struct ReviewFixesTests {
         #expect(word.stability > values.stability)
     }
 }
+
+struct RepeatAnswerTests {
+    private func makeContext() throws -> ModelContext {
+        let url = URL.temporaryDirectory.appending(path: "test-\(UUID().uuidString).store")
+        let container = try ModelContainer(
+            for: SharedStore.schema,
+            configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none)
+        )
+        return ModelContext(container)
+    }
+
+    /// Aynı turda iki kez bilinmeyip sonra bilinen kelimenin hafızası yalnızca ilk cevapla değişir.
+    @Test func onlyFirstAnswerInRoundChangesMemory() throws {
+        let context = try makeContext()
+        let start = Date.now
+        let word = Word(english: "stale", turkish: "eskimiş")
+        word.reviewCount = 5
+        word.correctCount = 5
+        word.stability = 20
+        word.difficulty = 5
+        word.lastReviewedAt = start.addingTimeInterval(-40 * 86_400)
+        context.insert(word)
+        let expected = Memory.review(
+            stability: 20, difficulty: 5, lastReviewedAt: word.lastReviewedAt, grade: .again,
+            weight: GameMode.dailyReview.weight, now: start
+        )
+
+        let session = StudySession(seed: 1, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        session.start(with: [word], plan: .daily, now: start)
+        session.grade(known: false, now: start)
+        session.grade(known: false, now: start.addingTimeInterval(10))
+        session.grade(known: true, now: start.addingTimeInterval(20))
+
+        #expect(session.current == nil)
+        #expect(word.stability == expected.stability)
+        #expect(word.difficulty == expected.difficulty)
+        #expect(word.lastReviewedAt == start)
+        #expect(word.reviewCount == 8)
+        #expect(word.correctCount == 6)
+        #expect(try context.fetch(FetchDescriptor<ReviewLog>()).count == 3)
+    }
+
+    /// Sayaç iki cihazda aynı anda artınca biri kaybolsa da cevap kayıtları sayılır.
+    @Test func countsNeverFallBelowLoggedAnswers() throws {
+        let context = try makeContext()
+        let word = Word(english: "quorum", turkish: "yeter sayı")
+        context.insert(word)
+        for correct in [true, true, false] {
+            let log = ReviewLog(mode: "daily", correct: correct, grade: correct ? 3 : 1, responseTime: 2)
+            context.insert(log)
+            log.word = word
+        }
+        word.reviewCount = 1
+        word.correctCount = 1
+        #expect(word.answerCount == 3)
+        #expect(word.correctAnswerCount == 2)
+
+        // Kayıtlardan önceki (Leitner dönemi) cevaplar yalnızca sayaçta.
+        word.reviewCount = 10
+        word.correctCount = 7
+        #expect(word.answerCount == 10)
+        #expect(word.correctAnswerCount == 7)
+    }
+}

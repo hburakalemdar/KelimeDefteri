@@ -20,10 +20,10 @@ struct WordPickerTests {
     @Test func orderHasNoRepeats() {
         var generator = SeededGenerator(seed: 3)
         let ids = WordPicker.order(candidates(50), using: &generator)
+        // Art arda aynı kelime gelmemesi sıraya yeniden girişle ilgili; o kural
+        // StudySessionTests.unknownWordComesBackAfterTwoOthers'ta.
         #expect(ids.count == Set(ids).count)
-        for index in ids.indices.dropFirst() {
-            #expect(ids[index] != ids[index - 1])
-        }
+        #expect(ids.count == 50)
     }
 
     @Test func heavierWordsTendToComeFirst() {

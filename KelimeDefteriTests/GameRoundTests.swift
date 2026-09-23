@@ -39,9 +39,38 @@ struct GameRoundTests {
         #expect(round.entries.count == 1)
         #expect(round.entries.first?.firstCorrect == false)
         // İlk cevap (again, ağırlık 0.6): 0.4 × 0.6 = 0.24 → en az 0.3.
+        // Aynı turdaki ikinci cevap hafızayı değiştirmez, yalnızca geçmişe ve sayaçlara yazılır.
+        #expect(word.stability == 0.3)
+        #expect(word.lastReviewedAt == start.addingTimeInterval(3))
         let logs = try context.fetch(FetchDescriptor<ReviewLog>(sortBy: [SortDescriptor(\.date)]))
         #expect(logs.map(\.mode) == ["choice", "choice"])
+        #expect(logs.map(\.correct) == [false, true])
         #expect(logs.first?.responseTime == 3)
         #expect(word.reviewCount == 2)
+        #expect(word.correctCount == 1)
+    }
+
+    @Test func mixedRoundRecordsEachQuestionWithItsOwnGame() throws {
+        let url = URL.temporaryDirectory.appending(path: "test-\(UUID().uuidString).store")
+        let container = try ModelContainer(
+            for: SharedStore.schema,
+            configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none)
+        )
+        let context = ModelContext(container)
+        let word = Word(english: "quorum", turkish: "yeter sayı")
+        context.insert(word)
+        let round = makeRound(.quickRound)
+        let start = Date.now
+        round.start(with: [word], count: 5, now: start)
+        round.record(word, grade: .good, mode: .letters, now: start.addingTimeInterval(4))
+
+        let logs = try context.fetch(FetchDescriptor<ReviewLog>())
+        #expect(logs.map(\.mode) == [GameMode.letters.rawValue])
+        let expected = Memory.review(
+            stability: 0, difficulty: 5, lastReviewedAt: nil, grade: .good,
+            weight: GameMode.letters.weight, now: start.addingTimeInterval(4)
+        )
+        #expect(word.stability == expected.stability)
+        #expect(GameMode.letters.weight != GameMode.quickRound.weight)
     }
 }

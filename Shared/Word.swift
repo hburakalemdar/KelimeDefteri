@@ -73,3 +73,15 @@ extension Word {
     /// Üç haftadan uzun süre akılda kalan kelime öğrenilmiş sayılır.
     var isLearned: Bool { stability >= 21 }
 }
+
+// MARK: - Sayılar
+
+extension Word {
+    /// Toplam cevap sayısı. İki cihazda aynı anda artan sayaçta biri kaybolabilir (iCloud'da son yazan
+    /// kazanır) ama cevap kayıtları kaybolmaz; kayıtlardan önceki (Leitner dönemi) cevaplar ise yalnızca
+    /// sayaçta var. Bu yüzden hangisi büyükse o alınır.
+    var answerCount: Int { max(reviewCount, logs?.count ?? 0) }
+
+    /// Doğru cevap sayısı; `answerCount` ile aynı kural.
+    var correctAnswerCount: Int { max(correctCount, logs?.count(where: \.correct) ?? 0) }
+}

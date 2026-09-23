@@ -279,14 +279,18 @@ Oyunlaştırma işinin eleştirel incelemesinde bulunan sorunlardan 1–8 düzel
 - Hatırlama ekranında doğru/yanlış titreşimi çalışıyor ("Neredeyse" doğru sayılıyor, cevaba bakınca titreşim yok).
 - Testler: `ReviewFixesTests` (8). 117 testin hepsi geçti.
 
-**Bilinen eksikler (incelemeden, ertelendi)**
-- İki cihazda çevrimdışı çalışınca "Görülme" / "Doğru bilme" sayaçlarında son yazan kazanıyor; `ReviewLog` kayıtları
-  korunduğu hâlde sayaç eksik artabilir. Çözüm: sayıyı loglardan ya da `max(sayaç, log sayısı)` ile göstermek.
-- Aynı turda tekrar tekrar bilinmeyen kelimenin cezası birikiyor (her yanlışta S × 0.35, D + 1); sonra gelen doğru
-  cevapta R ≈ 1 olduğu için S büyümüyor. Spec'e uygun ama sert; aynı turdaki sonraki cevaplar yalnızca loga yazılabilir.
-- Güncellenmemiş (eski sürüm) bir cihaz geçirilmiş kelimeyi çalışınca yalnızca kutu ve tarihi değişiyor, hafıza değerleri
-  eski kalıyor ve geçiş bunu düzeltmiyor. Bütün cihazlar birlikte güncellenmeli.
-- `GameRoundTests.recordsGradeWithGameWeightAndKeepsFirstAnswer` ağırlığın etkisini (`stability`) kontrol etmiyor;
-  karışık turun `record(..., mode:)` yolu test edilmiyor. `WordPickerTests`'teki "art arda aynı kelime yok" testi
-  kendiliğinden geçiyor (asıl kural `StudySessionTests.unknownWordComesBackAfterTwoOthers`'ta).
-- Uygulama cevap açıkken tamamen kapatılırsa (✕'e basmadan) o cevap yine kaydedilmez.
+**İncelemenin kalan maddeleri (9–12)**
+- İki cihazda aynı anda artan sayaçta biri kaybolabiliyordu (iCloud'da son yazan kazanır). "Görülme", "Doğru bilme" ve
+  Ayarlar'daki toplamlar artık sayaç ile cevap kayıtlarından büyük olanı gösteriyor (`Word.answerCount`,
+  `correctAnswerCount`); kayıtlardan önceki Leitner dönemi cevapları yalnızca sayaçta olduğu için ikisine de bakılıyor.
+- Karar: hafızayı turdaki **ilk** cevap değiştirir. Aynı turda aynı kelimeye verilen sonraki cevaplar yalnızca sayaçlara ve
+  geçmişe yazılır (`ReviewRecorder.record(updatesMemory:)`). Önceden turda iki kez bilinmeyen 20 günlük kelime 2,5 güne
+  düşüyordu; şimdi bir kez düşer (~7 gün) ve orada kalır.
+- Karar: eski sürüm cihazın geçirilmiş kelimeleri eskitmesi için kod yazılmadı; defteri kullanan iki cihaz da (iPhone, Mac)
+  güncel. Yeni bir cihaz eklenirse önce güncellenmeli.
+- Testler düzeltildi: `GameRoundTests` ağırlığın ve ilk-cevap kuralının etkisini kontrol ediyor, karışık turun türe göre
+  kaydı test ediliyor; `WordPickerTests`'teki yanıltıcı "art arda" kontrolü kaldırıldı. Yeni: `RepeatAnswerTests` (2).
+  120 testin hepsi geçti.
+
+**Bilinen eksik**
+- Uygulama cevap açıkken tamamen kapatılırsa (✕'e basmadan) o cevap kaydedilmez.

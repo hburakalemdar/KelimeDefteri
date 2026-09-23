@@ -78,7 +78,7 @@ struct MacSettingsView: View {
             Section("Defterin") {
                 LabeledContent("Toplam kelime", value: "\(words.count)")
                 LabeledContent("Öğrenilen", value: "\(words.filter(\.isLearned).count)")
-                LabeledContent("Toplam tekrar", value: "\(words.reduce(0) { $0 + $1.reviewCount })")
+                LabeledContent("Toplam tekrar", value: "\(words.reduce(0) { $0 + $1.answerCount })")
                 if let accuracy {
                     LabeledContent("Doğru bilme oranı", value: accuracy.formatted(.percent.precision(.fractionLength(0))))
                 }
@@ -118,8 +118,8 @@ struct MacSettingsView: View {
     }
 
     private var accuracy: Double? {
-        let reviews = words.reduce(0) { $0 + $1.reviewCount }
+        let reviews = words.reduce(0) { $0 + $1.answerCount }
         guard reviews > 0 else { return nil }
-        return Double(words.reduce(0) { $0 + $1.correctCount }) / Double(reviews)
+        return Double(words.reduce(0) { $0 + $1.correctAnswerCount }) / Double(reviews)
     }
 }

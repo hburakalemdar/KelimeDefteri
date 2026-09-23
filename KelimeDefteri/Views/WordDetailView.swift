@@ -121,11 +121,11 @@ extension WordDetailView {
             if !word.isNew {
                 LabeledContent("Sıradaki tekrar", value: Leitner.dueDescription(for: word.dueDate))
             }
-            LabeledContent("Görülme", value: "\(word.reviewCount)")
-            if word.reviewCount > 0 {
+            LabeledContent("Görülme", value: "\(word.answerCount)")
+            if word.answerCount > 0 {
                 LabeledContent(
                     "Doğru bilme",
-                    value: (Double(word.correctCount) / Double(word.reviewCount))
+                    value: (Double(word.correctAnswerCount) / Double(word.answerCount))
                         .formatted(.percent.precision(.fractionLength(0)))
                 )
             }

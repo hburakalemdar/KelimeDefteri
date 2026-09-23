@@ -173,11 +173,13 @@ final class StudySession {
         guard let word = current else { return }
         let verdict: Verdict = if case .revealed(let verdict) = phase { verdict } else { .peeked }
         let grade = AnswerGrade.recall(verdict: verdict, known: known, responseTime: responseTime)
-        if !roundEntries.contains(where: { $0.word === word }) {
+        // Hafızayı turdaki ilk cevap değiştirir; sonrakiler yalnızca geçmişe yazılır.
+        let isFirstAnswer = !roundEntries.contains(where: { $0.word === word })
+        if isFirstAnswer {
             roundEntries.append(RoundEntry(word: word, memoryBefore: word.memory(at: now), firstCorrect: grade.isCorrect))
         }
         finishedAt = now
-        ReviewRecorder.record(word, grade: grade, mode: mode, responseTime: responseTime, now: now)
+        ReviewRecorder.record(word, grade: grade, mode: mode, responseTime: responseTime, updatesMemory: isFirstAnswer, now: now)
         // Bilinmeyen kelime bilinene kadar yeniden sorulur; hemen arkasından değil,
         // arada en az iki kelime olacak şekilde.
         if !known { queue.insert(word, at: WordPicker.reinsertionIndex(queueCount: queue.count)) }
