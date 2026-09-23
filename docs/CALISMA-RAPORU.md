@@ -378,3 +378,12 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
 - Mac kartı başka cihazdan silinen kelimeyi göstermez (`aliveIDs`/`isGone` artık `Shared/`'da).
 - Artıklar: kullanılmayan `SharedStore.defaults` ve boş `Assets.xcassets` katalogları silindi.
 - Testler: `StoreMaintenanceTests`; 161 testin hepsi geçti.
+
+### Motivasyon ve telefona yayılma (23 Eylül 2026)
+- Günlük hedef halkası (varsayılan 30 cevap, Ayarlar › Hedef), seri, "Öğrenildi" mührü (liste ve ayrıntı), "Bu Hafta" özeti.
+  Hepsi ReviewLog'lardan hesaplanır (`DailyGoal`, `WeeklySummary`); hedef App Group ayarlarında, widget da okur. Hedef
+  değişince geçmiş günler yeni hedefe göre sayılır.
+- `KelimeWidget` eklentisi: etkileşimli soru widget'ı (küçük/orta, StandBy), kilit ekranı "Hafıza" özeti, Denetim Merkezi /
+  Eylem düğmesi "Hızlı Tur" kontrolü, `kelimedefteri://quick` bağlantısı. Widget cevapları "Çoktan Seçmeli" olarak yazılır.
+- Hatırlatma bildiriminde soru: basılı tutunca 4 seçenek, cevap arka planda hafızaya yazılır.
+- 189 testin hepsi geçti.
