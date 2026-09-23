@@ -89,6 +89,8 @@ struct WordListView: View {
                     }
                 }
             }
+            // Her kelime ayrı kart: kaydırınca satır gruptan kopup köşeleri birden yuvarlanmasın.
+            .listRowSpacing(8)
             .overlay {
                 if words.isEmpty {
                     ContentUnavailableView(
