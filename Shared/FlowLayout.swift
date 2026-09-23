@@ -3,6 +3,8 @@ import SwiftUI
 /// Öğeleri satıra sığdığı kadar yan yana dizer, sığmayanı alt satıra kaydırır.
 struct FlowLayout: Layout {
     var spacing: CGFloat = 8
+    /// Satırları ortala (ör. Harfleri Diz taşları); varsayılan sola dayalı.
+    var centered = false
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let rows = arrange(subviews, width: proposal.width ?? .infinity)
@@ -13,7 +15,7 @@ struct FlowLayout: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         for row in arrange(subviews, width: bounds.width) {
-            var x = bounds.minX
+            var x = bounds.minX + (centered ? (bounds.width - row.width) / 2 : 0)
             for index in row.indices {
                 let size = subviews[index].sizeThatFits(.unspecified)
                 subviews[index].place(at: CGPoint(x: x, y: bounds.minY + row.y), proposal: ProposedViewSize(size))

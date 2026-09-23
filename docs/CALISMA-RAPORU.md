@@ -174,3 +174,21 @@
 - Boşluk yalnızca doğru seçimde değil, yanlış seçimde de doğru kelimeyle dolar: kullanıcı doğrusunu cümle içinde görsün.
 - Yanlış seçenekler cümlesi olmayan kelimelerden de gelebilir (yalnızca sorulan kelimenin cümlesi gerekli).
 - Kitap adı kartta soluk küçük satır olarak kaldı (Çalış kartındaki kaynak satırının karşılığı).
+
+### C5 · Harfleri Diz (23 Eylül 2026)
+- `LettersGameView`: 8 soru, ≤ 14 harfli kelimeler. Üstte Türkçe anlamlar, altında alt çizgili cevap yuvaları (serif harf),
+  en altta ortalanmış cam harf taşları. Taşa dokununca ilk boş yuvaya gider, yuvadaki harfe dokununca geri döner. Yuvalar
+  dolunca kendiliğinden kontrol: doğru yeşil ve 0,8 sn sonra geçer; yanlışta yuvalar sallanır, harfler yerinde kalır.
+  **Göster** cevabı açar (`again`), ardından **Devam**.
+- `LetterPuzzle` (saf, testli): sabit karakterler (boşluk, tire), karışık taşlar (asla doğru sırada gelmez), yerleştirme,
+  kontrol, hata sayısı, cevabı açma ve not. `FlowLayout`'a `centered` seçeneği eklendi.
+- Testler: `LetterPuzzleTests` (6). 100 testin hepsi geçti. iPhone ve Mac'e kuruldu.
+
+**Verilen kararlar**
+- Not: 0 hata `good`, 1–2 hata `hard`; spec 3+ hatayı söylemiyor, cevabı açmakla aynı sayıldı (`again`).
+- Yanlış diziliş yalnızca sallanmakla kalmaz: yuvalar dolu ve yanlışken harfler ve çizgiler kırmızı durur, bir harf
+  çıkarılınca normale döner. Sallanma kaçırılırsa kullanıcı neden ilerlemediğini anlasın diye.
+- Kartta yalnızca Türkçe anlamlar var (spec); İngilizce tanım ilk denemede gösterildi, kaldırıldı.
+- Taşlar ve yuvalar büyük/küçük harfi korur ("API"), karşılaştırma harf büyüklüğü ve aksan gözetmez.
+- Açılan cevap ve doğru diziliş soluk görünmesin diye yuvalar `disabled` yerine `allowsHitTesting` ile kilitlenir.
+- Yuva genişliği harf sayısına göre küçülür; 14 harf tek satıra sığar.
