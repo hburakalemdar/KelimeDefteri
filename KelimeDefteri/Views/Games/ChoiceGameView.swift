@@ -36,6 +36,7 @@ struct ChoiceGameView: View {
                     }
                 }
         }
+        .pausesClock { round.pauseClock() } resume: { round.resumeClock() }
         .onAppear { if !didStart { startRound() } }
     }
 
@@ -65,10 +66,8 @@ struct ChoiceGameView: View {
     private func startRound() {
         round.start(with: words, count: Self.questionCount)
         questions = round.words.map { word in
-            let others = words.filter { $0 !== word }.map {
-                ChoiceQuiz.Candidate(text: ChoiceQuiz.firstMeaning($0.turkish), source: $0.source)
-            }
-            let answer = ChoiceQuiz.Candidate(text: ChoiceQuiz.firstMeaning(word.turkish), source: word.source)
+            let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(turkish: $0.turkish, source: $0.source) }
+            let answer = ChoiceQuiz.Candidate(turkish: word.turkish, source: word.source)
             let result = round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
             return Question(word: word, options: result.options, correctIndex: result.correctIndex)
         }

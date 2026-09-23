@@ -12,6 +12,7 @@ final class GameRound {
     private(set) var startedAt: Date = .now
     private(set) var finishedAt: Date = .now
     private(set) var shownAt: Date = .now
+    private var pausedAt: Date?
     private var generator: SeededGenerator
     private let defaults: UserDefaults
 
@@ -29,19 +30,22 @@ final class GameRound {
     func random<T>(_ body: (inout SeededGenerator) -> T) -> T { body(&generator) }
 
     /// `pool` içinden ağırlıklı `count` kelime seçer; önceki turun ilk kelimesiyle başlamaz.
-    /// `distinctBy` verilirse aynı anahtarı taşıyan ikinci kelime alınmaz (ör. Eşleştir'de aynı anlam).
-    func start(with pool: [Word], count: Int, distinctBy key: ((Word) -> String)? = nil, now: Date = .now) {
+    /// `conflicts` verilirse seçilmiş bir kelimeyle çakışan kelime alınmaz (ör. Eşleştir'de ortak anlam).
+    func start(with pool: [Word], count: Int, conflicts: ((Word, Word) -> Bool)? = nil, now: Date = .now) {
         let candidates = pool.indices.map { index in
             let memory = pool[index].memory(at: now)
             return WordPicker.Candidate(id: index, weight: WordPicker.weight(memory: memory), isNew: memory == nil)
         }
         let previous = defaults.string(forKey: StudySession.lastFirstWordKey)
         let avoided = previous.flatMap { key in pool.firstIndex { AnswerChecker.fold($0.english) == key } }
-        let ordered = WordPicker.order(candidates, limit: key == nil ? count : nil, avoidingFirst: avoided, using: &generator)
+        let ordered = WordPicker.order(candidates, limit: conflicts == nil ? count : nil, avoidingFirst: avoided, using: &generator)
             .map { pool[$0] }
-        if let key {
-            var seen: Set<String> = []
-            words = Array(ordered.filter { seen.insert(key($0)).inserted }.prefix(count))
+        if let conflicts {
+            var picked: [Word] = []
+            for word in ordered where picked.count < count && !picked.contains(where: { conflicts($0, word) }) {
+                picked.append(word)
+            }
+            words = picked
         } else {
             words = ordered
         }
@@ -53,6 +57,7 @@ final class GameRound {
         startedAt = now
         finishedAt = now
         shownAt = now
+        pausedAt = nil
     }
 
     /// Şu anki kelimenin cevabını kaydeder. Aynı kelime turda ikinci kez cevaplanırsa özet ilk cevabı tutar.
@@ -72,6 +77,17 @@ final class GameRound {
         finishedAt = now
     }
 
+    /// Uygulama arka plandayken geçen süre cevap süresine sayılmaz.
+    func pauseClock(now: Date = .now) {
+        if pausedAt == nil { pausedAt = now }
+    }
+
+    func resumeClock(now: Date = .now) {
+        guard let pausedAt else { return }
+        shownAt += now.timeIntervalSince(pausedAt)
+        self.pausedAt = nil
+    }
+
     /// Soru sırası olmayan oyunlarda (Eşleştir) turu bitirir.
     func finish() {
         index = words.count
@@ -80,5 +96,6 @@ final class GameRound {
     func advance(now: Date = .now) {
         index += 1
         shownAt = now
+        pausedAt = nil
     }
 }

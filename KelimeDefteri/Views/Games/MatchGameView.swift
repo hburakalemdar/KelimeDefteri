@@ -144,7 +144,7 @@ struct MatchGameView: View {
     // MARK: - Akış
 
     private func startRound() {
-        round.start(with: words, count: Self.pairCount, distinctBy: { AnswerChecker.fold(ChoiceQuiz.firstMeaning($0.turkish)) })
+        round.start(with: words, count: Self.pairCount, conflicts: { ChoiceQuiz.shareMeaning($0.turkish, $1.turkish) })
         meanings = round.words.map { ChoiceQuiz.firstMeaning($0.turkish) }
         board = round.random { MatchBoard(count: round.count, using: &$0) }
         selectedLeft = nil

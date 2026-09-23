@@ -7,6 +7,7 @@ struct MacStudyView: View {
     var onAddTapped: () -> Void
 
     @Query(sort: \Word.dueDate) private var words: [Word]
+    @Environment(\.modelContext) private var context
     @State private var session = StudySession()
     @State private var answer = ""
     @FocusState private var answerFocused: Bool
@@ -30,16 +31,32 @@ struct MacStudyView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
+            // Uygulama açıkken iCloud'dan eski biçimli kelime gelmiş olabilir.
+            MemoryMigration.migrateIfNeeded(context: context)
+            session.resumeClock()
             // Pencere her açıldığında gün dönmüş olabilir; zamanı gelenleri sıraya al.
-            if session.current == nil && !session.isPracticeAll {
-                session.start(with: words, practiceAll: false)
-            } else {
-                session.sync(with: words)
-            }
+            refresh()
         }
-        .onChange(of: words.count) {
+        .onDisappear { session.pauseClock() }
+        .onChange(of: words.count) { refresh() }
+        .onChange(of: session.current == nil) { _, ended in
+            // iOS'taki Günlük Tekrar gibi tur en fazla 20 kelime (5'i yeni); zayıf kelime kaldıysa yenisi başlar.
+            if ended && session.plan == .daily { startDailyIfNeeded() }
+        }
+    }
+
+    private func refresh() {
+        if session.current == nil && !session.isPracticeAll {
+            startDailyIfNeeded()
+        } else {
             session.sync(with: words)
         }
+    }
+
+    private func startDailyIfNeeded() {
+        let count = StudySession.dailyCount(words)
+        guard count.weak + count.new > 0 else { return }
+        session.start(with: words, plan: .daily)
     }
 
     /// Turda cevaplanan kartların oranı; bilinmeyen kelime sıraya yeniden girdiği için

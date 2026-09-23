@@ -27,20 +27,27 @@ nonisolated enum MemoryMigration {
 }
 
 extension MemoryMigration {
-    /// Uygulama açılışında çağrılır (iOS ve Mac). Değişiklik varsa kaydeder.
+    /// Uygulama açılışında ve öne gelişinde çağrılır (iOS ve Mac); iCloud'dan sonradan gelen
+    /// eski biçimli kayıtlar da böylece geçer. Değişiklik varsa kaydeder.
     @MainActor
     static func migrateIfNeeded(context: ModelContext) {
         let descriptor = FetchDescriptor<Word>(predicate: #Predicate { $0.stability == 0 && $0.reviewCount > 0 })
         guard let words = try? context.fetch(descriptor), !words.isEmpty else { return }
-        for word in words {
-            let values = values(
-                box: word.box, dueDate: word.dueDate,
-                reviewCount: word.reviewCount, correctCount: word.correctCount
-            )
-            word.stability = values.stability
-            word.difficulty = values.difficulty
-            word.lastReviewedAt = values.lastReviewedAt
-        }
+        for word in words { migrate(word) }
         try? context.save()
+    }
+
+    /// Kelime eski biçimdeyse hafıza değerlerini kutusundan çıkarır. Cevap kaydedilmeden önce de
+    /// çağrılır: geçmeden çalışılan kelime yeni sayılır ve kutu geçmişi bir daha geri gelmez.
+    @MainActor
+    static func migrate(_ word: Word) {
+        guard needsMigration(stability: word.stability, reviewCount: word.reviewCount) else { return }
+        let values = values(
+            box: word.box, dueDate: word.dueDate,
+            reviewCount: word.reviewCount, correctCount: word.correctCount
+        )
+        word.stability = values.stability
+        word.difficulty = values.difficulty
+        word.lastReviewedAt = values.lastReviewedAt
     }
 }

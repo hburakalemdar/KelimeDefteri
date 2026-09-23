@@ -20,7 +20,7 @@ final class StudySession {
 
     /// Turda hangi kelimelerin sorulacağı.
     enum Plan: Equatable {
-        /// Bütün zayıf kelimeler, sınırsız; tur sürerken zayıflayanlar da eklenir (Mac menü penceresi).
+        /// Bütün zayıf kelimeler, sınırsız; tur sürerken zayıflayanlar da eklenir.
         case weak
         /// Günlük Tekrar: zayıf kelimeler, en fazla 20, bunların en fazla 5'i yeni.
         case daily
@@ -67,6 +67,7 @@ final class StudySession {
     /// Kartın gösterildiği an ve cevabın açılmasına kadar geçen süre.
     private var shownAt: Date = .now
     private var responseTime: Double = 0
+    private var pausedAt: Date?
 
     /// Önceki turun ilk kelimesi; yeni tur onunla başlamasın diye saklanır.
     static let lastFirstWordKey = "StudySession.lastFirstWord"
@@ -96,8 +97,8 @@ final class StudySession {
         case .weak:
             ordered(words.filter { $0.isWeak(at: now) }, now: now, avoidingFirst: previousFirst)
         case .daily:
-            ordered(words.filter { $0.isWeak(at: now) }, now: now, avoidingFirst: previousFirst,
-                    limit: Self.dailyLimit, maxNew: Self.dailyNewLimit)
+            // Önce çalışılmış zayıflar, kalan yere yeniler; kartta yazan dağılımla aynı olsun diye.
+            dailyWords(words, now: now, avoidingFirst: previousFirst)
         case .extraPractice:
             ordered(Self.weakest(words, count: Self.extraPracticeCount, now: now), now: now, avoidingFirst: previousFirst)
         case .quick:
@@ -109,6 +110,13 @@ final class StudySession {
             defaults.set(Self.key(for: first), forKey: Self.lastFirstWordKey)
         }
         advance(now: now)
+    }
+
+    private func dailyWords(_ words: [Word], now: Date, avoidingFirst previousFirst: String?) -> [Word] {
+        let count = Self.dailyCount(words, now: now)
+        let weak = ordered(words.filter { !$0.isNew && $0.isWeak(at: now) }, now: now, limit: count.weak)
+        let new = ordered(words.filter(\.isNew), now: now, limit: count.new)
+        return ordered(weak + new, now: now, avoidingFirst: previousFirst)
     }
 
     /// Hafızası en düşük kelimeler; yeniler en başta.
@@ -140,6 +148,25 @@ final class StudySession {
         } else {
             phase = .revealed(AnswerChecker.isCorrect(trimmed, expected: word.turkish) ? .correct : .incorrect)
         }
+    }
+
+    /// Sonucu belli olan ama düğmesine basılmamış cevabı öne çıkan düğmeyle kaydeder (ör. ✕ ile kapatılınca).
+    /// Yalnızca cevaba bakıldıysa ne bilindiği belli olmadığı için kaydedilmez.
+    func gradePendingAnswer(now: Date = .now) {
+        guard case .revealed(let verdict) = phase, verdict != .peeked,
+              let option = verdict.gradeOptions.first(where: \.isPrimary) else { return }
+        grade(known: option.known, now: now)
+    }
+
+    /// Uygulama arka plandayken geçen süre cevap süresine sayılmaz.
+    func pauseClock(now: Date = .now) {
+        if pausedAt == nil { pausedAt = now }
+    }
+
+    func resumeClock(now: Date = .now) {
+        guard let pausedAt else { return }
+        shownAt += now.timeIntervalSince(pausedAt)
+        self.pausedAt = nil
     }
 
     func grade(known: Bool, now: Date = .now) {
@@ -199,6 +226,7 @@ final class StudySession {
         current = queue.isEmpty ? nil : queue.removeFirst()
         phase = .asking
         shownAt = now
+        pausedAt = nil
         responseTime = 0
     }
 }

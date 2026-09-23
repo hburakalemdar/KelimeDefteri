@@ -12,6 +12,7 @@ enum ReviewRecorder {
         responseTime: Double,
         now: Date = .now
     ) -> ReviewLog? {
+        MemoryMigration.migrate(word)
         let result = Memory.review(
             stability: word.stability,
             difficulty: word.difficulty,

@@ -41,6 +41,7 @@ struct ContentView: View {
         #endif
         .onChange(of: scenePhase) { _, phase in
             // Bildirim içerikleri planlandıkları anda sabitlenir; en güncel sayılarla yeniden kur.
+            if phase == .active { MemoryMigration.migrateIfNeeded(context: context) }
             if phase == .background || phase == .active {
                 try? context.save()
                 Task { await ReminderScheduler.refresh(context: context) }

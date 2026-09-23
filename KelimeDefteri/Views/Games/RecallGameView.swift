@@ -31,6 +31,7 @@ struct RecallGameView: View {
                 }
                 .sensoryFeedback(.selection, trigger: session.reviewedCount)
         }
+        .pausesClock { session.pauseClock() } resume: { session.resumeClock() }
         .onAppear {
             if !didStart { startRound() }
         }
@@ -69,6 +70,7 @@ struct RecallGameView: View {
     }
 
     private func close() {
+        session.gradePendingAnswer()
         try? context.save()
         dismiss()
     }
@@ -105,6 +107,14 @@ struct RecallQuestionView: View {
                     .padding(.vertical, 12)
             }
             .animation(.snappy, value: session.phase)
+            .sensoryFeedback(trigger: session.phase) { _, phase in
+                guard case .revealed(let verdict) = phase else { return nil }
+                return switch verdict {
+                case .correct, .almost: .success
+                case .incorrect: .warning
+                case .peeked: nil
+                }
+            }
         }
     }
 
@@ -273,7 +283,6 @@ struct RecallQuestionView: View {
             HStack(spacing: 12) {
                 ForEach(verdict.gradeOptions) { gradeButton($0) }
             }
-            .sensoryFeedback(verdict == .correct ? .success : .warning, trigger: verdict)
         }
     }
 
@@ -301,6 +310,25 @@ struct RecallQuestionView: View {
         if !withAnswer { answer = "" }
         answerFocused = false
         session.reveal(answer: withAnswer ? answer : nil)
+    }
+}
+
+extension View {
+    /// Uygulama arka plana gidince cevap süresini durdurur, geri gelince sürdürür.
+    func pausesClock(_ pause: @escaping () -> Void, resume: @escaping () -> Void) -> some View {
+        modifier(ClockPauser(pause: pause, resume: resume))
+    }
+}
+
+private struct ClockPauser: ViewModifier {
+    let pause: () -> Void
+    let resume: () -> Void
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content.onChange(of: scenePhase) { old, new in
+            if new == .active { resume() } else if old == .active { pause() }
+        }
     }
 }
 

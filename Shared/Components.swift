@@ -87,7 +87,8 @@ extension Word {
 /// Defterin tek satırlık özeti: "48 kelime · 12 zayıf · 9 öğrenildi".
 enum DeckSummary {
     static func text(for words: [Word], now: Date = .now) -> String {
-        let weak = words.count { $0.isWeak(at: now) }
+        // Kelimelerim'deki Zayıf süzgeci gibi: yeni kelimenin hafızası olmadığı için zayıf sayılmaz.
+        let weak = words.count { !$0.isNew && $0.isWeak(at: now) }
         let learned = words.count(where: \.isLearned)
         return "\(words.count) kelime · \(weak) zayıf · \(learned) öğrenildi"
     }

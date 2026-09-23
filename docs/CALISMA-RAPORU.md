@@ -260,3 +260,33 @@ C1 turunda telefon bağlı değildi, C2 ile birlikte kuruldu.
   soruları "Hızlı Tur" adıyla. Böylece hafıza hesabı doğru, kelime geçmişi de gerçek oyun türünü gösterir.
 - Türler kelime bazında seçilir: cümlesi olmayan kelimeye Boşluğu Doldur, 14 harften uzun kelimeye Harfleri Diz gelmez.
 - Hatırlama sorusunun cevap süresi soru ekrana geldiğinde başlar (oturum o an kurulur).
+
+### İnceleme düzeltmeleri (23 Eylül 2026)
+Oyunlaştırma işinin eleştirel incelemesinde bulunan sorunlardan 1–8 düzeltildi:
+- Hatırlama ekranında cevap açıldıktan sonra ✕ ile kapatınca sonuç kaybolmuyor: öne çıkan düğmeyle kaydediliyor
+  (`StudySession.gradePendingAnswer`). Yalnızca cevaba bakıldıysa kaydedilmiyor (ne bilindiği belli değil).
+- Yanlış seçenek, sorulan kelimenin herhangi bir anlamını taşıyamaz (ör. "stale: bayat, eskimiş" sorulurken
+  "outdated: eskimiş" çıkmaz); Eşleştir'de ortak anlamlı iki kelime aynı tahtaya düşmez (`ChoiceQuiz.shareMeaning`).
+- Uygulama arka plandayken geçen süre cevap süresine sayılmıyor (`pauseClock` / `resumeClock`; iOS'ta `scenePhase`,
+  Mac'te pencere kapanınca).
+- Uygulama açıkken iCloud'dan eski biçimde gelen kelime ilk cevaptan önce geçiriliyor (`ReviewRecorder`); geçiş iOS'ta
+  uygulama öne gelince, Mac'te menü penceresi açılınca da çalışıyor.
+- Mac menü penceresi de Günlük Tekrar sınırını (20 kelime, 5 yeni) kullanıyor; tur bitince zayıf kelime kaldıysa yenisi başlıyor.
+- Günlük Tekrar turu önce çalışılmış zayıfları, kalan yere yenileri alıyor; kartta yazan dağılımla aynı. Çalış alt başlığı
+  20 sınırı olmadan kaç kelimenin zayıfladığını söylüyor. Defter özetindeki "N zayıf" yeni kelimeleri saymıyor (Zayıf süzgeci gibi).
+- Boşluğu Doldur önce kelimenin tek başına geçtiği yeri arıyor, yoksa bilinen bir eki kabul ediyor
+  ("art" artık "Artificial"da bulunmuyor).
+- Hatırlama ekranında doğru/yanlış titreşimi çalışıyor ("Neredeyse" doğru sayılıyor, cevaba bakınca titreşim yok).
+- Testler: `ReviewFixesTests` (8). 117 testin hepsi geçti.
+
+**Bilinen eksikler (incelemeden, ertelendi)**
+- İki cihazda çevrimdışı çalışınca "Görülme" / "Doğru bilme" sayaçlarında son yazan kazanıyor; `ReviewLog` kayıtları
+  korunduğu hâlde sayaç eksik artabilir. Çözüm: sayıyı loglardan ya da `max(sayaç, log sayısı)` ile göstermek.
+- Aynı turda tekrar tekrar bilinmeyen kelimenin cezası birikiyor (her yanlışta S × 0.35, D + 1); sonra gelen doğru
+  cevapta R ≈ 1 olduğu için S büyümüyor. Spec'e uygun ama sert; aynı turdaki sonraki cevaplar yalnızca loga yazılabilir.
+- Güncellenmemiş (eski sürüm) bir cihaz geçirilmiş kelimeyi çalışınca yalnızca kutu ve tarihi değişiyor, hafıza değerleri
+  eski kalıyor ve geçiş bunu düzeltmiyor. Bütün cihazlar birlikte güncellenmeli.
+- `GameRoundTests.recordsGradeWithGameWeightAndKeepsFirstAnswer` ağırlığın etkisini (`stability`) kontrol etmiyor;
+  karışık turun `record(..., mode:)` yolu test edilmiyor. `WordPickerTests`'teki "art arda aynı kelime yok" testi
+  kendiliğinden geçiyor (asıl kural `StudySessionTests.unknownWordComesBackAfterTwoOthers`'ta).
+- Uygulama cevap açıkken tamamen kapatılırsa (✕'e basmadan) o cevap yine kaydedilmez.

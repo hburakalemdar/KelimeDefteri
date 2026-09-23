@@ -39,6 +39,13 @@ struct QuickMixGameView: View {
                     }
                 }
         }
+        .pausesClock {
+            round.pauseClock()
+            recallSession?.pauseClock()
+        } resume: {
+            round.resumeClock()
+            recallSession?.resumeClock()
+        }
         .onAppear { if !didStart { startRound() } }
     }
 
@@ -112,11 +119,11 @@ struct QuickMixGameView: View {
     private func makeQuestion(_ word: Word, mode: GameMode) -> Question {
         switch mode {
         case .multipleChoice:
-            let result = options(for: word, text: { ChoiceQuiz.firstMeaning($0.turkish) })
+            let result = options(for: word) { ChoiceQuiz.Candidate(turkish: $0.turkish, source: $0.source) }
             return .choice(word, options: result.options, correct: result.correctIndex)
         case .fillBlank:
             if let cloze = ClozeSentence(sentence: word.example, word: word.english) {
-                let result = options(for: word, text: \.english)
+                let result = options(for: word) { ChoiceQuiz.Candidate(text: $0.english, source: $0.source) }
                 return .blank(word, cloze: cloze, options: result.options, correct: result.correctIndex)
             }
             return .recall(word, reverse: false)
@@ -129,9 +136,9 @@ struct QuickMixGameView: View {
         }
     }
 
-    private func options(for word: Word, text: (Word) -> String) -> (options: [String], correctIndex: Int) {
-        let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(text: text($0), source: $0.source) }
-        let answer = ChoiceQuiz.Candidate(text: text(word), source: word.source)
+    private func options(for word: Word, candidate: (Word) -> ChoiceQuiz.Candidate) -> (options: [String], correctIndex: Int) {
+        let others = words.filter { $0 !== word }.map(candidate)
+        let answer = candidate(word)
         return round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
     }
 
@@ -153,6 +160,7 @@ struct QuickMixGameView: View {
     }
 
     private func close() {
+        recallSession?.gradePendingAnswer()
         try? context.save()
         dismiss()
     }

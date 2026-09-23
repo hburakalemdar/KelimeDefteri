@@ -37,6 +37,7 @@ struct FillBlankGameView: View {
                     }
                 }
         }
+        .pausesClock { round.pauseClock() } resume: { round.resumeClock() }
         .onAppear { if !didStart { startRound() } }
     }
 

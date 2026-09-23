@@ -103,7 +103,8 @@ struct StudyView: View {
     private var subtitle: String {
         guard !words.isEmpty else { return "" }
         guard let averageMemory else { return "\(words.count) yeni kelime" }
-        let weak = dailyCount.weak
+        // Günlük Tekrar'ın 20 sınırı burada yok: kaç kelimenin zayıfladığı olduğu gibi söylenir.
+        let weak = words.count { !$0.isNew && $0.isWeak(at: now) }
         return "Hafıza \(MemoryStats.text(averageMemory)) · " + (weak > 0 ? "\(weak) kelime zayıfladı" : "hepsi güçlü")
     }
 
