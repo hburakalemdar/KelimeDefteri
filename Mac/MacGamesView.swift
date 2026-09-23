@@ -4,6 +4,8 @@ import SwiftUI
 /// Menü penceresinde açık olan sayfa: oyun merkezi (`nil`), Günlük Tekrar, bir oyun ya da Bu Hafta.
 enum MacGamePage: Hashable {
     case daily
+    /// Yeni Eklenenler: Günlük Tekrar'ın bugün almadığı yeni kelimelerle ayrı tur.
+    case recent
     case game(GameMode)
     case weekly
 }
@@ -31,6 +33,8 @@ struct MacGamesView: View {
                 hub
             case .daily:
                 MacStudyView(session: session, onAddTapped: onAddTapped, onClose: backToHub)
+            case .recent:
+                RecallGameView(plan: .recent, mode: .dailyReview, onClose: backToHub)
             case .weekly:
                 WeeklySummaryView(onClose: backToHub)
             case .game(let mode):
@@ -136,8 +140,26 @@ struct MacGamesView: View {
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
             .help("Günlük Tekrar (↩)")
+            recentRow
         }
         .gameCard()
+    }
+
+    /// Günlük Tekrar'ın bugün almadığı yeni kelimeler varsa onlarla ayrı tur; yoksa satır hiç görünmez.
+    @ViewBuilder
+    private var recentRow: some View {
+        let waiting = StudySession.recentWaitingCount(words, now: now)
+        if waiting > 0 {
+            HStack(spacing: 8) {
+                Text(RoundText.recentWaiting(waiting))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Button("Tanış") { page = .recent }
+                    .buttonStyle(.glass)
+                    .help("En son eklenen yeni kelimelerle kısa bir tur")
+            }
+        }
     }
 
     private var allStrongText: String {

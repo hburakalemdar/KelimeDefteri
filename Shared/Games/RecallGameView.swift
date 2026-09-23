@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Hatırlama oyunu: Günlük Tekrar ve Hızlı Tur. Kart ve cevap çubuğu eski Çalış ekranıyla aynı;
+/// Hatırlama oyunu: Günlük Tekrar, Yeni Eklenenler ve Hızlı Tur. Kart ve cevap çubuğu eski Çalış ekranıyla aynı;
 /// tur bitince özet gösterilir. Oyun merkezinden tam ekran açılır.
 struct RecallGameView: View {
     let plan: StudySession.Plan
@@ -58,8 +58,12 @@ struct RecallGameView: View {
     private func startRound() {
         session.mode = mode
         session.start(with: words, plan: plan)
+        // Bekleyen yeni kelime kalmadıysa "Bir Tur Daha" Günlük Tekrar'la devam eder.
+        if session.current == nil && plan == .recent {
+            session.start(with: words, plan: .daily)
+        }
         // Günlük Tekrar'dan sonra zayıf kelime kalmadıysa "Bir Tur Daha" en zayıflarla devam eder.
-        if session.current == nil && plan == .daily {
+        if session.current == nil && (plan == .daily || plan == .recent) {
             session.start(with: words, plan: .extraPractice)
         }
         didStart = true

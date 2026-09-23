@@ -52,6 +52,16 @@ enum PreviewData {
             word.correctCount = correct
             container.mainContext.insert(word)
         }
+        // Okurken bugün eklenmiş yeni kelimeler: Günlük Tekrar 5'ini alır, gerisi "Yeni Eklenenler" satırında görünür.
+        let addedToday: [(String, String)] = [
+            ("sharding", "parçalama"), ("jitter", "titreşim, sapma"), ("fan-out", "yayılma"),
+            ("hedging", "yedekli istek"), ("lease", "kira, süreli kilit"), ("fencing", "çitleme"),
+            ("gossip", "dedikodu protokolü"), ("hinted handoff", "ipuçlu devir"),
+        ]
+        for (index, (english, turkish)) in addedToday.enumerated() {
+            let word = Word(english: english, turkish: turkish, createdAt: now.addingTimeInterval(-Double(addedToday.count - index) * 300))
+            container.mainContext.insert(word)
+        }
         MemoryMigration.migrateIfNeeded(context: container.mainContext)
 
         // Ayrıntı sayfasındaki geçmiş için örnek cevaplar: önce yanlışlar, sonra doğrular.
