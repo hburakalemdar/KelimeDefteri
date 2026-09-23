@@ -9,6 +9,9 @@ struct GameScaffold<Header: View, Content: View>: View {
     let onClose: () -> Void
     @ViewBuilder var header: () -> Header
     @ViewBuilder var content: () -> Content
+    #if os(macOS)
+    @State private var escapeMonitor: Any?
+    #endif
 
     var body: some View {
         #if os(iOS)
@@ -40,6 +43,19 @@ struct GameScaffold<Header: View, Content: View>: View {
                 .padding(.top, 10)
             }
             content()
+        }
+        // Menü çubuğu penceresi Esc'i ne kısayola ne iptal komutuna iletiyor; tuşu doğrudan yakala.
+        .onAppear {
+            escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.keyCode == 53, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty
+                else { return event }
+                onClose()
+                return nil
+            }
+        }
+        .onDisappear {
+            if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
+            escapeMonitor = nil
         }
         #endif
     }
@@ -152,12 +168,18 @@ struct GameProgressHeader: View {
     var body: some View {
         HStack(spacing: 10) {
             ProgressView(value: Double(done), total: Double(max(total, 1)))
+                #if os(macOS)
+                .frame(width: 120)
+                #else
                 .frame(width: 150)
+                #endif
             if showsCount {
                 Text("\(min(done + 1, total))/\(total)")
                     .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
+                    // Mac'in dar menü penceresinde "1/10" alt alta kırılmasın.
+                    .fixedSize()
             }
         }
         .accessibilityElement(children: .ignore)

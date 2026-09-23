@@ -15,4 +15,5 @@ ayrı onay ister (dokunma). İş bitince bu dosyayı sil, CALISMA-RAPORU'na böl
   halka/seri Mac'te de. Kur, commit/push.
 
 ## Durum
-- [ ] Aşama 1 W  - [x] Aşama 1 M (main'e birleşti)  - [ ] Aşama 2  - [ ] Aşama 3
+- [x] Aşama 1 W  - [x] Aşama 1 M (main'e birleşti)  - [x] Aşama 2 (49ffc59 push; kilit ekranı halkası ayrı ajan)  - [ ] Aşama 3
+- ONAYLANDI, ajan çalışıyor: Paylaş sayfası alt listesine Action Extension "Kelime Defteri'ne Ekle" (yeni App ID com.burakalemdar.KelimeDefteri.KelimeEylem) + panodan ekleme App Intent'i (Arka Dokunma/Eylem düğmesi).
