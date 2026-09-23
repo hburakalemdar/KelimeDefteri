@@ -24,7 +24,10 @@ iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
 - **Hoşgörülü kontrol:** Büyük/küçük harf, Türkçe karakter (ş/s, ı/i…) ve noktalama fark etmez.
 - **Paylaş menüsünden ekleme:** Books, Safari ya da PDF okuyucuda metni seç › Paylaş › Kelime Defteri.
   Cümle paylaşıldıysa kelimeleri düğme olarak gelir, bilinmeyene dokunulur; Apple Books'un eklediği
-  alıntı satırı cümleye girmez.
+  alıntı satırı cümleye girmez. Aynı form Paylaş sayfasının alt listesindeki "Kelime Defteri’ne Ekle"
+  eyleminden de açılır (uygulama satırında görünmediğinde "Daha Fazla"ya gerek kalmaz).
+- **Panodaki kelimeyi ekleme:** "Panodaki Kelimeyi Ekle" kısayolu (Kısayollar, Arkaya Vurma, Eylem düğmesi)
+  uygulamayı açıp Ekle sekmesini kopyalanan metinle doldurur.
 - **iCloud eşitleme:** Kelimeler iCloud'da yedeklenir; iPhone ve Mac'te aynı defter.
 - **Mac: menü çubuğu uygulaması.** Dock'ta görünmez; menü çubuğundaki kitap simgesi zayıf kelime
   sayısını gösterir. Tıklayınca Çalış / Ekle penceresi açılır (klavyeyle: Return kontrol, ← Bilemedim,
@@ -53,7 +56,8 @@ Shared/               iOS, Mac ve paylaşım eklentisinde ortak: Word modeli, Sh
   Logic/              Hafıza motoru (Memory), ReviewRecorder, WordPicker, StudySession, GameRound,
                       oyun mantıkları (ChoiceQuiz, MatchBoard, ClozeSentence, LetterPuzzle, ReverseChecker,
                       QuickMix), hatırlatma, Speaker
-KelimeEkle/           iOS Paylaş menüsü eklentisi (Share Extension)
+KelimeEkle/           iOS Paylaş menüsü eklentisi (Share Extension, uygulama satırı)
+KelimeEylem/          iOS eylem eklentisi (Action Extension, alt liste); form Shared/AddWordExtensionController
 KelimeWidget/         iOS widget eklentisi: soru widget'ı, kilit ekranı özeti, Hızlı Tur denetimi
 Config/               Entitlements ve Info.plist'ler (KelimeDefteriMac-* Mac uygulaması için)
 KelimeDefteriTests/   Swift Testing birim testleri

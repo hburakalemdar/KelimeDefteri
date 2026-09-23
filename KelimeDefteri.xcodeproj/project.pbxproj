@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		KD0000000000000000000801 /* KelimeEkle.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = KD0000000000000000000013 /* KelimeEkle.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		KD0000000000000000000802 /* KelimeWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = KD0000000000000000000016 /* KelimeWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		KD0000000000000000000803 /* KelimeEylem.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = KD0000000000000000000017 /* KelimeEylem.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +34,13 @@
 			remoteGlobalIDString = KD0000000000000000000451;
 			remoteInfo = KelimeWidget;
 		};
+		KD0000000000000000000307 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = KD0000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = KD0000000000000000000471;
+			remoteInfo = KelimeEylem;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,6 +52,7 @@
 			files = (
 				KD0000000000000000000801 /* KelimeEkle.appex in Embed Foundation Extensions */,
 				KD0000000000000000000802 /* KelimeWidget.appex in Embed Foundation Extensions */,
+				KD0000000000000000000803 /* KelimeEylem.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -56,6 +65,7 @@
 		KD0000000000000000000013 /* KelimeEkle.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KelimeEkle.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		KD0000000000000000000015 /* KelimeDefteri.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KelimeDefteri.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		KD0000000000000000000016 /* KelimeWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KelimeWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		KD0000000000000000000017 /* KelimeEylem.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KelimeEylem.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -72,6 +82,13 @@
 				Info.plist,
 			);
 			target = KD0000000000000000000451 /* KelimeWidget */;
+		};
+		KD0000000000000000000703 /* Exceptions for "KelimeEylem" folder in "KelimeEylem" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = KD0000000000000000000471 /* KelimeEylem */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -112,6 +129,14 @@
 			path = KelimeWidget;
 			sourceTree = "<group>";
 		};
+		KD0000000000000000000028 /* KelimeEylem */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				KD0000000000000000000703 /* Exceptions for "KelimeEylem" folder in "KelimeEylem" target */,
+			);
+			path = KelimeEylem;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,6 +175,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		KD0000000000000000000473 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -160,6 +192,7 @@
 				KD0000000000000000000023 /* Shared */,
 				KD0000000000000000000024 /* KelimeEkle */,
 				KD0000000000000000000027 /* KelimeWidget */,
+				KD0000000000000000000028 /* KelimeEylem */,
 				KD0000000000000000000026 /* Mac */,
 				KD0000000000000000000022 /* KelimeDefteriTests */,
 				KD0000000000000000000003 /* Products */,
@@ -174,6 +207,7 @@
 				KD0000000000000000000013 /* KelimeEkle.appex */,
 				KD0000000000000000000015 /* KelimeDefteri.app */,
 				KD0000000000000000000016 /* KelimeWidget.appex */,
+				KD0000000000000000000017 /* KelimeEylem.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -195,6 +229,7 @@
 			dependencies = (
 				KD0000000000000000000304 /* PBXTargetDependency */,
 				KD0000000000000000000306 /* PBXTargetDependency */,
+				KD0000000000000000000308 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				KD0000000000000000000021 /* KelimeDefteri */,
@@ -289,6 +324,27 @@
 			productReference = KD0000000000000000000016 /* KelimeWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		KD0000000000000000000471 /* KelimeEylem */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = KD0000000000000000000507 /* Build configuration list for PBXNativeTarget "KelimeEylem" */;
+			buildPhases = (
+				KD0000000000000000000472 /* Sources */,
+				KD0000000000000000000473 /* Frameworks */,
+				KD0000000000000000000474 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				KD0000000000000000000023 /* Shared */,
+				KD0000000000000000000028 /* KelimeEylem */,
+			);
+			name = KelimeEylem;
+			productName = KelimeEylem;
+			productReference = KD0000000000000000000017 /* KelimeEylem.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -310,6 +366,9 @@
 						CreatedOnToolsVersion = 27.0;
 					};
 					KD0000000000000000000451 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					KD0000000000000000000471 = {
 						CreatedOnToolsVersion = 27.0;
 					};
 					KD0000000000000000000481 = {
@@ -336,6 +395,7 @@
 				KD0000000000000000000201 /* KelimeDefteriTests */,
 				KD0000000000000000000401 /* KelimeEkle */,
 				KD0000000000000000000451 /* KelimeWidget */,
+				KD0000000000000000000471 /* KelimeEylem */,
 				KD0000000000000000000481 /* KelimeDefteriMac */,
 			);
 		};
@@ -371,6 +431,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		KD0000000000000000000454 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		KD0000000000000000000474 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -415,6 +482,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		KD0000000000000000000472 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -432,6 +506,11 @@
 			isa = PBXTargetDependency;
 			target = KD0000000000000000000451 /* KelimeWidget */;
 			targetProxy = KD0000000000000000000305 /* PBXContainerItemProxy */;
+		};
+		KD0000000000000000000308 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = KD0000000000000000000471 /* KelimeEylem */;
+			targetProxy = KD0000000000000000000307 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -793,6 +872,68 @@
 			};
 			name = Release;
 		};
+		KD0000000000000000000671 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/KelimeEylem.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U88VJ8A3HQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KelimeEylem/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Kelime Defteri’ne Ekle";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.burakalemdar.KelimeDefteri.KelimeEylem;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		KD0000000000000000000672 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Config/KelimeEylem.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = U88VJ8A3HQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KelimeEylem/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Kelime Defteri’ne Ekle";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.burakalemdar.KelimeDefteri.KelimeEylem;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -846,6 +987,15 @@
 			buildConfigurations = (
 				KD0000000000000000000661 /* Debug */,
 				KD0000000000000000000662 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		KD0000000000000000000507 /* Build configuration list for PBXNativeTarget "KelimeEylem" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				KD0000000000000000000671 /* Debug */,
+				KD0000000000000000000672 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

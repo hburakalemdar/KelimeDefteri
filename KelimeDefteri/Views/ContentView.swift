@@ -29,9 +29,7 @@ struct ContentView: View {
             }
             .badge(badgeCount)
             Tab("Ekle", systemImage: "plus.circle", value: AppTab.add) {
-                NavigationStack {
-                    WordFormView(mode: .add)
-                }
+                AddTab()
             }
             Tab("Kelimelerim", systemImage: "books.vertical", value: AppTab.list) {
                 WordListView()
@@ -60,6 +58,10 @@ struct ContentView: View {
             guard requested else { return }
             router.quickRoundRequested = false
             openQuickRound()
+        }
+        // "Panodaki Kelimeyi Ekle" kısayolu: formu AddTab doldurur.
+        .onChange(of: AddRouter.shared.requestCount, initial: true) { _, count in
+            if count > 0 { selection = .add }
         }
         .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { now = $0 }
         .onChange(of: scenePhase) { _, phase in
