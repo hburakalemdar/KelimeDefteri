@@ -358,3 +358,23 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
   sayfasında ve Mac tablosunda kitap adı gösterilmez; Çoktan Seçmeli / Boşluğu Doldur yanlış seçenekleri aynı kitabı tercih
   etmez, bütün defterden seçilir. Apple Books alıntısındaki "Alıntı Kaynağı" satırı cümleden yine ayıklanır.
 - `Word.source` modelde duruyor (CloudKit şemasından alan silinemez), hiçbir yerde kullanılmıyor.
+
+### İngilizce anlamı kaldırıldı (23 Eylül 2026)
+- Karar (kullanıcı): elle yazılması gerekiyordu, hiçbir oyunda/hafızada kullanılmıyordu, pratikte boş kalıyordu. Formlardaki
+  "İngilizce anlamı" / "Anlamı" alanı, ayrıntı sayfasındaki ve Hatırla/Mac kartındaki tanım gösterimi kaldırıldı; "Ayrıntılar"da
+  yalnızca "Kitaptaki cümle" kalır. `Word.definition` modelde duruyor (CloudKit alanı silinemez), kullanılmıyor.
+
+### iCloud sağlamlaştırma (23 Eylül 2026)
+- Depo açılamazsa uygulama çökmez: iOS ve Mac'te "Veritabanı açılamadı" ekranı (`StoreGate`), eklentide istek hatayla kapanır;
+  hata `Logger` (com.burakalemdar.KelimeDefteri / store) ile yazılır. `SharedStore.container` artık opsiyonel.
+- Paylaş/Ekle formunda kaydetme başarısız olursa "Kaydedilemedi" uyarısı çıkar, form açık kalır, değişiklik geri alınır.
+- Bütün `try? context.save()` yerleri `ModelContext.saveLogging()` ile hatayı günlüğe yazıyor.
+- Çift kayıt: iki cihazda eşitlenmeden eklenen aynı kelime, uygulama öne gelince (iOS) / menü penceresi açılınca (Mac)
+  `StoreMaintenance.run` ile birleşir: en eski kayıt kalır, anlamlar birleşir, boş cümle dolar, cevap kayıtları taşınır, sayaçlar
+  toplanır, hafıza en son çalışılan kayıttan gelir. Deterministik (iki cihaz aynı sonucu verir). Düzenlemede İngilizce
+  değişmediyse "başka kayıt var" uyarısı kaydetmeyi engellemez.
+- Sahipsiz cevap kayıtları (kelimesi olmayan) silinir; iCloud bir cevabı kelimesinden önce getirebildiği için yalnızca en az
+  1 saat arayla iki kez sahipsiz görülenler.
+- Mac kartı başka cihazdan silinen kelimeyi göstermez (`aliveIDs`/`isGone` artık `Shared/`'da).
+- Artıklar: kullanılmayan `SharedStore.defaults` ve boş `Assets.xcassets` katalogları silindi.
+- Testler: `StoreMaintenanceTests`; 161 testin hepsi geçti.

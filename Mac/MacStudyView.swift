@@ -39,6 +39,8 @@ struct MacStudyView: View {
         .onAppear {
             // Uygulama açıkken iCloud'dan eski biçimli kelime gelmiş olabilir.
             MemoryMigration.migrateIfNeeded(context: context)
+            // İki cihazda eşitlenmeden eklenen aynı kelimeyi birleştir, sahipsiz cevap kayıtlarını temizle.
+            StoreMaintenance.run(in: context)
             // Pencere günlerce açık kalmış olabilir: dünkü turun açık cevabı kaydedilir, bugünün turu başlar.
             // Yoksa aynı turda bugün verilen cevaplar hafızayı değiştirmezdi.
             if session.began(onAnotherDayThan: .now) {

@@ -52,6 +52,8 @@ struct ContentView: View {
             // Bildirim içerikleri planlandıkları anda sabitlenir; en güncel sayılarla yeniden kur.
             if phase == .active {
                 MemoryMigration.migrateIfNeeded(context: context)
+                // İki cihazda eşitlenmeden eklenen aynı kelimeyi birleştir, sahipsiz cevap kayıtlarını temizle.
+                StoreMaintenance.run(in: context)
                 now = .now
             }
             if phase == .background || phase == .active {
