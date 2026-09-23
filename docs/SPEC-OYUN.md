@@ -1,13 +1,22 @@
 # Spec: Oyunlaştırma (1–3. adımlar)
 
 Bu dosya `/loop` ile yürütülecek işin tek kaynağıdır. Neden yapıldığı `docs/GELECEK.md`'de.
-Burada yazmayan bir karar gerekirse: en sade, Apple uygulamalarına en yakın seçeneği seç ve
-`docs/CALISMA-RAPORU.md`'ye yaz. Kullanıcıya soru sorma.
+
+**Ne kadar bağlayıcı:** Davranış ve mantık (veri modeli, hafıza formülleri, not verme, sıra kuralları,
+oyun kuralları) spec'teki gibi uygulanır. Görsel ayrıntılar (ölçüler, köşe yarıçapları, yerleşim,
+süreler) başlangıç önerisidir: ekranda daha iyi görünen bir çözüm varsa uygula ve nedenini
+`docs/CALISMA-RAPORU.md`'ye yaz. Ama **uygulamanın mevcut tasarım desenine bağlı kal** (§4):
+yeni ekranlar bugünkü ekranların devamı gibi görünmeli, ayrı bir uygulama gibi değil.
+
+**Karar verme:** Küçük kararları kendin ver ve rapora yaz. Yalnızca geri dönüşü zor ya da kullanıcının
+deneyimini belirgin şekilde değiştiren bir yol ayrımında kullanıcıya sor (AskUserQuestion, önerini ilk
+seçenek yap).
 
 **Kullanıcının verdiği kararlar (23 Eylül 2026):**
 - Çalış sekmesi: üstte Günlük Tekrar kartı, altında 2 sütunlu oyun kartları.
 - Hafıza gücü: yüzde ve halka ("%62"), renkli.
-- Cihaza kurulum yok; yalnızca simülatör. Kullanıcı sonunda kendisi kuracak.
+- B3'e kadar yalnızca simülatör. B3 bittikten sonra her görevin sonunda iPhone'a ve Mac'e kurulur
+  (kullanıcının gerçek defterinde az sayıda deneme kelimesi var).
 - Mac derlenir ve yeni dili gösterir (hafıza gücü, karışık sıra); oyunlar Mac'e sonra gelecek.
 - Her görev `main`'e commit edilip push edilir.
 
@@ -115,7 +124,19 @@ zorluk sınırlar içinde kalır.
 - **Hızlı Tur:** 5 kelime, bütün defterden ağırlıklı seçim.
 - **Diğer oyunlar:** oyunun kuralına göre (aşağıda), ağırlıklı seçim.
 
-## 4. Görünüm dili
+## 4. Görünüm dili ve tasarım deseni
+
+Yeni her ekran, uygulamanın bugünkü ekranlarından türetilir. Başvuru kaynakları:
+- **Kart ve cevap akışı:** `KelimeDefteri/Views/StudyView.swift` (26 pt köşeli kart, altta cam cevap çubuğu
+  "Göster / ↑", sonuca göre `GradeOption` düğmeleri, kart içinde simgeli sonuç satırı).
+- **Liste ve ayrıntı:** `WordListView.swift`, `WordDetailView.swift` (grouped `List`, `LabeledContent`,
+  bölüm başlıkları, serif kelime + ikincil renkte Türkçe).
+- **Simgeli satırlar:** `SettingsView.swift` (`SettingsIcon`: renkli kare içinde beyaz SF Symbol).
+- **Boş durumlar:** `ContentUnavailableView`.
+- **Mac:** `Mac/MacStudyView.swift`, `Mac/WordsWindow.swift` (menü penceresi kartı, sıralanabilir tablo);
+  düğmeler formun altında sade durur, Sistem Ayarları'ndaki gibi satır içi standart düğmeler.
+
+Desenin kuralları:
 
 - **`MemoryRing`** (`BoxRing`'in yerini alır; iOS ve Mac ortak):
   - Halka R oranında dolu.
@@ -281,11 +302,15 @@ kısa bir satırla ne yapıldığını rapora ekle, commit + push.
 8. Listede işaretle, `main`'e commit et (Türkçe mesaj, sonuna `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`), push et.
 9. Tur sonunda `xcrun simctl shutdown all`.
 
-**Yasaklar:**
-- iPhone'a ve `/Applications`'a kurma.
-- Apple Developer hesabında değişiklik yapma (yeni hedef, kimlik, App Group vb.).
-- CloudKit alanını silme ya da yeniden adlandırma.
-- Kullanıcının gerçek verisine dokunma (Mac'teki uygulamayı açıp denemek dahil).
+**Cihaza kurulum (B3'ten sonra):** Görev bitip testler geçince CLAUDE.md'deki komutlarla iPhone'a kur
+(telefon bağlı değilse atla ve rapora yaz) ve Mac'te `/Applications`'a kur (CLAUDE.md'deki Mac kurulum
+adımlarının hepsi). Mac'te görsel test için ekranı devralabilirsin; kullanıcının gerçek kelimelerine
+not verme, yazdığın deneme metinlerini sil.
+
+**Kesin kurallar (yalnızca bunlar):**
+1. **Apple Developer hesabında değişiklik yok** (yeni hedef, paket kimliği, App Group, iCloud kaydı).
+   Gerekirse görevi `[~]` yap ve rapora yaz.
+2. **iCloud (CloudKit) şemasında alan silme ya da yeniden adlandırma yok.** Yeni alan ve model eklemek serbest.
 
 **Takılırsan:** Çalışır durumda bırak, sorunu rapora yaz, kutuyu `[~]` yap ve sıradaki göreve geç.
 Bir görev bir sonrakinin ön koşuluysa (B1→B2→B3) ve bitmediyse döngüyü durdur ve raporda açıkla.
