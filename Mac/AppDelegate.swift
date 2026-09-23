@@ -12,7 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
-        Task { await ReminderScheduler.refresh(context: SharedStore.container.mainContext) }
+        if let container = SharedStore.container {
+            Task { await ReminderScheduler.refresh(context: container.mainContext) }
+        }
     }
 
     @objc(addWord:userData:error:)
@@ -29,13 +31,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showQuickAdd(draft: SharedTextParser.Draft) {
         quickAddWindow?.close()
 
-        let form = NavigationStack {
-            WordFormView(mode: .add, draft: draft) { [weak self] _ in
-                self?.quickAddWindow?.close()
+        let form = StoreGate {
+            NavigationStack {
+                WordFormView(mode: .add, draft: draft) { [weak self] _ in
+                    self?.quickAddWindow?.close()
+                }
             }
         }
         .frame(width: 460, height: 560)
-        .modelContainer(SharedStore.container)
 
         let window = NSWindow(contentViewController: NSHostingController(rootView: form))
         window.title = "Kelime Defteri'ne Ekle"

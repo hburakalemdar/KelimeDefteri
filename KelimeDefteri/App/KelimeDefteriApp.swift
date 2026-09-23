@@ -5,16 +5,17 @@ import SwiftUI
 struct KelimeDefteriApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            StoreGate(result: Self.store) {
+                ContentView()
+            }
         }
-        .modelContainer(Self.container)
     }
 
-    private static var container: ModelContainer {
+    private static var store: Result<ModelContainer, Error> {
         #if DEBUG
         // Ekran görüntüleri için: `-demo` ile açılınca gerçek defter yerine bellekteki örnekler.
-        if ProcessInfo.processInfo.arguments.contains("-demo") { return PreviewData.container }
+        if ProcessInfo.processInfo.arguments.contains("-demo") { return .success(PreviewData.container) }
         #endif
-        return SharedStore.container
+        return SharedStore.result
     }
 }

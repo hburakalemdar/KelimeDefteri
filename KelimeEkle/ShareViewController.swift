@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
@@ -11,19 +12,26 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemGroupedBackground
+        guard let container = SharedStore.container else {
+            // Depo açılamadı (hata günlüğe yazıldı); formu göstermeden isteği hatayla kapat.
+            if case .failure(let error) = SharedStore.result {
+                extensionContext?.cancelRequest(withError: error)
+            }
+            return
+        }
         Task {
             let draft = SharedTextParser.draft(from: await sharedText())
-            show(draft)
+            show(draft, container: container)
         }
     }
 
-    private func show(_ draft: SharedTextParser.Draft) {
+    private func show(_ draft: SharedTextParser.Draft, container: ModelContainer) {
         let root = NavigationStack {
             WordFormView(mode: .add, draft: draft) { [weak self] saved in
                 self?.finish(saved: saved)
             }
         }
-        .modelContainer(SharedStore.container)
+        .modelContainer(container)
         .dismissesKeyboardOnTap()
 
         let host = UIHostingController(rootView: root)

@@ -1,5 +1,7 @@
 import Foundation
+import OSLog
 import SwiftData
+import SwiftUI
 
 /// Uygulama ile paylaşım eklentisinin (Kelime Ekle) ortak kullandığı veri deposu.
 ///
@@ -14,13 +16,14 @@ enum SharedStore {
     static var isExtension: Bool { Bundle.main.bundlePath.hasSuffix(".appex") }
     private static let storeName = "default.store"
 
-    /// Uygulama ve eklenti arasında paylaşılan küçük ayarlar (ör. son kaynak kitap).
-    static let defaults = UserDefaults(suiteName: appGroupID) ?? .standard
-
     /// Depodaki bütün modeller; uygulama, eklenti, örnek veri ve testler aynı şemayı kullanır.
     nonisolated static let schema = Schema([Word.self, ReviewLog.self])
 
-    static let container: ModelContainer = {
+    static let logger = Logger(subsystem: "com.burakalemdar.KelimeDefteri", category: "store")
+
+    /// Ortak depo ya da açılamadıysa hatası. Açılamazsa uygulama çökmez; "Veritabanı açılamadı"
+    /// ekranı (`StoreGate`) gösterilir, eklenti isteği hatayla kapatır.
+    static let result: Result<ModelContainer, Error> = {
         do {
             let container: ModelContainer
             if let storeURL = sharedStoreURL() {
@@ -37,11 +40,15 @@ enum SharedStore {
             }
             // Eklenti yalnızca yeni kelime ekler; eski kayıtların geçişini uygulamalar yapar.
             if !isExtension { MemoryMigration.migrateIfNeeded(context: container.mainContext) }
-            return container
+            return .success(container)
         } catch {
-            fatalError("Kelime veritabanı açılamadı: \(error)")
+            logger.error("Kelime veritabanı açılamadı: \(String(describing: error), privacy: .public)")
+            return .failure(error)
         }
     }()
+
+    /// Açılabildiyse ortak depo; açılamadıysa `nil` (hata `result` içinde).
+    static var container: ModelContainer? { try? result.get() }
 
     private static func sharedStoreURL() -> URL? {
         guard let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
@@ -68,6 +75,28 @@ enum SharedStore {
             if exists(source) {
                 try? fileManager.moveItem(at: source, to: sharedDirectory.appending(path: storeName + suffix))
             }
+        }
+    }
+}
+
+/// Depo açıldıysa içeriği o depoyla gösterir; açılamadıysa hatayı anlatan ekranı.
+struct StoreGate<Content: View>: View {
+    var result: Result<ModelContainer, Error> = SharedStore.result
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        switch result {
+        case .success(let container):
+            content().modelContainer(container)
+        case .failure(let error):
+            ContentUnavailableView(
+                "Veritabanı açılamadı",
+                systemImage: "exclamationmark.triangle",
+                description: Text(error.localizedDescription)
+            )
+            #if os(macOS)
+            .frame(minWidth: 320, minHeight: 220)
+            #endif
         }
     }
 }

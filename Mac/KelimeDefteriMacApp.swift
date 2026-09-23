@@ -11,33 +11,44 @@ struct KelimeDefteriMacApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView()
-                .modelContainer(SharedStore.container)
+            StoreGate {
+                MenuBarView()
+            }
         } label: {
-            MenuBarLabel()
-                .modelContainer(SharedStore.container)
+            if let container = SharedStore.container {
+                MenuBarLabel()
+                    .modelContainer(container)
+            } else {
+                Image(systemName: "exclamationmark.triangle")
+            }
         }
         .menuBarExtraStyle(.window)
 
         Window("Kelimelerim", id: WindowID.words) {
-            WordsWindow()
+            StoreGate {
+                WordsWindow()
+            }
         }
-        .modelContainer(SharedStore.container)
         .defaultSize(width: 760, height: 480)
 
         Settings {
-            TabView {
-                Tab("Genel", systemImage: "gearshape") {
-                    MacSettingsView()
-                }
-                Tab("İlerleme", systemImage: "chart.bar") {
-                    ProgressChartView()
-                        .frame(width: 460, height: 640)
-                }
+            StoreGate {
+                settingsTabs
             }
         }
-        .modelContainer(SharedStore.container)
         .windowResizability(.contentSize)
+    }
+
+    private var settingsTabs: some View {
+        TabView {
+            Tab("Genel", systemImage: "gearshape") {
+                MacSettingsView()
+            }
+            Tab("İlerleme", systemImage: "chart.bar") {
+                ProgressChartView()
+                    .frame(width: 460, height: 640)
+            }
+        }
     }
 }
 
