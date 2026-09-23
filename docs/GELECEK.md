@@ -129,3 +129,14 @@ Durum: 1–6. adımlar tamamlandı. "Yeni Eklenenler" modu eklendi; aşağıdaki
   Değerlendirme: oyunlar zaten hatırlama alıştırması; asıl katkısı ilerlemeyi görmek.
 - Elenenler ve gerekçe: "Zorlandıkların" ("Yine de Çalış" bunu yapıyor), "Yakında unutulacaklar / erken tekrar"
   (takvimi bozar), "Sınav öncesi yoğun tekrar" (yığarak çalışma kalıcı değil).
+
+## İleride: motivasyon (not alındı 23 Eylül 2026)
+
+"Bu Hafta"ya "Öğrendiğin: N kelime (bu hafta +M)" satırı eklendi (`Word.learnedAt`). Sonraya kalanlar:
+
+- **Öğrenilen kelime grafiği:** Ayarlar › İlerleme sayfasına öğrenilen kelime sayısının zamanla artışını gösteren çizgi
+  grafik (Swift Charts, `learnedAt`'ten). `learnedAt` birkaç hafta veri topladıktan sonra anlamlı olur; önce düz görünür.
+- **Seri esnekliği:** Bir gün kaçırmak seriyi bozmasın (Duolingo "streak freeze" benzeri). Seri kırılınca bırakma riski
+  var; esneklik kaygıyı azaltıyor. Sade bir kural düşün (ör. haftada 1 kaçırılan gün seriyi koparmaz), ek düğme/envanter yok.
+- Elenenler: GitHub tarzı etkinlik ızgarası (halka/seri/Bu Hafta ile aynı veri, Apple diline yabancı), "bugün X kelime",
+  "toplam X kez" (zaten var / gösteriş sayısı), doğruluk trendi (motor %90'da tuttuğu için düz çizgi).
