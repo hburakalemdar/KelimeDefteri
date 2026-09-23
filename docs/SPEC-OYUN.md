@@ -139,7 +139,7 @@ Desenin kuralları:
 
 - **`MemoryRing`** (`BoxRing`'in yerini alır; iOS ve Mac ortak):
   - Halka R oranında dolu.
-  - Renk: `≥ 0.85` yeşil, `0.60–0.85` turuncu, `< 0.60` kırmızı.
+  - Renk: `≥ 0.90` yeşil (zayıf sınırı, `Memory.targetRetention`), `0.60–0.90` turuncu, `< 0.60` kırmızı.
   - Yeni kelimede kesik çizgili gri boş halka.
   - Yanına metin: `%62` ya da `Yeni`. Metin opsiyonel parametre.
 - **"Kutu" kelimesi hiçbir ekranda kalmaz** (iOS, Mac, Paylaş eklentisi, İlerleme, Ayarlar).
@@ -255,7 +255,7 @@ Hızlı Tur'un 5 sorusu oynanabilir oyun türlerinden rastgele seçilir; art ard
   - "Geçmiş" bölümü: son 30 gösterim, her biri bir nokta (yeşil doğru, kırmızı yanlış),
     soldan sağa eskiden yeniye; altında oyun adlarına göre sayılar ("Günlük Tekrar 8 · Eşleştir 3").
 - **İlerleme (Ayarlar):** kutu grafiği yerine hafıza dağılımı:
-  Yeni / %0–50 / %50–70 / %70–85 / %85–95 / %95+ ve "Ortalama hafıza %78".
+  Yeni / %0–50 / %50–70 / %70–90 / %90–95 / %95+ ve "Ortalama hafıza %78".
 - **Ayarlar › Defterin:** "Öğrenilen" = `isLearned`.
 - **Mac:** Çalış kartında `MemoryRing` ve yüzde; Kelimelerim tablosunda "Kutu" sütunu yerine
   sıralanabilir "Hafıza" sütunu; bitiş ekranı "Hepsi Güçlü" / "Yine de Çalış". Mac'teki çalışma da

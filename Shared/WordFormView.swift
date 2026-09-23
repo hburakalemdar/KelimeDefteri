@@ -41,6 +41,13 @@ struct WordFormView: View {
     @State private var savedMessage: String?
     @State private var translationConfig: TranslationSession.Configuration?
     @State private var isTranslating = false
+    /// Süren çeviri isteğinin İngilizce terimi; kelime değişince geç gelen sonuç atılır.
+    @State private var translatingTerm: String?
+    @State private var confirmDiscard = false
+    #if os(iOS)
+    /// "Bugün Eklenenler"den dokunulup düzenlenen kelime.
+    @State private var editingToday: Word?
+    #endif
     @State private var showDictionary = false
     @State private var didLoad = false
     @State private var selection: ClosedRange<Int>?
@@ -55,6 +62,13 @@ struct WordFormView: View {
     private var trimmedEnglish: String { english.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedTurkish: String { turkish.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canSave: Bool { !trimmedEnglish.isEmpty && !trimmedTurkish.isEmpty && existingMatch == nil }
+
+    /// Düzenlenen kelimenin alanları yüklenen değerlerden farklı; kapatmadan önce sorulur.
+    private var hasChanges: Bool {
+        guard let word = editingWord, didLoad else { return false }
+        return english != word.english || turkish != word.turkish || definition != word.definition
+            || example != word.example || source != word.source
+    }
 
     /// Yazılan kelime defterde zaten varsa o kayıt (düzenlenen kelimenin kendisi hariç).
     private var existingMatch: Word? {
@@ -172,6 +186,8 @@ struct WordFormView: View {
             }
         }
         .sensoryFeedback(.success, trigger: savedCount)
+        // Değişiklik varken aşağı çekip kapatılamaz; Vazgeç onay ister.
+        .interactiveDismissDisabled(hasChanges)
         // Kaydettikten sonra odak yeni kelimeye geçer ve klavye sekme çubuğunu örter;
         // aşağı kaydırınca kapansın.
         .scrollDismissesKeyboard(.interactively)
@@ -192,23 +208,33 @@ struct WordFormView: View {
         .onChange(of: english) { _, newValue in
             suggestion = nil
             translationFailed = false
+            resetTranslation()
             if !newValue.isEmpty { savedMessage = nil }
         }
         .onChange(of: turkish) { _, newValue in
             if newValue.isEmpty { didAutofill = false }
         }
         .translationTask(translationConfig) { session in
-            let term = trimmedEnglish
+            guard let term = translatingTerm else { return }
             do {
-                applyTranslation(try await session.translate(term).targetText)
+                applyTranslation(try await session.translate(term).targetText, for: term)
             } catch {
-                applyTranslation(nil)
+                applyTranslation(nil, for: term)
             }
+        }
+        .confirmationDialog("Değişiklikleri at?", isPresented: $confirmDiscard, titleVisibility: .visible) {
+            Button("Değişiklikleri At", role: .destructive) { dismiss() }
+            Button("Düzenlemeye Devam Et", role: .cancel) {}
         }
         #if os(iOS)
         .sheet(isPresented: $showDictionary) {
             DictionaryView(term: trimmedEnglish)
                 .ignoresSafeArea()
+        }
+        .sheet(item: $editingToday) { word in
+            NavigationStack {
+                WordFormView(mode: .edit(word))
+            }
         }
         #endif
     }
@@ -242,13 +268,17 @@ struct WordFormView: View {
                     .autocorrectionDisabled()
                     .focused($focusedField, equals: .english)
                     .submitLabel(.next)
-                    .onSubmit { focusedField = .turkish }
+                    // Kelime zaten defterdeyse klavye kapanır; uyarı görünsün.
+                    .onSubmit { focusedField = existingMatch == nil ? .turkish : nil }
                 if editingWord == nil && existingMatch != nil {
                     existingIcon
                 }
             }
             TextField("Türkçesi", text: $turkish)
+                .textInputAutocapitalization(.never)
                 .focused($focusedField, equals: .turkish)
+                .submitLabel(.done)
+                .onSubmit { if canSave { save() } }
             if suggestion != nil {
                 suggestionRow
                     .font(.subheadline)
@@ -283,7 +313,7 @@ struct WordFormView: View {
             }
             .disabled(trimmedEnglish.isEmpty)
         } footer: {
-            if translationFailed {
+            if translationFailed && trimmedTurkish.isEmpty {
                 Text("Çeviri yapılamadı. İnternet bağlantını ya da Ayarlar › Uygulamalar › Çeviri'deki dilleri kontrol et.")
             }
         }
@@ -304,13 +334,25 @@ struct WordFormView: View {
         if onFinish == nil && editingWord == nil && !addedToday.isEmpty {
             Section("Bugün Eklenenler") {
                 ForEach(addedToday.prefix(5)) { word in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(word.english)
-                            .font(.system(.body, design: .serif, weight: .semibold))
-                        Text(word.turkish)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                    // Form düğme yazısını vurgu rengine boyuyor; Kelimelerim satırı gibi görünsün diye sabit renkler.
+                    Button { editingToday = word } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(word.english)
+                                .font(.system(.body, design: .serif, weight: .semibold))
+                                .foregroundStyle(Color(.label))
+                            Text(word.turkish)
+                                .font(.subheadline)
+                                .foregroundStyle(Color(.secondaryLabel))
+                                .lineLimit(1)
+                        }
+                    }
+                    .swipeActions {
+                        Button(role: .destructive) {
+                            context.delete(word)
+                        } label: {
+                            Label("Sil", systemImage: "trash")
+                                .labelStyle(.iconOnly)
+                        }
                     }
                 }
             }
@@ -369,7 +411,7 @@ struct WordFormView: View {
             }
         } footer: {
             Group {
-                if translationFailed {
+                if translationFailed && trimmedTurkish.isEmpty {
                     Text("Çeviri yapılamadı. İnternet bağlantını ya da Sistem Ayarları › Genel › Dil ve Bölge › Çeviri Dilleri'ni kontrol et.")
                 } else {
                     fieldFooter
@@ -553,13 +595,10 @@ struct WordFormView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 4) {
-                    MemoryRing(memory: word.memory(), size: 16)
-                    Text(MemoryStats.text(word.memory()))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
+                // Kelimelerim satırındaki gibi halka ve yüzde yan yana.
+                MemoryRing(memory: word.memory(), size: 18, text: .trailing)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             .padding(.vertical, 2)
             .listRowBackground(Self.warningBackground)
@@ -648,8 +687,9 @@ struct WordFormView: View {
             english = draft.english
             example = draft.example
             source = draft.source ?? lastSource
-            if !english.isEmpty {
-                // Paylaşılan kelime geldi; sıra Türkçesinde.
+            if !english.isEmpty && existingMatch == nil {
+                // Paylaşılan kelime geldi; sıra Türkçesinde. Zaten defterdeyse klavye "Zaten defterinde"
+                // uyarısını örtmesin diye odak verilmez.
                 focusedField = .turkish
             } else if sentenceWords.count <= 1 {
                 // iPhone'da Ekle sekmesine geçmek klavyeyi açmasın; alana dokununca açılır.
@@ -664,12 +704,12 @@ struct WordFormView: View {
     private func tapWord(at index: Int) {
         selection = SharedTextParser.select(index, current: validSelection)
         english = selection.map { SharedTextParser.phrase(sentenceWords, $0) } ?? ""
-        if selection != nil { focusedField = .turkish }
+        // Seçilen kelime zaten defterdeyse klavye kapanır; açık kalsa uyarıyı örterdi.
+        if selection != nil { focusedField = existingMatch == nil ? .turkish : nil }
     }
 
     private func save() {
         guard canSave else { return }
-        lastSource = cleanSource
 
         if let word = editingWord {
             word.english = trimmedEnglish
@@ -680,6 +720,8 @@ struct WordFormView: View {
             try? context.save()
             dismiss()
         } else {
+            // Ekle formunun varsayılan kitabı yalnızca yeni kelimeyle değişir; eski kaydı düzenlemek değiştirmez.
+            lastSource = cleanSource
             context.insert(Word(
                 english: trimmedEnglish,
                 turkish: trimmedTurkish,
@@ -713,18 +755,26 @@ struct WordFormView: View {
         definition = ""
         example = ""
         selection = nil
+        resetTranslation()
         savedMessage = message
         savedCount += 1
         focusedField = .english
     }
 
     private func cancel() {
-        if let onFinish { onFinish(false) } else { dismiss() }
+        if hasChanges {
+            confirmDiscard = true
+        } else if let onFinish {
+            onFinish(false)
+        } else {
+            dismiss()
+        }
     }
 
     private func translate() {
         isTranslating = true
         translationFailed = false
+        translatingTerm = trimmedEnglish
         if translationConfig == nil {
             translationConfig = TranslationSession.Configuration(
                 source: Locale.Language(identifier: "en"),
@@ -735,8 +785,16 @@ struct WordFormView: View {
         }
     }
 
-    private func applyTranslation(_ text: String?) {
+    /// Süren isteği unutur; sonucu geç gelirse `applyTranslation` onu atar.
+    private func resetTranslation() {
         isTranslating = false
+        translatingTerm = nil
+    }
+
+    private func applyTranslation(_ text: String?, for term: String) {
+        // İstek sürerken kelime değiştiyse (başka çip seçildi, kaydedildi, temizlendi) sonuç eskidir.
+        guard Self.translationIsCurrent(requested: term, pending: translatingTerm, english: trimmedEnglish) else { return }
+        resetTranslation()
         guard let text else {
             translationFailed = true
             return
@@ -748,6 +806,13 @@ struct WordFormView: View {
         } else if AnswerChecker.fold(suggestion) != AnswerChecker.fold(trimmedTurkish) {
             self.suggestion = suggestion
         }
+    }
+}
+
+extension WordFormView {
+    /// Çeviri sonucu ancak istenen terim hâlâ süren istekse ve İngilizce alanı değişmediyse kullanılır.
+    nonisolated static func translationIsCurrent(requested: String, pending: String?, english: String) -> Bool {
+        pending == requested && requested == english
     }
 }
 
