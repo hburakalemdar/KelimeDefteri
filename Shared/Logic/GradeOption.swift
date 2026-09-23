@@ -21,7 +21,7 @@ extension StudySession.Verdict {
     /// ne bilindiği belli olmadığı için Bildim / Bilemedim sorulur.
     var gradeOptions: [GradeOption] {
         switch self {
-        case .correct:
+        case .correct, .almost:
             [GradeOption(title: "Devam", systemImage: "arrow.right", known: true, isPrimary: true)]
         case .incorrect:
             [
@@ -40,12 +40,13 @@ extension StudySession.Verdict {
 extension AnswerGrade {
     /// Hatırlama oyunlarında (Günlük Tekrar, Hızlı Tur, Ters Yön) cevaptan çıkarılan not.
     ///
-    /// Yazarak doğru bilinen kelimede hız belirleyicidir; cevaba bakıp "Bildim" denmesi
-    /// zorlanarak hatırlamak sayılır; "Doğru Say" kontrolün tanımadığı doğru cevaptır.
+    /// Yazarak doğru bilinen kelimede hız belirleyicidir; cevaba bakıp "Bildim" denmesi ve
+    /// yazım hatasıyla doğru ("Neredeyse") zorlanarak hatırlamak sayılır; "Doğru Say"
+    /// kontrolün tanımadığı doğru cevaptır.
     static func recall(verdict: StudySession.Verdict, known: Bool, responseTime: Double) -> AnswerGrade {
         guard known else { return .again }
         switch verdict {
-        case .peeked: return .hard
+        case .peeked, .almost: return .hard
         case .incorrect: return .good
         case .correct:
             if responseTime > 12 { return .hard }

@@ -285,3 +285,20 @@ struct StudyPlanTests {
         #expect(session.roundEntries.filter(\.firstCorrect).count == 1)
     }
 }
+
+struct ReverseSessionTests {
+    @Test func reverseChecksEnglishAndTypoIsHard() {
+        let session = StudySession(seed: 1, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        let word = Word(english: "idempotent", turkish: "tekrarlanabilir")
+        session.start(with: [word], plan: .reverse)
+        session.reveal(answer: "idempotant")
+        #expect(session.phase == .revealed(.almost))
+        #expect(StudySession.Verdict.almost.gradeOptions.map(\.title) == ["Devam"])
+        #expect(AnswerGrade.recall(verdict: .almost, known: true, responseTime: 2) == .hard)
+
+        let other = StudySession(seed: 1, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        other.start(with: [Word(english: "stale", turkish: "eskimiş")], plan: .reverse)
+        other.reveal(answer: "eskimiş")
+        #expect(other.phase == .revealed(.incorrect))
+    }
+}

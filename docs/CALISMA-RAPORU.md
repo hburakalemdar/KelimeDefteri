@@ -192,3 +192,17 @@
 - Taşlar ve yuvalar büyük/küçük harfi korur ("API"), karşılaştırma harf büyüklüğü ve aksan gözetmez.
 - Açılan cevap ve doğru diziliş soluk görünmesin diye yuvalar `disabled` yerine `allowsHitTesting` ile kilitlenir.
 - Yuva genişliği harf sayısına göre küçülür; 14 harf tek satıra sığar.
+
+### C6 · Ters Yön (23 Eylül 2026)
+- Hatırlama ekranı (`RecallGameView`) ve `StudySession` Türkçeden İngilizceye de çalışıyor (`Plan.reverse`, 10 kelime,
+  bütün defterden ağırlıklı). Kartta Türkçe anlamlar büyük; alan "İngilizcesi". Cevap açılınca serif İngilizce kelime
+  (vurgu rengi), telaffuz ve kitaptaki cümle görünür. Göster / ↑ ve `GradeOption` mantığı aynen.
+- `ReverseChecker` (saf, testli): sadeleştirilmiş eşitlik ya da 5+ harfli kelimede en fazla 1 harf fark (Levenshtein).
+  Yazım hatasıyla doğru: yeni `Verdict.almost`, turuncu "Neredeyse: doğrusu “idempotent”", tek **Devam**, not `hard`.
+- Testler: `ReverseCheckerTests` (4), `ReverseSessionTests` (1). 105 testin hepsi geçti. iPhone ve Mac'e kuruldu.
+
+**Verilen kararlar**
+- Soru anında İngilizce cümle ve telaffuz düğmesi gizli (ikisi de cevabı ele verir); cevapla birlikte açılır.
+- Yanlış cevapta "Doğru Say" korunur ve açıklama "Eşanlamlıysa Doğru Say'a bas." olur (İngilizce eşanlamlıyı kontrol tanımaz).
+- 5 harften kısa kelimelerde yazım hatası kabul edilmez (spec); "stal" → "stale" 5 harfli olduğu için kabul.
+- Mac'teki sonuç satırı yeni durumu tanır ("Neredeyse"); Mac'te Ters Yön henüz yok.

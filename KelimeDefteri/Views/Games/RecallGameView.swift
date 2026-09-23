@@ -107,25 +107,15 @@ struct RecallGameView: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
 
-            HStack(alignment: .firstTextBaseline) {
-                Text(word.english)
-                    .font(.system(.largeTitle, design: .serif, weight: .semibold))
+            if session.isReverse {
+                // Ters Yön: Türkçesi sorulur; İngilizce kelime, telaffuz ve cümle cevapla birlikte açılır.
+                Text(word.turkish)
+                    .font(.largeTitle.weight(.semibold))
                     .minimumScaleFactor(0.6)
-                    .lineLimit(2)
-                Spacer(minLength: 12)
-                Button("Telaffuzu dinle", systemImage: "speaker.wave.2.fill") {
-                    Speaker.shared.speak(word.english)
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
-            }
-
-            if !word.example.isEmpty {
-                Text(AttributedString(quoting: word.example, highlighting: word.english))
-                    .font(.system(.body, design: .serif).italic())
-                    .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            } else {
+                englishHeadline(word, font: .system(.largeTitle, design: .serif, weight: .semibold))
+                exampleSentence(word)
             }
 
             if case .revealed(let verdict) = session.phase {
@@ -141,18 +131,50 @@ struct RecallGameView: View {
             if session.phase == .asking { reveal(withAnswer: false) }
         }
         .accessibilityAddTraits(session.phase == .asking ? .isButton : [])
-        .accessibilityHint(session.phase == .asking ? "Türkçesini göster" : "")
+        .accessibilityHint(session.phase == .asking ? (session.isReverse ? "İngilizcesini göster" : "Türkçesini göster") : "")
+    }
+
+    private func englishHeadline(_ word: Word, font: Font) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(word.english)
+                .font(font)
+                .minimumScaleFactor(0.6)
+                .lineLimit(2)
+            Spacer(minLength: 12)
+            Button("Telaffuzu dinle", systemImage: "speaker.wave.2.fill") {
+                Speaker.shared.speak(word.english)
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+        }
+    }
+
+    @ViewBuilder
+    private func exampleSentence(_ word: Word) -> some View {
+        if !word.example.isEmpty {
+            Text(AttributedString(quoting: word.example, highlighting: word.english))
+                .font(.system(.body, design: .serif).italic())
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func answerReveal(for word: Word, verdict: StudySession.Verdict) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
                 .padding(.bottom, 4)
-            verdictLabel(verdict)
-            Text(word.turkish)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.tint)
-                .fixedSize(horizontal: false, vertical: true)
+            verdictLabel(verdict, word: word)
+            if session.isReverse {
+                englishHeadline(word, font: .system(.title, design: .serif, weight: .semibold))
+                    .foregroundStyle(.tint)
+                exampleSentence(word)
+            } else {
+                Text(word.turkish)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.tint)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if !word.definition.isEmpty {
                 Text(word.definition)
                     .font(.subheadline)
@@ -160,7 +182,9 @@ struct RecallGameView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if verdict == .incorrect {
-                Text("Senin cevabın: “\(answer)”. Anlamca aynıysa Doğru Say'a bas.")
+                Text(session.isReverse
+                     ? "Senin cevabın: “\(answer)”. Eşanlamlıysa Doğru Say'a bas."
+                     : "Senin cevabın: “\(answer)”. Anlamca aynıysa Doğru Say'a bas.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -177,9 +201,10 @@ struct RecallGameView: View {
         }
     }
 
-    private func verdictLabel(_ verdict: StudySession.Verdict) -> some View {
+    private func verdictLabel(_ verdict: StudySession.Verdict, word: Word) -> some View {
         let (text, icon, color): (String, String, Color) = switch verdict {
         case .correct: ("Doğru", "checkmark.circle.fill", .green)
+        case .almost: ("Neredeyse: doğrusu “\(word.english)”", "checkmark.circle.fill", .orange)
         case .incorrect: ("Tam tutmadı", "xmark.circle.fill", .red)
         case .peeked: ("Cevaba baktın. Biliyor muydun?", "eye.fill", .secondary)
         }
@@ -197,7 +222,7 @@ struct RecallGameView: View {
             // Mesajlar'daki gibi tek eylem düğmesi: alan boşken "Göster", yazınca "Kontrol et".
             GlassEffectContainer(spacing: 10) {
                 HStack(spacing: 10) {
-                    TextField("Türkçesi", text: $answer)
+                    TextField(session.isReverse ? "İngilizcesi" : "Türkçesi", text: $answer)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .submitLabel(.done)
@@ -222,7 +247,7 @@ struct RecallGameView: View {
                             .frame(height: 48)
                             .glassEffect(.regular.interactive(), in: .capsule)
                             .glassEffectID("action", in: glassNamespace)
-                            .accessibilityHint("Türkçesini gösterir")
+                            .accessibilityHint(session.isReverse ? "İngilizcesini gösterir" : "Türkçesini gösterir")
                     }
                 }
             }

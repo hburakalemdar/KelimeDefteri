@@ -6,6 +6,8 @@ import Observation
 final class StudySession {
     enum Verdict: Equatable {
         case correct
+        /// Ters Yön'de bir harf farkla doğru (yazım hatası).
+        case almost
         case incorrect
         /// Cevap yazmadan karta dokunup Türkçesine baktı.
         case peeked
@@ -26,6 +28,8 @@ final class StudySession {
         case extraPractice
         /// Hızlı Tur: bütün defterden ağırlıklı 5 kelime.
         case quick
+        /// Ters Yön: bütün defterden ağırlıklı 10 kelime.
+        case reverse
     }
 
     /// Tur özeti için kelime başına kayıt: ilk sorulduğundaki hafıza ve ilk cevabın doğruluğu.
@@ -38,6 +42,7 @@ final class StudySession {
     static let dailyLimit = 20
     static let dailyNewLimit = 5
     static let quickCount = 5
+    static let reverseCount = 10
 
     /// Kelimeler güçlüyken "Yine de Çalış" ile açılan turdaki kelime sayısı.
     static let extraPracticeCount = 10
@@ -52,6 +57,8 @@ final class StudySession {
     private(set) var finishedAt: Date = .now
 
     var isPracticeAll: Bool { plan == .extraPractice }
+    /// Türkçesi gösterilip İngilizcesi mi soruluyor (Ters Yön).
+    var isReverse: Bool { plan == .reverse }
     /// Cevaplar hangi oyun adına kaydedilir.
     var mode: GameMode = .dailyReview
     private var queue: [Word] = []
@@ -95,6 +102,8 @@ final class StudySession {
             ordered(Self.weakest(words, count: Self.extraPracticeCount, now: now), now: now, avoidingFirst: previousFirst)
         case .quick:
             ordered(words, now: now, avoidingFirst: previousFirst, limit: Self.quickCount)
+        case .reverse:
+            ordered(words, now: now, avoidingFirst: previousFirst, limit: Self.reverseCount)
         }
         if let first = queue.first {
             defaults.set(Self.key(for: first), forKey: Self.lastFirstWordKey)
@@ -121,6 +130,13 @@ final class StudySession {
         let trimmed = answer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if trimmed.isEmpty {
             phase = .revealed(.peeked)
+        } else if isReverse {
+            let verdict: Verdict = switch ReverseChecker.check(trimmed, expected: word.english) {
+            case .exact: .correct
+            case .typo: .almost
+            case .wrong: .incorrect
+            }
+            phase = .revealed(verdict)
         } else {
             phase = .revealed(AnswerChecker.isCorrect(trimmed, expected: word.turkish) ? .correct : .incorrect)
         }

@@ -162,6 +162,7 @@ struct MacStudyView: View {
     private func verdictLabel(_ verdict: StudySession.Verdict) -> some View {
         let (text, icon, color): (String, String, Color) = switch verdict {
         case .correct: ("Doğru", "checkmark.circle.fill", .green)
+        case .almost: ("Neredeyse", "checkmark.circle.fill", .orange)
         case .incorrect: ("Tam tutmadı", "xmark.circle.fill", .red)
         case .peeked: ("Cevaba baktın. Biliyor muydun?", "eye.fill", .secondary)
         }
