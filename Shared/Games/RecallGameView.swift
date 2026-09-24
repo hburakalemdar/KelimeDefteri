@@ -369,7 +369,8 @@ struct RecallQuestionView: View {
             } else {
                 Button("Göster") { reveal(withAnswer: false) }
                     .buttonStyle(.glass)
-                    .keyboardShortcut(.return, modifiers: .command)
+                    // Yazı alanı odakta olmasa da ↩ cevabı gösterir (kart artık tıklamayla açılmıyor).
+                    .keyboardShortcut(.defaultAction)
                     .help(session.isReverse ? "İngilizcesini göster (↩)" : "Türkçesini göster (↩)")
             }
         }
