@@ -72,6 +72,8 @@ struct ContentView: View {
                 MemoryCache.refreshAll(in: context)
                 // İki cihazda eşitlenmeden eklenen aynı kelimeyi birleştir, sahipsiz cevap kayıtlarını temizle.
                 StoreMaintenance.run(in: context)
+                // Günlük hedef başka cihazda değişmiş olabilir.
+                GoalCloudSync.refresh()
                 now = .now
             }
             if phase == .background || phase == .active {

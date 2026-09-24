@@ -12,16 +12,22 @@ nonisolated enum DailyGoal {
     static let defaultTarget = 30
     static let key = "dailyGoal"
 
-    /// Hedefin saklandığı yer. iOS'ta App Group, böylece widget da aynı hedefi okur. Mac'te widget yok ve
+    /// Hedefin yerel kopyası. iOS'ta App Group, böylece widget da aynı hedefi okur. Mac'te widget yok ve
     /// App Group ayarları sistem izin uyarısı çıkarabilir; hedef uygulamanın kendi ayarlarında durur
-    /// (Mac Ayarlar penceresinden seçilir).
-    static var defaults: UserDefaults {
+    /// (Mac Ayarlar penceresinden seçilir). Asıl değer iCloud anahtar-değer deposunda; uygulamalar onu
+    /// buraya aynalar (bkz. `GoalSync`), böylece iPhone ve Mac aynı hedefi (ve seriyi) görür.
+    /// Tek örnek: `@AppStorage` ve `GoalSync` aynı nesneyi kullansın, dış değişiklik arayüze hemen yansısın.
+    /// UserDefaults iş parçacığı açısından güvenli (belgelenmiş), ama SDK onu Sendable işaretlemiyor.
+    nonisolated(unsafe) static let defaults: UserDefaults = {
         #if os(macOS)
         .standard
         #else
         UserDefaults(suiteName: SharedStore.appGroupID) ?? .standard
         #endif
-    }
+    }()
+
+    /// Seçeneklerden biri mi; değilse (bozuk ya da eski sürümden kalma değer) yok sayılır.
+    static func isValid(_ value: Int) -> Bool { options.contains(value) }
 
     /// Kayıtlı hedef; hiç seçilmemiş ya da geçersizse varsayılan.
     static func target(in defaults: UserDefaults = defaults) -> Int {

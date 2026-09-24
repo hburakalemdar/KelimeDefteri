@@ -55,8 +55,10 @@ Sonra `lsregister -f -R /Applications/KelimeDefteri.app` ve `/System/Library/Cor
 Ekran görüntüsü için (yalnızca DEBUG): `xcrun simctl launch booted com.burakalemdar.KelimeDefteri -demo`
 gerçek defter yerine örnek kelimelerle açar; `-shareDemo` ek olarak Paylaş eklentisinin formunu gösterir.
 Mac Debug da `-demo` alır (`open build/Build/Products/Debug/KelimeDefteri.app --args -demo`); oyunlar ve Bu Hafta
-`Shared/Games` + `Shared/WeeklySummaryView.swift`te, Mac oyun merkezi `Mac/MacGamesView.swift`. Mac'te günlük hedef
-App Group yerine uygulamanın kendi ayarlarında (`DailyGoal.defaults`).
+`Shared/Games` + `Shared/WeeklySummaryView.swift`te, Mac oyun merkezi `Mac/MacGamesView.swift`. Günlük hedef
+bütün cihazlarda tek sayı: asıl değer iCloud anahtar-değer deposunda (`Shared/Logic/GoalSync.swift`, yalnızca iOS ve
+Mac uygulamasının `ubiquity-kvstore` yetkisi var); yerel aynası `DailyGoal.defaults` (iOS'ta App Group — widget buradan
+okur, Mac'te uygulamanın kendi ayarları).
 Simülatör ekran görüntüsü: `xcrun simctl io booted screenshot x.png`. Testleri `-parallel-testing-enabled NO
 -collect-test-diagnostics never` ile koş; paralelde simülatör kopyaları açılamayıp testler 0 sn'de "failed"
 görünebiliyor, bir test başarısız olunca da `simctl diagnose` dakikalarca takılabiliyor.

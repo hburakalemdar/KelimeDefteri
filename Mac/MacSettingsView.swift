@@ -126,6 +126,8 @@ struct MacSettingsView: View {
                 await ReminderScheduler.refresh(context: context)
             }
         }
+        // Hedef bütün cihazlarda tek (iCloud).
+        .onChange(of: dailyGoal) { _, goal in GoalCloudSync.userChose(goal) }
         .onChange(of: reminderHour) { Task { await ReminderScheduler.refresh(context: context) } }
         .onChange(of: reminderMinute) { Task { await ReminderScheduler.refresh(context: context) } }
     }

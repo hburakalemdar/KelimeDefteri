@@ -123,8 +123,11 @@ struct SettingsView: View {
         }
         .onChange(of: reminderHour) { Task { await ReminderScheduler.refresh(context: context) } }
         .onChange(of: reminderMinute) { Task { await ReminderScheduler.refresh(context: context) } }
-        // Kilit ekranındaki hedef halkası yeni hedefi göstersin.
-        .onChange(of: dailyGoal) { Glance.reloadWidgets() }
+        // Hedef bütün cihazlarda tek; kilit ekranındaki hedef halkası da yeni hedefi göstersin.
+        .onChange(of: dailyGoal) { _, goal in
+            GoalCloudSync.userChose(goal)
+            Glance.reloadWidgets()
+        }
     }
 
     private static var version: String {

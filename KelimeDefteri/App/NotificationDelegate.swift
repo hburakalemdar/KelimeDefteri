@@ -12,6 +12,8 @@ final class NotificationDelegate: NSObject, UIApplicationDelegate, UNUserNotific
     ) -> Bool {
         // Arka planda uyandırılınca cevabın gelmesi için temsilci açılışta kurulmalı.
         UNUserNotificationCenter.current().delegate = self
+        // Günlük hedef iCloud'daki tek değerle eşlensin; başka cihazdaki değişiklik de dinlenir.
+        GoalCloudSync.start()
         return true
     }
 

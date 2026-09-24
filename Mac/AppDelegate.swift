@@ -15,6 +15,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let container = SharedStore.container {
             Task { await ReminderScheduler.refresh(context: container.mainContext) }
         }
+        // Günlük hedef iCloud'daki tek değerle eşlensin; başka cihazdaki değişiklik de dinlenir.
+        GoalCloudSync.start()
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        GoalCloudSync.refresh()
     }
 
     @objc(addWord:userData:error:)
