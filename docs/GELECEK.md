@@ -181,6 +181,22 @@ Fitness, Günlük) tanıtım ambiyansında olmalı:
   sessiz izlendiğinde de anlaşılır olmalı (App Store videoları sessiz başlar).
 - Referans için izlenecekler: apple.com'daki uygulama tanıtımları ve App Store'daki Apple uygulamalarının sayfaları.
 
+### Ana mesaj: cihazlar birbirini tamamlar (kullanıcı kararı, 24 Eylül 2026)
+Görsellerin ve videonun asıl anlattığı şey tek bir özellik değil, **iPhone, iPad ve Mac'in aynı defteri eşzamanlı ve
+birbirini tamamlayarak kullanması** olmalı. Her cihaz kendi doğal anında devreye girer:
+- **Mac:** okurken/çalışırken kelimeyi seç → ⇧⌘E ile kaydet; menü çubuğundan kısa tur.
+- **iPhone:** Kitaplar/Safari'den Paylaş ile ekle; widget ve kilit ekranında soru; bildirimden cevap; yolda Günlük Tekrar.
+- **iPad:** kitap okurken yan yana, rahat oyunlar, geniş Kelimelerim.
+- Mac'te kaydedilen kelimenin birkaç saniye sonra iPhone widget'ında soru olarak çıkması → tek defter, tek seri, tek hafıza.
+Uygulama:
+- **İlk görsel** bu fikri tek karede anlatmalı (üç cihaz yan yana, aynı kelime, aynı halka/seri; kısa başlık ör.
+  "Mac'te kaydet. iPhone'da hatırla."). Sonraki görseller cihaz cihaz ayrıntıya iner.
+- **Video** tek bir kelimenin yolculuğu: Mac'te okurken kaydedilir → iPhone widget'ında sorulur → iPad'de oyunda
+  pekişir → üç cihazda aynı seri. Mağaza videosu kuralı gereği her sahne gerçek ekran kaydı (cihaz başına ayrı video
+  gerekiyor; iPhone videosunda Mac adımı ekran kaydı olarak gösterilemiyorsa metin katmanıyla anlatılır). Yapay zekâ
+  videosunda (web/sosyal) aynı yolculuk insanla ve üç cihaz aynı karede anlatılır.
+- Bunun doğru olması için önce: seri/hedef tek sayı (yukarıda), iPad düzeni, eşitlemenin üç cihazda denenmesi.
+
 ### Mağaza görselleri (ekran görüntüleri ve "thumbnail"lar)
 - Gereken boyutlar: iPhone 6,9" (ör. 1320×2868), iPad 13" (2064×2752), Mac (2880×1800 ya da 1440×900); en az 3, en fazla 10 adet.
 - Ham görüntüler `-demo` argümanıyla örnek veriden alınır (CLAUDE.md), gerçek defter görünmez. Açık ve koyu tema.
