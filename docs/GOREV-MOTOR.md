@@ -57,3 +57,12 @@ Word alanları önbellektir. Ayrıntı ve gerekçeler SPEC'te.
   - Mac tur özetini C kurar (§4.1'deki "A" ifadesi yanlış; A'nın MacStudyView'da işi yok).
   - §2.5 ilk gün: yanlışta lapsedAt = bugün, vade = Yarın 04:00; doğruda vade = çıpa + S (§7.1 ile aynı).
   - (B) Hızlı Tur süre metni GameMode.swift:55'te; `GameDeck(count:withSentence:shortWords:)` elle yazılmış init.
+
+## Kesinti notu (24 Eylül, öğlen)
+Uygulama yanlışlıkla kapandı. O anki durum:
+- **Parça A bitti** ve main'e commit edildi (4f7cf01, d294718 "düzeltmeler") — henüz push edilmedi (origin'in 2 önünde).
+- **Parça B yarımdı:** `.claude/worktrees/agent-a96054e229b7e2570` içinde commit edilmemiş değişiklikler var (13 dosya:
+  StudyView, GameCatalogTests, MacGamesView, AnswerChecker, FillBlank/Letters/Match/QuickMix görünümleri…). Ajan yarıda
+  kesildi; bitmiş sayma. Yeni oturum: bu diff'e bak, testleri koş; sağlamsa B'yi oradan tamamlat, değilse worktree'yi
+  atıp B'yi temiz ajanla baştan yaptır. Diğer iki worktree (a7cc1…, adef9…) temiz, silinebilir.
+- Parça C başlamadı. Kurulum yapılmadı (A+B+C bitince).
