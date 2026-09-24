@@ -152,7 +152,7 @@ Yayına çıkmadan önce yapılacaklar. Sıra önerisi: iPad → üç cihaz uyum
   genişlikte), Split View / Stage Manager'da küçük pencerede iPhone düzenine dönme, klavye kısayolları (Mac'teki
   ↩/Esc gibi) ve donanım klavyesiyle cevap yazma, Apple Pencil ile el yazısı cevap (Scribble zaten metin alanlarında çalışır).
 - Widget'ların iPad boyutları (büyük / çok büyük) ve kilit ekranı.
-- Paylaş/eylem eklentileri iPad'de (şu an eklenti hedeflerinden ikisi yalnızca iPhone: `TARGETED_DEVICE_FAMILY = 1`) — kontrol et.
+- Eklentilerin hepsi zaten iPad'e açık (`TARGETED_DEVICE_FAMILY = "1,2"`; `= 1` olan yalnızca test hedefi).
 
 ### iPhone + iPad + Mac uyumu
 - Üçü aynı iCloud deposunu kullanır; Motor 2 hafızayı cevap kayıtlarından hesapladığı için cihazlar aynı sonuca varır.
@@ -198,3 +198,28 @@ Fitness, Günlük) tanıtım ambiyansında olmalı:
 - Yapay zekâ ile: uygulamayı kullanan kişinin göründüğü sahneler (ör. kitap okurken telefonda kelime kaydetme) yapay
   zekâ video araçlarıyla üretilebilir; App Store önizlemesinde değil, web sitesi / sosyal medya tanıtımında kullanılmalı
   (mağaza önizlemesi gerçek ekran kaydı istiyor). Seslendirme/altyazı Türkçe + İngilizce.
+
+### Araştırma sonucu (24 Eylül 2026, 3 ajan)
+- **iPad, en az iş (~1 gün):** `ContentView` sekmelerine `.tabViewStyle(.sidebarAdaptable)`; `WordListView`'da
+  `NavigationStack` → `NavigationSplitView` (liste + ayrıntı yan yana); `GameScaffold` içeriğine ortalanmış
+  `maxWidth ≈ 600` (oyunlar 13" ekranda ~1000 pt'ye yayılıyor, en çirkin yer). Risk: çoklu pencerede `rootController`
+  ve tekil `GlanceRouter`/`AddRouter`. Widget'a büyük boyut eklenebilir.
+- **Üç cihaz:** kelimeler/cevaplar eşitleniyor; günlük hedef cihazda (seri hedefe bağlı → cihazlar farklı seri
+  gösterebilir). Çözüm: `DailyGoal`'u `NSUbiquitousKeyValueStore`'a taşı (entitlements'a `ubiquity-kvstore` — hesap
+  tarafı, onay). Eski bildirim/widget içeriği bilinen sınır olarak kalır.
+- **Görseller:** örnek veri (16 kelime, hepsi DDIA jargonu, bazı Türkçeler kötü, yeni kelimelerde cümle yok) mağaza
+  için çeşitlendirilmeli; widget örnek veriyi görmüyor (demo deposu gerekir). Otomasyon: DEBUG `-demoScreen <ad>` +
+  simctl betiği (`status_bar override` 9:41, açık/koyu, `io screenshot`). UI test hedefi gerekmez.
+- **Kurallar (resmi):** iPhone 6.9" 1320×2868 zorunlu; iPad uygulaması için 13" 2064×2752; Mac 16:10 (2880×1800);
+  1–10 görsel, saydamlık yok. Video: 15–30 sn, ≤30 fps, H.264/ProRes, stereo ses parçası şart (sessiz de olsa),
+  cihaz başına ≤3; **yalnızca uygulamanın gerçek ekran kaydı** (Guideline 2.3.4) → yapay zekâ insan sahnesi mağazaya
+  konamaz, yalnızca web/sosyal medya. Kullanıcıların neredeyse hepsi yalnızca ilk 1–3 görseli görüyor.
+- **Mağaza videosu zinciri:** simülatör/cihaz kaydı (`simctl io recordVideo --type=h264`) → Screen Studio (~$89 bir kez)
+  ya da Matte ile yakınlaştırma/geçiş cilası → ffmpeg ile çözünürlük/30 fps → müzik Epidemic Sound (~$16/ay, bir ay yeter).
+  Rotato (3D, "showroom" havası) Apple sadeliğine daha az uygun.
+- **Web/sosyal yapay zekâ videosu:** Veo 3.1 (sahne tutarlılığı, yerleşik ses; $0.15–0.40/sn) ya da Kling 3.0
+  (4K, ucuz); Sora 2 API'si 24 Eylül 2026'da kapanıyor, kullanma. Telefon ekranına gerçek kayıt DaVinci Resolve
+  (ücretsiz) ile izleme + bindirme. Seslendirme ElevenLabs (Türkçe var, ticari $5/ay). Suno müzik ticari için Pro
+  plan ister, Udio dışa aktarmayı kısıtladı. Tahmini toplam: mağaza videosu ~$100–150, yapay zekâ klipleri ~$5–20.
+- Kaynaklar: developer.apple.com screenshot/app-preview specifications ve App Review Guidelines; avanderlee.com
+  (simülatör kaydı); modelslab.com (video model fiyatları); matte.app (araç karşılaştırması).
