@@ -747,6 +747,9 @@ durumu hızla gerçek değerine yaklaştırır.
 - Biri `baseAt == nil`, öbürü dolu ise → **dolu olan** kazanır (`nil`, "henüz karar verilmedi"
   anlamına gelir, karşılaştırılamaz).
 - İkisi de dolu ise → `baseAt`i **daha eski** olan kazanır (daha geniş bir log aralığını kapsar).
+- Biri boş taban (`baseAt == .distantPast`, hiç cevaplanmamış kopya), öbürü gerçek bir tarihse →
+  **gerçek tarihli** olan kazanır; boş taban "en eski" sayılmaz, yalnızca başka dolu taban yoksa seçilir
+  (yoksa eski sürümde çalışılmış, hafızası logda değil yalnızca saklı değerlerde olan kopya ezilirdi).
 - İkisi de `nil` ise → birleşik kelimede de `nil` kalır (bir sonraki göç kontrolünde ele alınır).
 
 Ardından o kelime için önbellek yeniden hesaplanır. `StoreMaintenance`'taki eski "en son çalışılan

@@ -146,6 +146,38 @@ final class StoreMaintenanceTests {
         #expect(kept.lastReviewedAt == DayBoundary.start(of: log.date))
     }
 
+    @Test func emptyBaseDoesNotOverrideStoredMemory() throws {
+        let context = try makeContext()
+        // Kalan kayıt (en eski) yeni sürümde eklenmiş, hiç cevaplanmamış: boş taban. Öteki kopya eski sürümde
+        // çalışılmış; hafızası cevap kayıtlarında değil yalnızca saklı değerlerde. Onun tabanı kazanmalı.
+        let keeper = Word(english: "quorum", turkish: "yeter sayı", createdAt: base)
+        let studied = Word(english: "quorum", turkish: "nisap", createdAt: base.addingTimeInterval(5))
+        studied.reviewCount = 4
+        studied.correctCount = 4
+        studied.stability = 12
+        studied.difficulty = 4
+        studied.lastReviewedAt = base.addingTimeInterval(86_400)
+        studied.dueDate = base.addingTimeInterval(13 * 86_400)
+        context.insert(keeper)
+        context.insert(studied)
+        MemoryCache.refreshAll(in: context, now: base.addingTimeInterval(2 * 86_400))
+        #expect(keeper.baseAt == .distantPast)
+        #expect(studied.baseAt == base.addingTimeInterval(86_400))
+
+        StoreMaintenance.run(in: context, defaults: defaults, now: base.addingTimeInterval(2 * 86_400))
+        let remaining = try words(context)
+        #expect(remaining.count == 1)
+        let kept = try #require(remaining.first)
+        #expect(kept.createdAt == base)
+        #expect(kept.baseAt == base.addingTimeInterval(86_400))
+        #expect(kept.baseStability == 12)
+        #expect(!kept.isNew)
+        #expect(kept.stability == 12)
+        #expect(kept.difficulty == 4)
+        #expect(kept.dueDate == base.addingTimeInterval(13 * 86_400))
+        #expect(kept.lastReviewedAt == base.addingTimeInterval(86_400))
+    }
+
     @Test func unstudiedGroupStaysNew() throws {
         let context = try makeContext()
         let older = Word(english: "quorum", turkish: "yeter sayı", createdAt: base)
@@ -187,9 +219,11 @@ final class StoreMaintenanceTests {
         #expect(kept.turkish == "almak, götürmek, sürmek")
         #expect(kept.example == "Take it.")
         #expect(kept.reviewCount == 3)
-        // En eski taban kalan kaydın boş tabanı (hiç cevaplanmamıştı): taşınan tek cevap baştan oynatılır.
-        #expect(kept.baseAt == .distantPast)
-        #expect(kept.stability == 3)
+        // Kalan kaydın boş tabanı (hiç cevaplanmamıştı) sayılmaz; dolu tabanlardan en eskisi (üçüncü kopya,
+        // son tekrarı base+5) kazanır. Taşınan cevap o tabandan önce tarihli olduğu için yeniden oynatılmaz.
+        #expect(kept.baseAt == base.addingTimeInterval(5))
+        #expect(kept.baseStability == 2)
+        #expect(kept.stability == 2)
         #expect(kept.logs?.count == 1)
     }
 

@@ -33,7 +33,9 @@ enum SharedStore {
                     url: storeURL,
                     cloudKitDatabase: isExtension ? .none : .private(cloudKitContainerID)
                 )
-                container = try ModelContainer(for: schema, configurations: configuration)
+                container = try openSerialized(at: storeURL) {
+                    try ModelContainer(for: schema, configurations: configuration)
+                }
             } else {
                 // App Group yetkisi yoksa (olmamalı) uygulamanın kendi klasörüne düş.
                 container = try ModelContainer(for: schema)
@@ -53,6 +55,46 @@ enum SharedStore {
 
     /// Açılabildiyse ortak depo; açılamadıysa `nil` (hata `result` içinde).
     static var container: ModelContainer? { try? result.get() }
+
+    /// Depoyu başka süreçlerle sırayla açar; açılamazsa kısa bir beklemeden sonra bir kez daha dener.
+    ///
+    /// Model yeni alan kazanınca ilk açılış depo dosyasını yerinde göç ettirir (hafif göç: yeni sütunlar ve
+    /// sürüm bilgisi). Yeni sürüm kurulunca sistem widget'ı da hemen yeniden çalıştırır; uygulama ile widget
+    /// (ya da paylaşım eklentisi) aynı anda açarsa ikisi birden göçe girer ve geride kalan "Incompatible
+    /// metadata after migration" (Cocoa 134100/134110) hatasıyla düşer; uygulamada "Veritabanı açılamadı"
+    /// ekranı çıkar, ikinci açılış normaldir. Açılış bu yüzden App Group'taki bir kilit dosyasıyla sıraya
+    /// konur: sonra gelen süreç depoyu göçü bitmiş hâlde bulur. Kilit yalnızca açılış süresince tutulur
+    /// (askıya alınan süreç paylaşılan klasörde kilit tutarsa iOS onu kapatır).
+    private static func openSerialized(
+        at storeURL: URL,
+        _ open: () throws -> ModelContainer
+    ) throws -> ModelContainer {
+        let lockPath = storeURL.path(percentEncoded: false) + ".lock"
+        let descriptor = Darwin.open(lockPath, O_CREAT | O_RDWR | O_CLOEXEC, 0o644)
+        var locked = false
+        if descriptor >= 0 {
+            // Öteki süreç göçü birkaç saniyede bitirir; takılırsa (olmamalı) kilitsiz devam edilir.
+            let deadline = Date.now.addingTimeInterval(5)
+            while true {
+                locked = flock(descriptor, LOCK_EX | LOCK_NB) == 0
+                if locked || Date.now >= deadline { break }
+                Thread.sleep(forTimeInterval: 0.05)
+            }
+            if !locked { logger.error("Depo kilidi alınamadı; kilitsiz açılıyor") }
+        }
+        defer {
+            if locked { flock(descriptor, LOCK_UN) }
+            if descriptor >= 0 { close(descriptor) }
+        }
+        do {
+            return try open()
+        } catch {
+            // Kilidi tutmayan (eski sürüm) bir süreçle çakışma ya da geçici bir sorun: bir kez daha dene.
+            logger.error("Depo ilk denemede açılamadı, yeniden deneniyor: \(String(describing: error), privacy: .public)")
+            Thread.sleep(forTimeInterval: 0.5)
+            return try open()
+        }
+    }
 
     private static func sharedStoreURL() -> URL? {
         guard let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {

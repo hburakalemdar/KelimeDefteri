@@ -112,15 +112,16 @@ nonisolated enum StoreMaintenance {
         guard let keeper = group.first else { return }
         let others = group.dropFirst()
 
-        // Hafıza tabandan ve cevap kayıtlarından yeniden hesaplanır (SPEC-MOTOR2 §6). Taban: göç kontrolünden
-        // geçmiş (`baseAt` dolu) kayıtlar arasından `baseAt`i en eski olan (daha geniş bir cevap aralığını
-        // kapsar); eşitse sıradaki ilk kayıt. Hiçbiri geçmediyse kalan kayıt bir sonraki göçte ele alınır.
-        let baseSource = group
-            .filter { $0.baseAt != nil }
-            .reduce(nil as Word?) { best, word in
-                guard let best, let bestAt = best.baseAt else { return word }
-                return word.baseAt! < bestAt ? word : best
-            }
+        // Hafıza tabandan ve cevap kayıtlarından yeniden hesaplanır (SPEC-MOTOR2 §6). Taban: dolu tabanlar
+        // (`baseAt` gerçek bir an) arasından `baseAt`i en eski olan (daha geniş bir cevap aralığını kapsar);
+        // eşitse sıradaki ilk kayıt. Boş taban (`.distantPast`, hiç cevaplanmamış kopya) yalnızca dolu taban
+        // yoksa seçilir; yoksa eski sürümde çalışılmış kopyanın saklı hafızası kaybolurdu. Hiçbiri göç
+        // kontrolünden geçmediyse (`nil`) kalan kayıt bir sonraki göçte ele alınır.
+        let filled = group.filter { $0.baseAt.map { $0 != .distantPast } ?? false }
+        let baseSource = filled.reduce(nil as Word?) { best, word in
+            guard let best, let bestAt = best.baseAt else { return word }
+            return word.baseAt! < bestAt ? word : best
+        } ?? group.first { $0.baseAt == .distantPast }
         if let baseSource, baseSource !== keeper {
             copyBase(from: baseSource, to: keeper)
         }

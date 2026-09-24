@@ -70,6 +70,9 @@ iki kopyası; biri değişirse ötekini de güncelle). Katmanlar `Assets/` için
 
 - SwiftData bellek içi depo (`isStoredInMemoryOnly`) iOS 27 simülatöründe kaydederken ara ara çöküyor
   (`_obtainPermanentIDsForObjects`); örnek veri ve testler geçici dosya deposu kullanır.
+- Model yeni alan kazanınca ilk açılış depoyu yerinde göç ettirir; kurulumdan hemen sonra widget da çalıştığı
+  için iki süreç aynı anda göçe girip biri 134100/134110 ("Veritabanı açılamadı") ile düşüyordu. Açılış
+  `SharedStore.openSerialized` ile App Group'taki `default.store.lock` kilidine bağlı; yeni açılış yolu eklersen oradan geçir.
 - iOS 26 `Form` içinde pasif düğme siyah kalıyor; soluk görünmesi için yazı rengini elle ver.
 - Mac'te `.tint` verilen `.glass` düğme de dolu görünür; öne çıkmayan düğmede yalnızca `foregroundStyle` kullan.
 
