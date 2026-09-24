@@ -431,3 +431,8 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
 - Widget/bildirim önce vadesi gelmiş, yeni olmayan kelimeyi sorar. Mac'te tur bitince özet ekranı; kendiliğinden yeniden başlama yok.
 - Depo açılışı kilitle sıraya kondu (uygulama + widget aynı anda göç edince "Veritabanı açılamadı" oluyordu).
 - 261 testin hepsi geçti. iPhone ve Mac aynı anda güncellendi. CloudKit şeması hâlâ geliştirme ortamında.
+
+### Günlük hedef bütün cihazlarda tek (24 Eylül 2026)
+- Hedef iCloud anahtar-değer deposunda (`GoalSync`, `NSUbiquitousKeyValueStore`); yerel kopya iOS'ta App Group (widget
+  okur), Mac'te uygulama ayarları. iCloud'daki değer geçerli; seçilmemiş hedef yüklenmez. Seri/halka her cihazda aynı.
+- iOS ve Mac yetki dosyalarına `ubiquity-kvstore-identifier` eklendi (kullanıcı onayıyla). 267 testin hepsi geçti.

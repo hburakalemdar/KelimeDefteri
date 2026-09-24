@@ -221,8 +221,7 @@ Uygulama:
   `maxWidth ≈ 600` (oyunlar 13" ekranda ~1000 pt'ye yayılıyor, en çirkin yer). Risk: çoklu pencerede `rootController`
   ve tekil `GlanceRouter`/`AddRouter`. Widget'a büyük boyut eklenebilir.
 - **Üç cihaz — kullanıcı kararı: seri, halka ve günlük hedef bütün cihazlarda TEK sayı olmalı.** Kelimeler/cevaplar eşitleniyor; günlük hedef cihazda (seri hedefe bağlı → cihazlar farklı seri
-  gösterebilir). Çözüm: `DailyGoal`'u `NSUbiquitousKeyValueStore`'a taşı (entitlements'a `ubiquity-kvstore` — hesap
-  tarafı, onay). Eski bildirim/widget içeriği bilinen sınır olarak kalır.
+  gösterebilir). **Yapıldı (24 Eylül 2026):** hedef iCloud anahtar-değer deposunda (`GoalSync`), iPhone ve Mac'te tek sayı. Eski bildirim/widget içeriği bilinen sınır olarak kalır.
 - **Görseller:** örnek veri (16 kelime, hepsi DDIA jargonu, bazı Türkçeler kötü, yeni kelimelerde cümle yok) mağaza
   için çeşitlendirilmeli; widget örnek veriyi görmüyor (demo deposu gerekir). Otomasyon: DEBUG `-demoScreen <ad>` +
   simctl betiği (`status_bar override` 9:41, açık/koyu, `io screenshot`). UI test hedefi gerekmez.
