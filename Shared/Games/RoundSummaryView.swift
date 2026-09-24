@@ -97,10 +97,16 @@ struct RoundSummaryView: View {
                             }
                             row(entry)
                                 .padding(.horizontal, 16)
+                                #if os(iOS)
                                 .padding(.vertical, 11)
+                                #else
+                                .padding(.vertical, 8) // 5 kelimelik Günlük Tekrar menü penceresine kesilmeden sığsın
+                                #endif
                         }
                     }
                     .background(GameStyle.cardFill, in: .rect(cornerRadius: GameStyle.cardRadius, style: .continuous))
+                    // Sona kaydırınca son satır düğmelerin camına yapışmasın.
+                    .padding(.bottom, 12)
                 }
             }
             .gamePagePadding()
