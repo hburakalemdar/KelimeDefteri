@@ -128,7 +128,8 @@ extension WordDetailView {
                         .formatted(.percent.precision(.fractionLength(0)))
                 )
             }
-            if let last = word.lastReviewedAt {
+            // Motorun çıpası (`lastReviewedAt`) tanıma cevabıyla ilerlemez; son görülme en güncel cevap kaydıdır.
+            if let last = word.logs?.map(\.date).max() {
                 LabeledContent("Son görülme", value: last.formatted(.relative(presentation: .named)))
             }
             if let average = stats.averageResponseTime {

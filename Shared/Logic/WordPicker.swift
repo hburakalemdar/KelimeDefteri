@@ -72,10 +72,10 @@ nonisolated enum WordPicker {
         return ids
     }
 
-    /// Yanlış bilinen kelimenin sıraya yeniden gireceği yer: arada en az 2 kelime olsun,
-    /// turda o kadar kelime yoksa en sona.
-    static func reinsertionIndex(queueCount: Int) -> Int {
-        min(2, queueCount)
+    /// Yanlış bilinen kelimenin sıraya yeniden gireceği yer: arada en az 2 kelime olsun.
+    /// Sırada 2'den az kelime kaldıysa `nil`: kelime yeniden sorulmaz.
+    static func reinsertionIndex(queueCount: Int) -> Int? {
+        queueCount < 2 ? nil : 2
     }
 }
 

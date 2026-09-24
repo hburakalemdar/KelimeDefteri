@@ -63,6 +63,9 @@ enum PreviewData {
             container.mainContext.insert(word)
         }
         MemoryMigration.migrateIfNeeded(context: container.mainContext)
+        // Eski biçimli örnekler taban olur; aşağıdaki son günlerin cevapları bunun üstüne oynatılır.
+        let allWords = (try? container.mainContext.fetch(FetchDescriptor<Word>())) ?? []
+        for word in allWords { MemoryMigration.migrateBaseIfNeeded(word, now: now) }
 
         // Ayrıntı sayfasındaki geçmiş için örnek cevaplar: önce yanlışlar, sonra doğrular.
         let modes: [GameMode] = [.dailyReview, .dailyReview, .match, .multipleChoice, .dailyReview, .quickRound]
@@ -98,6 +101,7 @@ enum PreviewData {
                 log.word = word
             }
         }
+        MemoryCache.refreshAll(in: container.mainContext, now: now)
         return container
     }()
 }

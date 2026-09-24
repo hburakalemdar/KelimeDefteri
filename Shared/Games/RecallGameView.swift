@@ -45,9 +45,7 @@ struct RecallGameView: View {
             RecallQuestionView(session: session, words: words)
         } else if didStart {
             RoundSummaryView(
-                entries: session.roundEntries.map {
-                    RoundSummaryView.Entry(word: $0.word, before: $0.memoryBefore, correct: $0.firstCorrect)
-                },
+                entries: session.roundEntries.map(RoundSummaryView.Entry.init),
                 duration: session.finishedAt.timeIntervalSince(session.startedAt),
                 onAgain: startRound,
                 onDone: close
@@ -128,7 +126,7 @@ struct RecallQuestionView: View {
             .sensoryFeedback(trigger: session.phase) { _, phase in
                 guard case .revealed(let verdict) = phase else { return nil }
                 return switch verdict {
-                case .correct, .almost: .success
+                case .correct, .almost, .synonymOf: .success
                 case .incorrect: .warning
                 case .peeked: nil
                 }
@@ -140,9 +138,11 @@ struct RecallQuestionView: View {
 
     private func card(for word: Word) -> some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Soru kartında yüzde gösterilmez (yalnızca ayrıntı ve ilerleme ekranlarında).
             HStack(spacing: 6) {
                 Spacer(minLength: 12)
-                MemoryRing(memory: word.memory(), size: 12, text: .trailing)
+                MemoryRing(memory: word.memory(), size: 12, isLapsed: word.isLapsed)
+                if word.isNew { Text("Yeni") }
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -216,7 +216,7 @@ struct RecallQuestionView: View {
         VStack(alignment: .leading, spacing: 10) {
             Divider()
                 .padding(.bottom, 4)
-            verdictLabel(verdict)
+            verdictLabel(verdict, word: word)
             if session.isReverse {
                 englishHeadline(word, font: .system(.title, design: .serif, weight: .semibold))
                     .foregroundStyle(.tint)
@@ -227,12 +227,23 @@ struct RecallQuestionView: View {
                     .foregroundStyle(.tint)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if verdict == .incorrect {
+            switch verdict {
+            case .incorrect:
                 Text(session.isReverse
                      ? "Senin cevabın: “\(answer)”. Eşanlamlıysa Doğru Say'a bas."
                      : "Senin cevabın: “\(answer)”. Anlamca aynıysa Doğru Say'a bas.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+            case .almost:
+                Text("Senin cevabın: “\(answer)”.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            case .synonymOf(let other):
+                Text("“\(other)” de aynı anlamda; doğru sayıldı.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            case .correct, .peeked:
+                EmptyView()
             }
             let related = word.related(in: words)
             if !related.isEmpty {
@@ -247,10 +258,11 @@ struct RecallQuestionView: View {
         }
     }
 
-    private func verdictLabel(_ verdict: StudySession.Verdict) -> some View {
+    private func verdictLabel(_ verdict: StudySession.Verdict, word: Word) -> some View {
         let (text, icon, color): (String, String, Color) = switch verdict {
         case .correct: ("Doğru", "checkmark.circle.fill", .green)
         case .almost: ("Neredeyse", "checkmark.circle.fill", .orange)
+        case .synonymOf: ("Doğru, ama bu kartta aranan: \(word.english)", "checkmark.circle.fill", .orange)
         case .incorrect: ("Tam tutmadı", "xmark.circle.fill", .red)
         case .peeked: ("Cevaba baktın. Biliyor muydun?", "eye.fill", .secondary)
         }

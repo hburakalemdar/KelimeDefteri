@@ -1,16 +1,32 @@
 import SwiftData
 import SwiftUI
 
-/// Bütün oyunlarda ortak tur özeti: kaç doğru, ne kadar sürdü, her kelimenin önceki hafızası ve
-/// cevaptan sonra sıradaki tekrarın ne zaman olduğu. (Cevaptan hemen sonra hafıza hep ~%100 olduğu
-/// için ikinci bir yüzde bir şey anlatmaz.)
+/// Bütün oyunlarda ortak tur özeti: kaç doğru, ne kadar sürdü, her kelimenin turdan önceki ve sonraki
+/// tekrar zamanı ("önce → sonra"). Yüzde gösterilmez.
 struct RoundSummaryView: View {
     struct Entry: Identifiable {
         let word: Word
-        /// Kelime ilk sorulduğundaki hafıza; yeni kelimede `nil`.
-        let before: Double?
+        /// Turdaki ilk cevaptan hemen önceki vade; yeni kelimede `nil`.
+        let dueBefore: Date?
+        /// Turdaki ilk cevaptan hemen önce zayıf mıydı.
+        let lapsedBefore: Bool
         /// İlk cevap doğru muydu.
         let correct: Bool
+
+        init(word: Word, dueBefore: Date?, lapsedBefore: Bool, correct: Bool) {
+            self.word = word
+            self.dueBefore = dueBefore
+            self.lapsedBefore = lapsedBefore
+            self.correct = correct
+        }
+
+        /// Oyun turunun kaydından.
+        init(_ entry: StudySession.RoundEntry) {
+            self.init(
+                word: entry.word, dueBefore: entry.dueBefore,
+                lapsedBefore: entry.lapsedBefore, correct: entry.firstCorrect
+            )
+        }
 
         var id: ObjectIdentifier { ObjectIdentifier(word) }
     }
@@ -141,10 +157,10 @@ struct RoundSummaryView: View {
             .font(.system(.body, design: .serif, weight: .semibold))
     }
 
-    /// "%45 → 12 gün sonra": önceki hafıza ve sıradaki tekrar.
+    /// "3 gün gecikti → 8 gün sonra": turdan önceki ve sonraki tekrar zamanı; yeni kelimede "Yeni → Yarın".
     private func memory(_ entry: Entry) -> some View {
         HStack(spacing: 6) {
-            MemoryRing(memory: entry.before, size: 14, text: .trailing)
+            Text(entry.dueBefore.map { Leitner.dueDescription(for: $0) } ?? "Yeni")
                 .foregroundStyle(.secondary)
             Text("→")
                 .foregroundStyle(.secondary)

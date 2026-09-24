@@ -39,7 +39,11 @@ enum SharedStore {
                 container = try ModelContainer(for: schema)
             }
             // Eklenti yalnızca yeni kelime ekler; eski kayıtların geçişini uygulamalar yapar.
-            if !isExtension { MemoryMigration.migrateIfNeeded(context: container.mainContext) }
+            // Widget de bir eklenti paketidir; iCloud'dan gelen değişiklikleri yalnızca uygulamalar dinler.
+            if !isExtension {
+                MemoryMigration.migrateIfNeeded(context: container.mainContext)
+                MemoryCache.observeRemoteChanges(context: container.mainContext)
+            }
             return .success(container)
         } catch {
             logger.error("Kelime veritabanı açılamadı: \(String(describing: error), privacy: .public)")

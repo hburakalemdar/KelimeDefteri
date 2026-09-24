@@ -60,7 +60,7 @@ struct MatchGameView: View {
     private var content: some View {
         if round.isFinished {
             RoundSummaryView(
-                entries: round.entries.map { .init(word: $0.word, before: $0.memoryBefore, correct: $0.firstCorrect) },
+                entries: round.entries.map(RoundSummaryView.Entry.init),
                 duration: round.finishedAt.timeIntervalSince(round.startedAt),
                 onAgain: startRound,
                 onDone: close

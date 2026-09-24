@@ -21,6 +21,7 @@ struct StudySessionTests {
             word.stability = 1
             word.lastReviewedAt = Date.now.addingTimeInterval((days - 2) * 86_400)
         }
+        word.dueDate = word.lastReviewedAt!.addingTimeInterval(word.stability * 86_400)
         return word
     }
 
@@ -88,10 +89,11 @@ struct StudySessionTests {
         #expect(session.remaining == 1)
     }
 
-    @Test func correctAnswerIsDetectedAndKnownWordLeavesQueue() {
+    @Test func correctAnswerIsDetectedAndKnownWordLeavesQueue() throws {
         let session = makeSession()
         let target = word("stale", dueIn: -1)
         target.turkish = "eskimiş, güncel olmayan"
+        _ = try insert(target)
         session.start(with: [target], practiceAll: false)
 
         session.reveal(answer: "eskimis")
@@ -99,9 +101,9 @@ struct StudySessionTests {
 
         session.grade(known: true)
         #expect(target.stability > 1)
-        #expect(target.correctCount == 1)
-        #expect(target.reviewCount == 2)
-        #expect(!target.isWeak)
+        #expect(target.correctAnswerCount == 1)
+        #expect(target.logs?.count == 1)
+        #expect(!target.isDue())
         #expect(session.current == nil)
     }
 
@@ -167,7 +169,7 @@ struct StudySessionTests {
         #expect(session.remaining == 0)
     }
 
-    @Test func unknownWordGoesToEndWhenFewWordsLeft() {
+    @Test func unknownWordIsNotAskedAgainWhenFewWordsLeft() {
         let session = makeSession()
         let first = word("first", dueIn: -2)
         let second = word("second", dueIn: -1)
@@ -177,10 +179,13 @@ struct StudySessionTests {
         session.reveal(answer: nil)
         #expect(session.phase == .revealed(.peeked))
         session.grade(known: false)
-
+        // Arada 2 kart kalmadığı için yeniden sorulmaz; kelime biten sayılır, sayaç erken dolmaz.
+        #expect(session.finishedWordCount == 1)
         #expect(session.current !== missed)
         session.grade(known: true)
-        #expect(session.current === missed)
+        #expect(session.current == nil)
+        #expect(session.finishedWordCount == 2)
+        #expect(session.wordCount == 2)
     }
 
     @Test func newWordCountsAsWeak() {
@@ -222,7 +227,7 @@ struct StudySessionTests {
         #expect(logs.first?.correct == true)
         #expect(logs.first?.responseTime == 6)
         #expect(logs.first?.word === target)
-        #expect(target.lastReviewedAt == start.addingTimeInterval(8))
+        #expect(target.lastReviewedAt == DayBoundary.start(of: start.addingTimeInterval(8)))
     }
 }
 
@@ -236,6 +241,7 @@ struct StudyPlanTests {
         word.reviewCount = 1
         word.stability = weak ? 1 : 30
         word.lastReviewedAt = Date.now.addingTimeInterval(weak ? -5 * 86_400 : 0)
+        word.dueDate = word.lastReviewedAt!.addingTimeInterval(word.stability * 86_400)
         return word
     }
 
@@ -268,21 +274,31 @@ struct StudyPlanTests {
         #expect(drain(session).count == 5)
     }
 
-    @Test func roundEntriesKeepFirstAnswerAndMemoryBefore() {
+    @Test func roundEntriesKeepFirstAnswerAndDueBefore() throws {
+        let url = URL.temporaryDirectory.appending(path: "test-\(UUID().uuidString).store")
+        let container = try ModelContainer(for: SharedStore.schema, configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none))
+        let context = ModelContext(container)
         let first = studied("first", weak: true)
         let second = studied("second", weak: true)
+        let fresh = Word(english: "fresh", turkish: "taze")
+        for word in [first, second, fresh] { context.insert(word) }
+        let dueBefore = Dictionary(uniqueKeysWithValues: [first, second].map { (ObjectIdentifier($0), $0.dueDate) })
         let session = makeSession()
-        session.start(with: [first, second], plan: .daily)
+        session.start(with: [first, second, fresh], plan: .daily)
         let opening = session.current!
         session.grade(known: false)
         _ = drain(session)
-        #expect(session.roundEntries.count == 2)
+        #expect(session.roundEntries.count == 3)
         let entry = session.roundEntries.first { $0.word === opening }!
         #expect(!entry.firstCorrect)
-        // Önceki hafıza cevaptan önce alınır: zayıftı, cevaptan sonra güçlendi.
-        #expect(entry.memoryBefore! < 0.9)
-        #expect(opening.memory()! > entry.memoryBefore!)
-        #expect(session.roundEntries.filter(\.firstCorrect).count == 1)
+        // "Önce" cevaptan hemen önce okunur: yeni kelimede boş, ötekinde eski vade.
+        #expect(entry.dueBefore == (opening === fresh ? nil : dueBefore[ObjectIdentifier(opening)]))
+        #expect(!entry.lapsedBefore)
+        #expect(session.roundEntries.first { $0.word === fresh }?.dueBefore == nil)
+        // "Sonra" canlı okunur: yanlış bilinen kelime zayıf, vadesi yarın.
+        #expect(opening.isLapsed)
+        #expect(opening.dueDate == DayBoundary.nextStart(after: .now))
+        #expect(session.roundEntries.filter(\.firstCorrect).count == 2)
     }
 }
 
@@ -300,5 +316,36 @@ struct ReverseSessionTests {
         other.start(with: [Word(english: "stale", turkish: "eskimiş")], plan: .reverse)
         other.reveal(answer: "eskimiş")
         #expect(other.phase == .revealed(.incorrect))
+    }
+
+    /// Defterde aynı anlamlı başka kelime yazılırsa "Doğru, ama aranan: X"; not zor.
+    @Test func synonymFromTheNotebookIsRightButHard() throws {
+        let url = URL.temporaryDirectory.appending(path: "test-\(UUID().uuidString).store")
+        let container = try ModelContainer(for: SharedStore.schema, configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none))
+        let context = ModelContext(container)
+        let stale = Word(english: "stale", turkish: "bayat, eskimiş")
+        let outdated = Word(english: "outdated", turkish: "eskimiş")
+        let quorum = Word(english: "quorum", turkish: "yeter sayı")
+        for word in [stale, outdated, quorum] { context.insert(word) }
+        let session = StudySession(seed: 1, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+        session.start(with: [stale, outdated, quorum], plan: .reverse)
+        var checked = 0
+        while let current = session.current {
+            if current === quorum {
+                session.reveal(answer: "stale")
+                #expect(session.phase == .revealed(.incorrect))
+                session.grade(known: false)
+                continue
+            }
+            let synonym = current === stale ? outdated : stale
+            session.reveal(answer: synonym.english.uppercased())
+            #expect(session.phase == .revealed(.synonymOf(synonym.english)))
+            #expect(StudySession.Verdict.synonymOf(synonym.english).gradeOptions.map(\.title) == ["Devam"])
+            session.grade(known: true)
+            #expect(current.logs?.last?.grade == AnswerGrade.hard.rawValue)
+            #expect(current.logs?.last?.correct == true)
+            checked += 1
+        }
+        #expect(checked == 2)
     }
 }

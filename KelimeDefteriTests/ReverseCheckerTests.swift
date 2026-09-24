@@ -22,6 +22,23 @@ struct ReverseCheckerTests {
         #expect(ReverseChecker.check("", expected: "stale") == .wrong)
     }
 
+    /// Defterdeki eşanlamlı kelime (ortak Türkçe anlam) yazılırsa `.synonymOf`; anlamı ortak olmayan
+    /// kelime yanlış kalır, aranan kelimenin kendisi tam doğru.
+    @Test func synonymFromTheNotebook() {
+        let words = [
+            Word(english: "stale", turkish: "bayat, eskimiş"),
+            Word(english: "outdated", turkish: "eskimiş, modası geçmiş"),
+            Word(english: "quorum", turkish: "yeter sayı"),
+        ]
+        #expect(ReverseChecker.check("Outdated", expected: "stale", in: words) == .synonymOf("outdated"))
+        #expect(ReverseChecker.check("stale", expected: "outdated", in: words) == .synonymOf("stale"))
+        #expect(ReverseChecker.check("quorum", expected: "stale", in: words) == .wrong)
+        #expect(ReverseChecker.check("stale", expected: "stale", in: words) == .exact)
+        #expect(ReverseChecker.check("stalle", expected: "stale", in: words) == .typo)
+        // Defterde olmayan kelime eşanlamlı sayılmaz.
+        #expect(ReverseChecker.check("old", expected: "stale", in: words) == .wrong)
+    }
+
     @Test func levenshtein() {
         #expect(ReverseChecker.distance("kitten", "sitting") == 3)
         #expect(ReverseChecker.distance("", "abc") == 3)

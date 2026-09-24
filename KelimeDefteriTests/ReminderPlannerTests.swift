@@ -16,7 +16,7 @@ struct ReminderPlannerTests {
 
     @Test func firstReminderIsTodayWhenTimeHasNotPassed() {
         let plan = ReminderPlanner.plan(
-            studiedDueDates: [date(hour: 9)], newCount: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
+            studiedDueDates: [date(hour: 9)], newCount: 0, introducedToday: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
         )
         #expect(plan.first?.fireDate == date(hour: 20))
         #expect(plan.first?.dueCount == 1)
@@ -24,7 +24,7 @@ struct ReminderPlannerTests {
 
     @Test func firstReminderIsTomorrowWhenTimeHasPassed() {
         let plan = ReminderPlanner.plan(
-            studiedDueDates: [date(hour: 9)], newCount: 0, hour: 20, minute: 0, now: date(hour: 21), calendar: calendar
+            studiedDueDates: [date(hour: 9)], newCount: 0, introducedToday: 0, hour: 20, minute: 0, now: date(hour: 21), calendar: calendar
         )
         #expect(plan.first?.fireDate == date(day: 23, hour: 20))
     }
@@ -32,37 +32,55 @@ struct ReminderPlannerTests {
     @Test func countsGrowAsWordsBecomeDue() {
         let plan = ReminderPlanner.plan(
             studiedDueDates: [date(hour: 8), date(day: 24, hour: 0), date(day: 24, hour: 0)],
-            newCount: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
+            newCount: 0, introducedToday: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
         )
         #expect(plan.map(\.dueCount).prefix(3) == [1, 1, 3])
     }
 
     @Test func skipsDaysWithNothingDue() {
         let plan = ReminderPlanner.plan(
-            studiedDueDates: [date(day: 25, hour: 0)], newCount: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
+            studiedDueDates: [date(day: 25, hour: 0)], newCount: 0, introducedToday: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
         )
         #expect(plan.first?.fireDate == date(day: 25, hour: 20))
         #expect(plan.count == 4) // 7 günlük pencere 22–28 Eylül; kelime 25'inden itibaren sırada.
     }
 
     @Test func emptyDeckHasNoReminders() {
-        #expect(ReminderPlanner.plan(studiedDueDates: [], newCount: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar).isEmpty)
+        #expect(ReminderPlanner.plan(studiedDueDates: [], newCount: 0, introducedToday: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar).isEmpty)
     }
 
     /// Bildirim Günlük Tekrar'ın soracağı sayıyı söyler: yeniler en fazla 5, toplam en fazla 20.
     @Test func countsFollowTheDailyReviewLimits() {
         let onlyNew = ReminderPlanner.plan(
-            studiedDueDates: [date(day: 30, hour: 0)], newCount: 12, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
+            studiedDueDates: [date(day: 30, hour: 0)], newCount: 12, introducedToday: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
         )
         #expect(onlyNew.first?.dueCount == 5)
         #expect(onlyNew.count == 7)
 
         let many = ReminderPlanner.plan(
-            studiedDueDates: Array(repeating: date(hour: 8), count: 18), newCount: 12,
+            studiedDueDates: Array(repeating: date(hour: 8), count: 18), newCount: 12, introducedToday: 0,
             hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
         )
         #expect(many.first?.dueCount == 20)
         #expect(ReminderPlanner.dailyCount(studiedDueDates: Array(repeating: date(hour: 8), count: 30), newCount: 3,
-                                           at: date(hour: 20)) == 20)
+                                           introducedToday: 0, at: date(hour: 20), offset: 0) == 20)
+    }
+
+    /// Bugün tanıtılan yeni kelimeler yalnızca bugünün bildirimini kısar; ileri günler günlük sınıra kadar
+    /// yeni kelime bekler (çalışılmış kelimesi hep güçlü defterde bildirim susmaz).
+    @Test func introducedTodayLimitsOnlyToday() {
+        let plan = ReminderPlanner.plan(
+            studiedDueDates: [date(day: 30, hour: 0)], newCount: 12, introducedToday: 5,
+            hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
+        )
+        #expect(plan.first?.fireDate == date(day: 23, hour: 20))
+        #expect(plan.first?.dueCount == 5)
+        #expect(plan.count == 6)
+
+        let partly = ReminderPlanner.plan(
+            studiedDueDates: [], newCount: 12, introducedToday: 3,
+            hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
+        )
+        #expect(partly.map(\.dueCount) == [2, 5, 5, 5, 5, 5, 5])
     }
 }

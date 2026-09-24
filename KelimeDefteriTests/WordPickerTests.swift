@@ -74,7 +74,9 @@ struct WordPickerTests {
 
     @Test func missedWordReturnsAfterTwoOthers() {
         #expect(WordPicker.reinsertionIndex(queueCount: 10) == 2)
-        #expect(WordPicker.reinsertionIndex(queueCount: 1) == 1)
-        #expect(WordPicker.reinsertionIndex(queueCount: 0) == 0)
+        #expect(WordPicker.reinsertionIndex(queueCount: 2) == 2)
+        // Arada 2 kart kalmıyorsa yeniden sorulmaz.
+        #expect(WordPicker.reinsertionIndex(queueCount: 1) == nil)
+        #expect(WordPicker.reinsertionIndex(queueCount: 0) == nil)
     }
 }

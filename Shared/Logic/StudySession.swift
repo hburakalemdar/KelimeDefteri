@@ -11,6 +11,8 @@ final class StudySession {
         case incorrect
         /// Cevap yazmadan karta dokunup Türkçesine baktı.
         case peeked
+        /// Ters Yön'de defterdeki eşanlamlı başka bir kelime yazıldı (onun İngilizcesi); doğru ama zor sayılır.
+        case synonymOf(String)
     }
 
     enum Phase: Equatable {
@@ -34,11 +36,30 @@ final class StudySession {
         case reverse
     }
 
-    /// Tur özeti için kelime başına kayıt: ilk sorulduğundaki hafıza ve ilk cevabın doğruluğu.
+    /// Tur özeti için kelime başına kayıt: turdaki ilk cevaptan hemen önceki vade ve zayıflık,
+    /// ilk cevabın doğruluğu.
     struct RoundEntry {
         let word: Word
-        let memoryBefore: Double?
+        /// İlk cevaptan hemen önceki `word.dueDate`; yeni kelimede `nil` ("Yeni").
+        let dueBefore: Date?
+        /// İlk cevaptan hemen önceki `word.isLapsed`.
+        let lapsedBefore: Bool
         let firstCorrect: Bool
+
+        init(word: Word, dueBefore: Date?, lapsedBefore: Bool, firstCorrect: Bool) {
+            self.word = word
+            self.dueBefore = dueBefore
+            self.lapsedBefore = lapsedBefore
+            self.firstCorrect = firstCorrect
+        }
+
+        /// Cevap kaydedilmeden hemen önce, kelimenin o anki durumundan.
+        init(before word: Word, firstCorrect: Bool) {
+            self.init(
+                word: word, dueBefore: word.isNew ? nil : word.dueDate,
+                lapsedBefore: word.isLapsed, firstCorrect: firstCorrect
+            )
+        }
     }
 
     nonisolated static let dailyLimit = 20
@@ -77,11 +98,8 @@ final class StudySession {
     private var pausedAt: Date?
     /// Turun başladığı an (duraklatmayla kaymaz); tur başka bir günde mi başladı diye bakılır.
     private var roundBeganAt: Date = .now
-    /// Kelime başına hafızayı değiştiren son cevabın zamanı. Tur günlerce açık kalırsa (Mac)
-    /// kelimenin başka bir günde verilen ilk cevabı yine hafızayı değiştirir.
-    private var memoryAnsweredAt: [ObjectIdentifier: Date] = [:]
-    /// Son cevaplanan kart; yanlış bilinen kelime hemen arkasından doğru bilinirse zayıf kalır.
-    private var lastAnswered: Word?
+    /// Turun başında verilen defter; Ters Yön'de eşanlamlı cevabı tanımak için.
+    private var words: [Word] = []
 
     /// Arka plana geçerken kaydedilmiş, henüz ilerlenmemiş cevap ve kaydı geri alan işlem.
     private struct Committed {
@@ -113,15 +131,14 @@ final class StudySession {
         self.plan = plan
         reviewedCount = 0
         roundEntries = []
-        memoryAnsweredAt = [:]
-        lastAnswered = nil
+        self.words = words
         startedAt = now
         roundBeganAt = now
         finishedAt = now
         let previousFirst = defaults.string(forKey: Self.lastFirstWordKey)
         queue = switch plan {
         case .weak:
-            ordered(words.filter { $0.isWeak(at: now) }, now: now, avoidingFirst: previousFirst)
+            ordered(words.filter { $0.isDue(at: now) }, now: now, avoidingFirst: previousFirst)
         case .daily:
             // Önce çalışılmış zayıflar, kalan yere yeniler; kartta yazan dağılımla aynı olsun diye.
             dailyWords(words, now: now, avoidingFirst: previousFirst)
@@ -144,7 +161,7 @@ final class StudySession {
 
     private func dailyWords(_ words: [Word], now: Date, avoidingFirst previousFirst: String?) -> [Word] {
         let count = Self.dailyCount(words, now: now)
-        let weak = ordered(words.filter { !$0.isNew && $0.isWeak(at: now) }, now: now, limit: count.weak)
+        let weak = ordered(words.filter { !$0.isNew && $0.isDue(at: now) }, now: now, limit: count.weak)
         return ordered(weak + Self.dailyNewWords(words, now: now), now: now, avoidingFirst: previousFirst)
     }
 
@@ -208,15 +225,28 @@ final class StudySession {
         Array(words.sorted { ($0.memory(at: now) ?? -1) < ($1.memory(at: now) ?? -1) }.prefix(count))
     }
 
-    /// Günlük Tekrar turuna girecek kelime sayısı: çalışılmış zayıflar ve (en fazla 5) yeni, toplam en fazla 20.
+    /// Günlük Tekrar turuna girecek kelime sayısı: vadesi gelmiş çalışılmış kelimeler ve yeniler; günde en
+    /// fazla 5 yeni kelime (bugün tanıtılanlar düşülür), toplam en fazla 20.
     static func dailyCount(_ words: [Word], now: Date = .now) -> (weak: Int, new: Int) {
-        dailyCount(weak: words.count { !$0.isNew && $0.isWeak(at: now) }, new: words.count(where: \.isNew))
+        dailyCount(
+            weak: words.count { !$0.isNew && $0.isDue(at: now) }, new: words.count(where: \.isNew),
+            introducedToday: introducedToday(words, now: now)
+        )
     }
 
     /// Aynı sınır yalnızca sayılarla; bildirim ve rozet de Günlük Tekrar'ın soracağı sayıyı gösterir.
-    nonisolated static func dailyCount(weak: Int, new: Int) -> (weak: Int, new: Int) {
-        let takenNew = min(new, dailyNewLimit, max(0, dailyLimit - min(weak, dailyLimit)))
+    nonisolated static func dailyCount(weak: Int, new: Int, introducedToday: Int) -> (weak: Int, new: Int) {
+        let takenNew = min(new, max(0, dailyNewLimit - introducedToday), max(0, dailyLimit - min(weak, dailyLimit)))
         return (min(weak, dailyLimit), takenNew)
+    }
+
+    /// İlk cevabı bugün (04:00 sınırıyla) verilen kelime sayısı: günlük yeni kelime sınırı bunlarla dolar.
+    static func introducedToday(_ words: [Word], now: Date = .now) -> Int {
+        let today = DayBoundary.start(of: now)
+        return words.count { word in
+            guard let first = word.logs?.min(by: { $0.date < $1.date }) else { return false }
+            return DayBoundary.start(of: first.date) == today
+        }
     }
 
     func reveal(answer: String?, now: Date = .now) {
@@ -226,9 +256,10 @@ final class StudySession {
         if trimmed.isEmpty {
             phase = .revealed(.peeked)
         } else if isReverse {
-            let verdict: Verdict = switch ReverseChecker.check(trimmed, expected: word.english) {
+            let verdict: Verdict = switch ReverseChecker.check(trimmed, expected: word.english, in: words) {
             case .exact: .correct
             case .typo: .almost
+            case .synonymOf(let other): .synonymOf(other)
             case .wrong: .incorrect
             }
             phase = .revealed(verdict)
@@ -249,19 +280,14 @@ final class StudySession {
     /// başka düğmeye basarsa (ör. "Doğru Say") bu kayıt geri alınıp yenisi yazılır.
     func commitPendingAnswer(now: Date = .now) {
         guard committed == nil, let word = current, !word.isDeleted, let known = pendingKnown else { return }
-        let before = (word.stability, word.difficulty, word.dueDate, word.lastReviewedAt, word.reviewCount, word.correctCount)
         let entryCount = roundEntries.count
         let finishedBefore = finishedAt
-        let answeredBefore = memoryAnsweredAt
-        let lastBefore = lastAnswered
         let log = record(word, known: known, now: now)
+        // Geri alma: kayıt silinir, hafıza kalan cevaplardan yeniden hesaplanır.
         committed = Committed(known: known) { [weak self] in
-            (word.stability, word.difficulty, word.dueDate, word.lastReviewedAt, word.reviewCount, word.correctCount) = before
-            if let log { log.modelContext?.delete(log) }
+            if let log { ReviewRecorder.undo(log, now: now) }
             self?.roundEntries.removeSubrange(entryCount...)
             self?.finishedAt = finishedBefore
-            self?.memoryAnsweredAt = answeredBefore
-            self?.lastAnswered = lastBefore
         }
     }
 
@@ -307,12 +333,12 @@ final class StudySession {
         } else {
             record(word, known: known, now: now)
         }
-        // Bilinmeyen kelime bilinene kadar yeniden sorulur; hemen arkasından değil,
-        // arada en az iki kelime olacak şekilde.
-        if known {
-            finishedWordCount += 1
+        // Bilinmeyen kelime bilinene kadar yeniden sorulur; hemen arkasından değil, arada en az iki
+        // kelime olacak şekilde. O kadar kelime kalmadıysa yeniden sorulmaz, turdan çıkar.
+        if !known, let index = WordPicker.reinsertionIndex(queueCount: queue.count) {
+            queue.insert(word, at: index)
         } else {
-            queue.insert(word, at: WordPicker.reinsertionIndex(queueCount: queue.count))
+            finishedWordCount += 1
         }
         reviewedCount += 1
         advance(now: now)
@@ -321,26 +347,16 @@ final class StudySession {
     @discardableResult
     private func record(_ word: Word, known: Bool, now: Date) -> ReviewLog? {
         let verdict: Verdict = if case .revealed(let verdict) = phase { verdict } else { .peeked }
-        let grade = AnswerGrade.recall(verdict: verdict, known: known, responseTime: responseTime)
-        // Eski biçimli kelimenin önceki hafızası "Yeni" görünmesin.
+        let letters = (isReverse ? word.english : word.turkish).count(where: \.isLetter)
+        let grade = AnswerGrade.recall(verdict: verdict, known: known, responseTime: responseTime, letters: letters)
+        // Eski biçimli kelimenin önceki durumu "Yeni" görünmesin.
         MemoryMigration.migrate(word)
-        // Hafızayı turdaki ilk cevap değiştirir; sonrakiler yalnızca geçmişe yazılır. Tur günlerce
-        // açık kalmışsa kelimenin başka bir gündeki ilk cevabı da ilk cevap sayılır.
-        let id = ObjectIdentifier(word)
-        let isFirstAnswer = memoryAnsweredAt[id].map { !Calendar.current.isDate($0, inSameDayAs: now) } ?? true
+        // Tur özeti turdaki ilk cevaba bakar; aynı gündeki bütün cevaplar motorda birlikte değerlendirilir.
         if !roundEntries.contains(where: { $0.word === word }) {
-            roundEntries.append(RoundEntry(word: word, memoryBefore: word.memory(at: now), firstCorrect: grade.isCorrect))
+            roundEntries.append(RoundEntry(before: word, firstCorrect: grade.isCorrect))
         }
-        if isFirstAnswer { memoryAnsweredAt[id] = now }
-        // Yanlış bilinip hemen arkasından (arada başka kart olmadan) doğru bilinen kelime zayıf kalır:
-        // az önce gördüğü cevabı yazmak kelimeyi bildiğini göstermez.
-        let clearsLapse = lastAnswered !== word
-        lastAnswered = word
         finishedAt = now
-        return ReviewRecorder.record(
-            word, grade: grade, mode: mode, responseTime: responseTime, updatesMemory: isFirstAnswer,
-            clearsLapse: clearsLapse, now: now
-        )
+        return ReviewRecorder.record(word, grade: grade, mode: mode, responseTime: responseTime, now: now)
     }
 
     /// Kelime listesi dışarıda değiştiğinde (silme, yeni kelime, iCloud'dan gelen değişiklik)
@@ -350,6 +366,7 @@ final class StudySession {
     /// Yalnızca `.weak` turunda yeni zayıflayanlar eklenir; diğer turların kelimeleri baştan bellidir.
     func sync(with words: [Word], now: Date = .now) {
         for word in words { MemoryMigration.migrate(word) }
+        self.words = words
         let alive = Set(words.map(\.persistentModelID))
         let queuedBefore = queue.count
         queue.removeAll { !alive.contains($0.persistentModelID) }
@@ -363,7 +380,7 @@ final class StudySession {
 
         // Bu turda bilinenlerin hafızası güçlendiği için tekrar eklenmezler.
         let queued = Set(queue.map(\.persistentModelID) + [current?.persistentModelID].compactMap { $0 })
-        let added = ordered(words.filter { $0.isWeak(at: now) && !queued.contains($0.persistentModelID) }, now: now)
+        let added = ordered(words.filter { $0.isDue(at: now) && !queued.contains($0.persistentModelID) }, now: now)
         queue += added
         wordCount += added.count
 

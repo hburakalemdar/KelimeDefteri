@@ -7,7 +7,8 @@ import Foundation
 /// Doğru cevap hafıza dayanıklılığını artırır; son cevabı yanlış olan kelime zayıf kaldığı için sayılmaz.
 ///
 /// "Öğrenilen": şu an öğrenilmiş sayılan kelimeler (`Word.isLearned`); bu hafta öğrenilenler, öğrenilme
-/// tarihi (`Word.learnedAt`) son 7 günde olanlar.
+/// tarihi (`Word.learnedAt`, hafıza motorunun şartın ilk sağlandığı gün olarak bir kez yazdığı tarih; göçte
+/// korunur) son 7 günde olanlar.
 nonisolated struct WeeklySummary<ID: Hashable> {
     struct Answer {
         let word: ID

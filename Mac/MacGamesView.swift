@@ -45,6 +45,8 @@ struct MacGamesView: View {
         .onAppear {
             // Uygulama açıkken iCloud'dan eski biçimli kelime gelmiş olabilir.
             MemoryMigration.migrateIfNeeded(context: context)
+            // Hafıza alanları cevap kayıtlarından yeniden hesaplanır (başka cihazdan gelen cevaplar, geçen zaman).
+            MemoryCache.refreshAll(in: context)
             // İki cihazda eşitlenmeden eklenen aynı kelimeyi birleştir, sahipsiz cevap kayıtlarını temizle.
             StoreMaintenance.run(in: context)
             now = .now

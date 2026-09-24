@@ -3,7 +3,7 @@ import SwiftData
 import Testing
 @testable import KelimeDefteri
 
-/// Aynı gün koruması ve "Yine de Çalış"ın zorlanılan kelimeleri önce getirmesi.
+/// "Yine de Çalış"ın zorlanılan kelimeleri önce getirmesi. (Aynı gün kuralı artık günün notunda, `MotorReplayTests`.)
 struct SameDayMemoryTests {
     private let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
@@ -24,94 +24,6 @@ struct SameDayMemoryTests {
             configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none)
         )
         return ModelContext(container)
-    }
-
-    /// Dayanıklılığı 20 gün, son tekrarı iki gün önce olan kelime.
-    private func strongWord(_ english: String = "quorum", in context: ModelContext) -> Word {
-        let word = Word(english: english, turkish: "yeter sayı")
-        context.insert(word)
-        word.stability = 20
-        word.difficulty = 5
-        word.reviewCount = 1
-        word.correctCount = 1
-        word.lastReviewedAt = day(-2, 9)
-        word.dueDate = word.lastReviewedAt!.addingTimeInterval(20 * Memory.dayLength)
-        return word
-    }
-
-    private func record(_ word: Word, _ grade: AnswerGrade, at date: Date) {
-        ReviewRecorder.record(word, grade: grade, mode: .dailyReview, responseTime: 3, now: date, calendar: calendar)
-    }
-
-    // MARK: - Aynı gün koruması
-
-    @Test func secondCorrectAnswerOnTheSameDayKeepsMemory() throws {
-        let context = try makeContext()
-        let word = strongWord(in: context)
-        record(word, .good, at: day(0, 9))
-        let (stability, difficulty, due, last) = (word.stability, word.difficulty, word.dueDate, word.lastReviewedAt)
-        #expect(stability > 20)
-
-        record(word, .easy, at: day(0, 15))
-        record(word, .good, at: day(0, 23, 50))
-        #expect(word.stability == stability)
-        #expect(word.difficulty == difficulty)
-        #expect(word.dueDate == due)
-        #expect(word.lastReviewedAt == last)
-        #expect(word.reviewCount == 4)
-        #expect(word.correctCount == 4)
-        try context.save()
-        #expect(word.logs?.count == 3)
-    }
-
-    @Test func nextDaysAnswerChangesMemory() throws {
-        let context = try makeContext()
-        let word = strongWord(in: context)
-        record(word, .good, at: day(0, 23, 30))
-        let stability = word.stability
-        let difficulty = word.difficulty
-
-        // Bir saat sonra ama ertesi gün: yeni günün ilk cevabı.
-        let next = day(1, 0, 30)
-        record(word, .good, at: next)
-        #expect(word.stability != stability)
-        #expect(word.difficulty != difficulty)
-        #expect(word.lastReviewedAt == next)
-        #expect(word.dueDate == next.addingTimeInterval(word.stability * Memory.dayLength))
-    }
-
-    @Test func secondWrongAnswerOnTheSameDayMarksWeakButKeepsMemory() throws {
-        let context = try makeContext()
-        let word = strongWord(in: context)
-        record(word, .good, at: day(0, 9))
-        let (stability, difficulty, last) = (word.stability, word.difficulty, word.lastReviewedAt)
-        #expect(!word.isWeak(at: day(0, 12)))
-
-        record(word, .again, at: day(0, 12))
-        #expect(word.stability == stability)
-        #expect(word.difficulty == difficulty)
-        #expect(word.lastReviewedAt == last)
-        #expect(word.isLapsed)
-        #expect(word.isWeak(at: day(0, 12)))
-        #expect(word.reviewCount == 3)
-        #expect(word.correctCount == 2)
-    }
-
-    @Test func repeatedWrongAnswersLowerStabilityOnlyOnce() throws {
-        let context = try makeContext()
-        let word = strongWord(in: context)
-        record(word, .again, at: day(0, 9))
-        let stability = word.stability
-        let difficulty = word.difficulty
-        #expect(stability < 20)
-
-        record(word, .again, at: day(0, 10))
-        record(word, .again, at: day(0, 11))
-        #expect(word.stability == stability)
-        #expect(word.difficulty == difficulty)
-        #expect(word.isWeak(at: day(0, 11)))
-        #expect(word.reviewCount == 4)
-        #expect(word.correctCount == 1)
     }
 
     // MARK: - Yine de Çalış

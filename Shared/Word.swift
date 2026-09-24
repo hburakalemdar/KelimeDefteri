@@ -29,10 +29,24 @@ final class Word {
     var stability: Double = 0
     /// Zorluk: 1 (kolay) … 10 (zor).
     var difficulty: Double = 5
+    /// Motorun çıpası (büyüme hesabının başlangıç günü, 04:00). Tanıma cevabıyla ilerlemez;
+    /// "son görülme" için kelimenin en güncel cevap kaydına bakılır.
     var lastReviewedAt: Date?
-    /// Kelimenin öğrenilmiş sayılmaya başladığı cevabın tarihi; öğrenilmiş değilse `nil`.
-    /// Eski kelimelerde ilk değer son tekrar tarihidir (`MemoryMigration.fillLearnedDates`).
+    /// Kelimenin öğrenilmiş sayılmaya başladığı günün başı (04:00); hiç öğrenilmediyse `nil`.
     var learnedAt: Date? = nil
+    /// Zayıflık günü (yanlış bilinen gün, 04:00); zayıf değilse `nil`.
+    var lapsedAt: Date? = nil
+
+    // Hafıza alanları (`stability` … `lapsedAt`) `Memory.replay`in önbelleğidir; asıl kaynak bu taban
+    // ve ondan sonraki cevap kayıtlarıdır (bkz. `MemoryCache`, `MemoryMigration.migrateBaseIfNeeded`).
+    var baseStability: Double = 0
+    var baseDifficulty: Double = 5
+    var baseDueDate: Date = Date.distantPast
+    var baseLapsedAt: Date? = nil
+    var baseAnchorAt: Date? = nil
+    var baseLearnedAt: Date? = nil
+    /// Tabanın geçerli olduğu an; `nil` = henüz taban göçünden geçmedi, `.distantPast` = boş taban.
+    var baseAt: Date? = nil
     @Relationship(deleteRule: .cascade, inverse: \ReviewLog.word)
     var logs: [ReviewLog]?
 
@@ -57,35 +71,20 @@ extension Word {
     /// Hiç çalışılmamış kelime; hafıza yüzdesi yerine "Yeni" gösterilir.
     var isNew: Bool { stability <= 0 }
 
-    /// Şu anki hatırlama ihtimali (0…1); yeni kelimede `nil`.
-    /// Son tekrar zamanı bilinmiyorsa eklendiği andan sayılır.
-    ///
-    /// Yanlış cevaptan sonra tekrar zamanı son tekrarın da gerisine konur (`Memory.lapseDue`);
-    /// hafıza doğru bilinene kadar oradan sayılır ve düşük görünür.
+    /// Şu anki hatırlama ihtimali (0…1); yeni kelimede `nil`. Çıpadan gerçek (kesirli) zamanla sayılır;
+    /// zayıf kelimede en fazla %50.
     func memory(at date: Date = .now) -> Double? {
         guard !isNew else { return nil }
-        let start = isLapsed ? dueDate.addingTimeInterval(-stability * Memory.dayLength) : (lastReviewedAt ?? createdAt)
+        let start = lastReviewedAt ?? createdAt
         let elapsed = date.timeIntervalSince(start) / Memory.dayLength
-        return Memory.retrievability(elapsedDays: elapsed, stability: stability)
+        let memory = Memory.retrievability(elapsedDays: elapsed, stability: stability)
+        return isLapsed ? min(memory, Memory.lapseMemory) : memory
     }
 
-    /// Son cevap yanlıştı ve kelime henüz doğru bilinmedi. Normalde sıradaki tekrar son tekrardan
-    /// sonradır; yanlış cevaptan sonra ondan önceye konur.
-    var isLapsed: Bool {
-        guard let lastReviewedAt, dueDate > .distantPast else { return false }
-        return dueDate < lastReviewedAt
-    }
+    /// Yanlış bilinip henüz toparlanmamış kelime (turuncu halka, "Tekrar edilecek").
+    var isLapsed: Bool { lapsedAt != nil }
 
-    /// Tekrara ihtiyacı olan kelime: yeni ya da hatırlama ihtimali %90'ın altına inmiş.
-    func isWeak(at date: Date = .now) -> Bool {
-        guard let memory = memory(at: date) else { return true }
-        return memory < Memory.targetRetention
-    }
-
-    var isWeak: Bool { isWeak() }
-
-    /// Üç haftadan uzun süre akılda kalan kelime öğrenilmiş sayılır; yanlış bilinip henüz doğru
-    /// bilinmemiş kelime (zayıf) öğrenilmiş sayılmaz.
+    /// Dayanıklılığı üç haftayı geçen ve zayıf olmayan kelime öğrenilmiş sayılır (canlı; `learnedAt`ten ayrı).
     var isLearned: Bool { stability >= Memory.learnedStability && !isLapsed }
 }
 

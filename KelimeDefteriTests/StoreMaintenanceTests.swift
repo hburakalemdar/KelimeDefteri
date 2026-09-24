@@ -95,53 +95,62 @@ final class StoreMaintenanceTests {
         #expect(logs.allSatisfy { $0.word === kept })
     }
 
-    @Test func memoryComesFromLatestReviewedWord() throws {
+    /// Göç etmiş (tabanı olan) kelime: `at` anına kadar S gün dayanıklılıkla.
+    private func migrated(_ turkish: String, createdAt: Date, stability: Double, at: Date) -> Word {
+        let word = Word(english: "quorum", turkish: turkish, createdAt: createdAt)
+        word.reviewCount = 1
+        word.baseStability = stability
+        word.baseDueDate = at.addingTimeInterval(stability * 86_400)
+        word.baseAnchorAt = at
+        word.baseAt = at
+        return word
+    }
+
+    @Test func filledBaseBeatsMissingBase() throws {
         let context = try makeContext()
+        // Kalan kayıt (en eski) henüz göç etmemiş; öteki etmiş: taban ondan gelir, hafıza yeniden hesaplanır.
         let older = Word(english: "quorum", turkish: "yeter sayı", createdAt: base)
         older.stability = 3
-        older.difficulty = 6
-        older.dueDate = base.addingTimeInterval(3 * 86_400)
         older.lastReviewedAt = base
-        let newer = Word(english: "quorum", turkish: "nisap", createdAt: base.addingTimeInterval(5))
-        newer.stability = 9
-        newer.difficulty = 4
-        newer.dueDate = base.addingTimeInterval(20 * 86_400)
-        newer.lastReviewedAt = base.addingTimeInterval(86_400)
+        older.dueDate = base.addingTimeInterval(3 * 86_400)
+        let newer = migrated("nisap", createdAt: base.addingTimeInterval(5), stability: 9, at: base.addingTimeInterval(86_400))
         context.insert(older)
         context.insert(newer)
 
         StoreMaintenance.run(in: context, defaults: defaults, now: base)
         let kept = try #require(try words(context).first)
         #expect(kept.createdAt == base)
+        #expect(kept.baseAt == base.addingTimeInterval(86_400))
+        #expect(kept.baseStability == 9)
         #expect(kept.stability == 9)
-        #expect(kept.difficulty == 4)
-        #expect(kept.dueDate == base.addingTimeInterval(20 * 86_400))
+        #expect(kept.dueDate == base.addingTimeInterval(10 * 86_400))
         #expect(kept.lastReviewedAt == base.addingTimeInterval(86_400))
     }
 
-    @Test func studiedOlderKeepsMemoryOverUnstudiedNewer() throws {
+    @Test func olderBaseWinsAndLogsArePlayedOnIt() throws {
         let context = try makeContext()
-        let older = Word(english: "quorum", turkish: "yeter sayı", createdAt: base)
-        older.stability = 3
-        older.lastReviewedAt = base
-        older.dueDate = base.addingTimeInterval(3 * 86_400)
-        let newer = Word(english: "quorum", turkish: "nisap", createdAt: base.addingTimeInterval(5))
-        context.insert(older)
-        context.insert(newer)
+        let keeper = migrated("yeter sayı", createdAt: base, stability: 20, at: base.addingTimeInterval(2 * 86_400))
+        let other = migrated("nisap", createdAt: base.addingTimeInterval(5), stability: 5, at: base)
+        context.insert(keeper)
+        context.insert(other)
+        // Daha eski tabandan sonraki bir cevap: birleşik kelimede oynatılır.
+        let log = ReviewLog(date: base.addingTimeInterval(5 * 86_400), mode: GameMode.dailyReview.rawValue, correct: true, grade: 3, responseTime: 2)
+        context.insert(log)
+        log.word = other
 
-        StoreMaintenance.run(in: context, defaults: defaults, now: base)
+        StoreMaintenance.run(in: context, defaults: defaults, now: base.addingTimeInterval(6 * 86_400))
         let kept = try #require(try words(context).first)
-        #expect(kept.stability == 3)
-        #expect(kept.lastReviewedAt == base)
+        #expect(kept.baseAt == base)
+        #expect(kept.baseStability == 5)
+        #expect(kept.stability > 5)
+        #expect(kept.lastReviewedAt == DayBoundary.start(of: log.date))
     }
 
-    @Test func unstudiedGroupKeepsOlderMemory() throws {
+    @Test func unstudiedGroupStaysNew() throws {
         let context = try makeContext()
         let older = Word(english: "quorum", turkish: "yeter sayı", createdAt: base)
-        older.dueDate = base
         let newer = Word(english: "quorum", turkish: "nisap", createdAt: base.addingTimeInterval(5))
         newer.difficulty = 8
-        newer.dueDate = base.addingTimeInterval(99)
         context.insert(older)
         context.insert(newer)
 
@@ -149,8 +158,8 @@ final class StoreMaintenanceTests {
         let kept = try #require(try words(context).first)
         #expect(kept.isNew)
         #expect(kept.difficulty == 5)
-        #expect(kept.dueDate == base)
         #expect(kept.lastReviewedAt == nil)
+        #expect(kept.baseAt == .distantPast)
     }
 
     @Test func tripleCopiesMergeIntoOne() throws {
@@ -166,6 +175,8 @@ final class StoreMaintenanceTests {
         third.stability = 2
         for word in [third, first, second] { context.insert(word) }
         addLog(to: third, correct: true, in: context)
+        // Uygulama bakımdan önce bütün defteri göçten geçirir (ContentView / MacGamesView).
+        MemoryCache.refreshAll(in: context, now: base)
 
         let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base)
         #expect(summary.mergedWords == 2)
@@ -176,7 +187,9 @@ final class StoreMaintenanceTests {
         #expect(kept.turkish == "almak, götürmek, sürmek")
         #expect(kept.example == "Take it.")
         #expect(kept.reviewCount == 3)
-        #expect(kept.stability == 4)
+        // En eski taban kalan kaydın boş tabanı (hiç cevaplanmamıştı): taşınan tek cevap baştan oynatılır.
+        #expect(kept.baseAt == .distantPast)
+        #expect(kept.stability == 3)
         #expect(kept.logs?.count == 1)
     }
 

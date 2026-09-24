@@ -97,6 +97,28 @@ struct RecentWordsTests {
         }
     }
 
+    /// Günde en fazla 5 yeni kelime gerçekten günlük: aynı gün ikinci kez açılan Günlük Tekrar yeni vermez.
+    @Test func dailyNewWordLimitHoldsForTheWholeDay() throws {
+        let context = try makeContext()
+        let words = newWords(8, in: context)
+        let first = StudySession(seed: 1, defaults: defaults())
+        first.start(with: words, plan: .daily, now: now)
+        #expect(first.wordCount == 5)
+        while first.current != nil { first.grade(known: true, now: now) }
+        #expect(StudySession.introducedToday(words, now: now) == 5)
+
+        let later = now.addingTimeInterval(3_600)
+        #expect(StudySession.dailyCount(words, now: later) == (weak: 0, new: 0))
+        let second = StudySession(seed: 2, defaults: defaults())
+        second.start(with: words, plan: .daily, now: later)
+        #expect(second.current == nil)
+
+        // Ertesi gün (04:00'ten sonra) kalan 3 yeni gelir.
+        let tomorrow = DayBoundary.nextStart(after: now).addingTimeInterval(3_600)
+        #expect(StudySession.introducedToday(words, now: tomorrow) == 0)
+        #expect(StudySession.dailyCount(words, now: tomorrow).new == 3)
+    }
+
     @Test func answersStartMemory() throws {
         let context = try makeContext()
         let words = newWords(8, in: context)
@@ -110,11 +132,14 @@ struct RecentWordsTests {
         session.grade(known: true, now: now)
         #expect(!first.isNew)
         #expect(first.memory(at: now) != nil)
-        #expect(first.reviewCount == 1)
+        #expect(first.answerCount == 1)
         let logs = try context.fetch(FetchDescriptor<ReviewLog>())
         #expect(logs.count == 1)
         #expect(logs.first?.mode == GameMode.dailyReview.rawValue)
-        // Tanışılan kelime artık bekleyenlerden sayılmaz.
-        #expect(StudySession.recentWaitingCount(words, now: now) == 2)
+        // Tanışılan kelime artık bekleyenlerden sayılmaz; günlük 5 yeni kelime sınırından da düşer:
+        // Günlük Tekrar bugün 4 yeni alır, 7 yeniden 3'ü bekler.
+        #expect(StudySession.introducedToday(words, now: now) == 1)
+        #expect(StudySession.dailyCount(words, now: now).new == 4)
+        #expect(StudySession.recentWaitingCount(words, now: now) == 3)
     }
 }

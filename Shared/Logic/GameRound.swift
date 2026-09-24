@@ -61,21 +61,20 @@ final class GameRound {
         if pausedAt != nil { pausedAt = now }
     }
 
-    /// Şu anki kelimenin cevabını kaydeder. Aynı kelime turda ikinci kez cevaplanırsa özet ilk cevabı tutar
-    /// ve hafızayı yalnızca ilk cevap değiştirir.
+    /// Şu anki kelimenin cevabını kaydeder. Aynı kelime turda ikinci kez cevaplanırsa özet ilk cevabı tutar;
+    /// aynı gündeki bütün cevaplar motorda birlikte değerlendirilir (günün notu).
     /// `timed` false ise (ör. Eşleştir) cevap süresi kaydedilmez. `mode` verilirse cevap o oyun adına
     /// (ve o oyunun ağırlığıyla) kaydedilir; karışık Hızlı Tur her soruyu kendi türüyle yazar.
     func record(_ word: Word, grade: AnswerGrade, mode: GameMode? = nil, timed: Bool = true, now: Date = .now) {
         guard !word.isDeleted else { return }
-        // Eski biçimli kelimenin önceki hafızası "Yeni" görünmesin.
+        // Eski biçimli kelimenin önceki durumu "Yeni" görünmesin.
         MemoryMigration.migrate(word)
-        let isFirstAnswer = !entries.contains(where: { $0.word === word })
-        if isFirstAnswer {
-            entries.append(StudySession.RoundEntry(word: word, memoryBefore: word.memory(at: now), firstCorrect: grade.isCorrect))
+        if !entries.contains(where: { $0.word === word }) {
+            entries.append(StudySession.RoundEntry(before: word, firstCorrect: grade.isCorrect))
         }
         ReviewRecorder.record(
             word, grade: grade, mode: mode ?? self.mode,
-            responseTime: timed ? now.timeIntervalSince(shownAt) : 0, updatesMemory: isFirstAnswer, now: now
+            responseTime: timed ? now.timeIntervalSince(shownAt) : 0, now: now
         )
         finishedAt = now
     }

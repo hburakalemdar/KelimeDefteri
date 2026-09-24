@@ -186,7 +186,7 @@ struct MotivationTests {
         context.insert(word)
         for index in 0..<3 {
             ReviewRecorder.record(word, grade: .good, mode: .quickRound, responseTime: 3,
-                                  updatesMemory: index == 0, now: now.addingTimeInterval(Double(index)))
+                                  now: now.addingTimeInterval(Double(index)))
         }
         try context.save()
         let logs = try context.fetch(FetchDescriptor<ReviewLog>())
@@ -207,8 +207,8 @@ struct MotivationTests {
         word.stability = Memory.learnedStability
         word.dueDate = now.addingTimeInterval(word.stability * Memory.dayLength)
         #expect(word.isLearned)
-        // Yanlış bilinip henüz doğru bilinmemiş kelime öğrenilmiş sayılmaz.
-        word.dueDate = now.addingTimeInterval(-Memory.dayLength)
+        // Yanlış bilinip henüz toparlanmamış (zayıf) kelime öğrenilmiş sayılmaz.
+        word.lapsedAt = now
         #expect(!word.isLearned)
     }
 }

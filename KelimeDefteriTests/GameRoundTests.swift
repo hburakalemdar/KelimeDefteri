@@ -38,16 +38,19 @@ struct GameRoundTests {
         #expect(round.isFinished)
         #expect(round.entries.count == 1)
         #expect(round.entries.first?.firstCorrect == false)
-        // İlk cevap (again, ağırlık 0.6): 0.4 × 0.6 = 0.24 → en az 0.3.
-        // Aynı turdaki ikinci cevap hafızayı değiştirmez, yalnızca geçmişe ve sayaçlara yazılır.
+        #expect(round.entries.first?.dueBefore == nil)
+        #expect(round.entries.first?.lapsedBefore == false)
+        // İlk cevap (again, ağırlık 0.6): 0.4 × 0.6 = 0.24 → en az 0.3. Yanlıştan 6 sn sonraki doğru
+        // günün notuna sayılmaz (30 dakika kapısı); ikisi de geçmişe yazılır.
         #expect(word.stability == 0.3)
-        #expect(word.lastReviewedAt == start.addingTimeInterval(3))
+        #expect(word.isLapsed)
+        #expect(word.lastReviewedAt == DayBoundary.start(of: start))
         let logs = try context.fetch(FetchDescriptor<ReviewLog>(sortBy: [SortDescriptor(\.date)]))
         #expect(logs.map(\.mode) == ["choice", "choice"])
         #expect(logs.map(\.correct) == [false, true])
         #expect(logs.first?.responseTime == 3)
-        #expect(word.reviewCount == 2)
-        #expect(word.correctCount == 1)
+        #expect(word.answerCount == 2)
+        #expect(word.correctAnswerCount == 1)
     }
 
     @Test func mixedRoundRecordsEachQuestionWithItsOwnGame() throws {
@@ -66,11 +69,8 @@ struct GameRoundTests {
 
         let logs = try context.fetch(FetchDescriptor<ReviewLog>())
         #expect(logs.map(\.mode) == [GameMode.letters.rawValue])
-        let expected = Memory.review(
-            stability: 0, difficulty: 5, lastReviewedAt: nil, grade: .good,
-            weight: GameMode.letters.weight, now: start.addingTimeInterval(4)
-        )
-        #expect(word.stability == expected.stability)
+        // İlk gün tablosu: good 3 × Harfleri Diz ağırlığı 0.8.
+        #expect(abs(word.stability - 3 * GameMode.letters.weight) < 1e-12)
         #expect(GameMode.letters.weight != GameMode.quickRound.weight)
     }
 }

@@ -13,6 +13,8 @@ struct MemoryRing: View {
     let memory: Double?
     var size: CGFloat = 18
     var text: TextPlacement = .none
+    /// Zayıf kelime (`Word.isLapsed`): halka hafıza değerine bakmadan turuncu.
+    var isLapsed: Bool = false
 
     var body: some View {
         switch text {
@@ -41,7 +43,8 @@ struct MemoryRing: View {
     private var lineWidth: CGFloat { max(2, size / 7) }
 
     private var color: Color {
-        memory.map { MemoryStats.Level($0).color } ?? .secondary
+        if isLapsed, memory != nil { return .orange }
+        return memory.map { MemoryStats.Level($0).color } ?? .secondary
     }
 
     private var ring: some View {
@@ -89,9 +92,10 @@ enum DeckSummary {
     enum Group { case weak, strong, new }
 
     /// Zayıf, Güçlü ve Yeni birbirini dışlar: yeni kelimenin hafızası henüz yok, zayıf da güçlü de sayılmaz.
+    /// "Zayıf" burada Günlük Tekrar'ın soracağı küme: vadesi gelmiş çalışılmış kelimeler (`isDue`).
     static func group(of word: Word, now: Date = .now) -> Group {
         if word.isNew { return .new }
-        return word.isWeak(at: now) ? .weak : .strong
+        return word.isDue(at: now) ? .weak : .strong
     }
 
     /// Sıfır olan parça yazılmaz.

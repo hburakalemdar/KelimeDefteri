@@ -34,7 +34,7 @@ struct WordsWindow: View {
             .width(min: 60, ideal: 70, max: 80)
             TableColumn("Sıradaki tekrar", value: \.dueDate) { word in
                 Text(Leitner.dueDescription(for: word.dueDate))
-                    .foregroundStyle(word.isWeak ? Color.accentColor : .secondary)
+                    .foregroundStyle(word.isDue(at: .now) ? Color.accentColor : .secondary)
                     .monospacedDigit()
             }
             .width(min: 90, ideal: 110)
@@ -64,6 +64,8 @@ struct WordsWindow: View {
         .searchable(text: $searchText, placement: .toolbar, prompt: "İngilizce ya da Türkçe ara")
         .navigationTitle("Kelimelerim")
         .navigationSubtitle(subtitle)
+        // Pencere açılınca hafıza alanları cevap kayıtlarından yeniden hesaplanır.
+        .onAppear { MemoryCache.refreshAll(in: context) }
         .toolbar {
             ToolbarItemGroup {
                 Button("Sil", systemImage: "trash") { delete(selection) }

@@ -12,6 +12,8 @@ struct FormFixesTests {
         word.reviewCount = 1
         word.stability = weak ? 1 : 30
         word.lastReviewedAt = now.addingTimeInterval(weak ? -5 * 86_400 : 0)
+        // Zayıf = vadesi gelmiş (Günlük Tekrar'ın soracağı küme).
+        word.dueDate = word.lastReviewedAt!.addingTimeInterval(word.stability * 86_400)
         return word
     }
 
@@ -46,7 +48,7 @@ struct FormFixesTests {
         }
         // Zayıf kelime ile yeşil halka birbirini dışlar.
         let weak = studied("w", weak: true)
-        #expect(weak.isWeak(at: now))
+        #expect(weak.isDue(at: now))
         #expect(MemoryStats.Level(weak.memory(at: now)!) != .strong)
     }
 

@@ -43,7 +43,7 @@ nonisolated enum StoreMaintenance {
         do {
             let words = try context.fetch(FetchDescriptor<Word>())
             for group in duplicateGroups(words) {
-                merge(group)
+                merge(group, now: now)
                 summary.mergedWords += group.count - 1
             }
 
@@ -108,24 +108,21 @@ nonisolated enum StoreMaintenance {
 
     /// Grubu ilk kayıtta toplar, ötekileri siler.
     @MainActor
-    private static func merge(_ group: [Word]) {
+    private static func merge(_ group: [Word], now: Date) {
         guard let keeper = group.first else { return }
         let others = group.dropFirst()
 
-        // Hafıza, en son çalışılan kayıttan gelir; hiçbiri çalışılmadıysa kalan kayıttaki durur.
-        // Eşit tarihte sıradaki ilk kayıt seçilir.
-        let latest = group
-            .filter { $0.lastReviewedAt != nil }
+        // Hafıza tabandan ve cevap kayıtlarından yeniden hesaplanır (SPEC-MOTOR2 §6). Taban: göç kontrolünden
+        // geçmiş (`baseAt` dolu) kayıtlar arasından `baseAt`i en eski olan (daha geniş bir cevap aralığını
+        // kapsar); eşitse sıradaki ilk kayıt. Hiçbiri geçmediyse kalan kayıt bir sonraki göçte ele alınır.
+        let baseSource = group
+            .filter { $0.baseAt != nil }
             .reduce(nil as Word?) { best, word in
-                guard let best, let bestDate = best.lastReviewedAt else { return word }
-                return word.lastReviewedAt! > bestDate ? word : best
+                guard let best, let bestAt = best.baseAt else { return word }
+                return word.baseAt! < bestAt ? word : best
             }
-        if let latest, latest !== keeper {
-            keeper.stability = latest.stability
-            keeper.difficulty = latest.difficulty
-            keeper.dueDate = latest.dueDate
-            keeper.lastReviewedAt = latest.lastReviewedAt
-            keeper.learnedAt = latest.learnedAt
+        if let baseSource, baseSource !== keeper {
+            copyBase(from: baseSource, to: keeper)
         }
 
         for other in others {
@@ -137,5 +134,17 @@ nonisolated enum StoreMaintenance {
             for log in other.logs ?? [] { log.word = keeper }
             other.modelContext?.delete(other)
         }
+        MemoryCache.refresh(keeper, now: now)
+    }
+
+    @MainActor
+    private static func copyBase(from source: Word, to target: Word) {
+        target.baseStability = source.baseStability
+        target.baseDifficulty = source.baseDifficulty
+        target.baseDueDate = source.baseDueDate
+        target.baseLapsedAt = source.baseLapsedAt
+        target.baseAnchorAt = source.baseAnchorAt
+        target.baseLearnedAt = source.baseLearnedAt
+        target.baseAt = source.baseAt
     }
 }

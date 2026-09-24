@@ -59,22 +59,26 @@ enum GlanceQuiz {
 
     static func key(for word: Word) -> String { AnswerChecker.fold(word.english) }
 
-    /// Zayıf kelimelere ağırlıklı rastgele bir soru; `avoiding` (önceki sorunun kelimesi) mümkünse gelmez.
-    /// Defterde 4'ten az kelime varsa ya da yeterli farklı seçenek çıkmazsa `nil`.
+    /// Soru hiçbir zaman yeni kelimeden değildir (yeni kelime Günlük Tekrar'da tanıtılır): önce `now` anında
+    /// vadesi gelmiş çalışılmış kelimeler, yoksa bütün çalışılmış kelimeler arasından ağırlıklı rastgele.
+    /// `avoiding` (önceki sorunun kelimesi) mümkünse gelmez. Defterde 4'ten az kelime ya da hiç çalışılmış
+    /// kelime yoksa, yeterli farklı seçenek çıkmazsa `nil`.
     static func question<G: RandomNumberGenerator>(
         from words: [Word], avoiding previousKey: String? = nil, now: Date = .now, using generator: inout G
     ) -> GlanceQuestion? {
         let words = words.filter { !$0.isDeleted && !key(for: $0).isEmpty }
         guard words.count >= minimumWords else { return nil }
-        let candidates = words.indices.map { index in
-            let memory = words[index].memory(at: now)
-            return WordPicker.Candidate(id: index, weight: WordPicker.weight(memory: memory), isNew: memory == nil)
+        let studied = words.filter { !$0.isNew }
+        let due = studied.filter { $0.isDue(at: now) }
+        let pool = due.isEmpty ? studied : due
+        let candidates = pool.indices.map { index in
+            WordPicker.Candidate(id: index, weight: WordPicker.weight(memory: pool[index].memory(at: now)))
         }
-        let avoided = previousKey.flatMap { key in words.firstIndex { Self.key(for: $0) == key } }
+        let avoided = previousKey.flatMap { key in pool.firstIndex { Self.key(for: $0) == key } }
         guard let index = WordPicker.order(candidates, limit: 1, avoidingFirst: avoided, using: &generator).first else {
             return nil
         }
-        let word = words[index]
+        let word = pool[index]
         let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(turkish: $0.turkish) }
         let result = ChoiceQuiz.options(answer: ChoiceQuiz.Candidate(turkish: word.turkish), others: others, using: &generator)
         // Yanlış seçenek çıkmadıysa (bütün kelimeler aynı anlamda) soru sorulmaz.

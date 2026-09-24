@@ -97,6 +97,8 @@ struct MacSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 460, height: 720)
+        // Pencere açılınca hafıza alanları cevap kayıtlarından yeniden hesaplanır (İlerleme bunları okur).
+        .onAppear { MemoryCache.refreshAll(in: context) }
         .task {
             iCloudStatus = (try? await CKContainer(identifier: SharedStore.cloudKitContainerID).accountStatus()) ?? .couldNotDetermine
             let denied = await ReminderScheduler.isDenied()

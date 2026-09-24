@@ -73,22 +73,62 @@ struct GlanceTests {
             var generator = SeededGenerator(seed: seed)
             if GlanceQuiz.question(from: words, now: now, using: &generator)?.english == "stale" { staleCount += 1 }
         }
-        // Beş kelimeden biri; eşit olsaydı ~80 kez çıkardı.
-        #expect(staleCount > 160)
+        // Vadesi gelmiş tek kelime o: hep o sorulur.
+        #expect(staleCount == 400)
+    }
+
+    @Test func dueWordsComeFirstAndNewWordsAreNeverAsked() throws {
+        let context = try makeContext()
+        var words = deck(in: context, weak: ["stale", "quorum"])
+        for index in 0..<5 {
+            let fresh = Word(english: "fresh\(index)", turkish: "yeni \(index)")
+            context.insert(fresh)
+            words.append(fresh)
+        }
+        for seed in 0..<60 as Range<UInt64> {
+            var generator = SeededGenerator(seed: seed)
+            let question = try #require(GlanceQuiz.question(from: words, now: now, using: &generator))
+            #expect(["stale", "quorum"].contains(question.english))
+        }
+    }
+
+    @Test func questionFallsBackToStudiedWordsWhenNothingIsDue() throws {
+        let context = try makeContext()
+        var words = deck(in: context)
+        let fresh = Word(english: "shard", turkish: "parça")
+        context.insert(fresh)
+        words.append(fresh)
+        var asked = Set<String>()
+        for seed in 0..<60 as Range<UInt64> {
+            var generator = SeededGenerator(seed: seed)
+            // Widget boş kalmaz: vadesi gelen yoksa bütün çalışılmış kelimelerden.
+            let question = try #require(GlanceQuiz.question(from: words, now: now, using: &generator))
+            asked.insert(question.english)
+        }
+        #expect(!asked.contains("shard"))
+        #expect(asked.count > 1)
+
+        // Hiç çalışılmış kelime yoksa soru yok.
+        let onlyNew = (0..<5).map { Word(english: "n\($0)", turkish: "anlam \($0)") }
+        var generator = SeededGenerator(seed: 1)
+        #expect(GlanceQuiz.question(from: onlyNew, now: now, using: &generator) == nil)
     }
 
     // MARK: - Cevap
 
     @Test func correctAnswerGoesThroughEngineAsMultipleChoice() throws {
         let context = try makeContext()
-        let words = deck(in: context)
+        let words = deck(in: context, weak: ["idempotent"])
         let word = words[0]
         let question = GlanceQuestion(id: "q", english: word.english, wordKey: "idempotent",
                                       options: ["bayat", "eş etkili", "gecikme", "yeter sayı"], correctIndex: 1)
         let stabilityBefore = word.stability
+        let anchorBefore = word.lastReviewedAt
         #expect(GlanceQuiz.answer(question, chosen: 1, context: context, now: now) == true)
+        // Tanıma genç kelimeyi büyütür ama çıpayı ilerletmez.
         #expect(word.stability > stabilityBefore)
-        #expect(word.lastReviewedAt == now)
+        #expect(word.stability <= Memory.recognitionCap)
+        #expect(word.lastReviewedAt == anchorBefore)
         let log = try #require(word.logs?.first)
         #expect(log.mode == GameMode.multipleChoice.rawValue)
         #expect(log.correct)
@@ -102,7 +142,8 @@ struct GlanceTests {
         let question = GlanceQuestion(id: "q", english: word.english, wordKey: "idempotent",
                                       options: ["bayat", "eş etkili", "gecikme", "yeter sayı"], correctIndex: 1)
         #expect(GlanceQuiz.answer(question, chosen: 0, context: context, now: now) == false)
-        #expect(word.isWeak(at: now))
+        #expect(word.isLapsed)
+        #expect(!word.isDue(at: now))
         #expect(word.logs?.first?.grade == AnswerGrade.again.rawValue)
     }
 

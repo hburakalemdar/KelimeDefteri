@@ -8,10 +8,31 @@ nonisolated enum ReverseChecker {
     enum Result: Equatable {
         case exact
         case typo
+        /// Defterde aranan kelimeyle ortak Türkçe anlamı olan başka bir kelime yazıldı (onun İngilizcesi).
+        case synonymOf(String)
         case wrong
     }
 
     static let typoMinimumLength = 5
+
+    /// Defterle birlikte kontrol: cevap aranan kelime değil ama defterdeki eşanlamlı bir kelimeyse
+    /// (ortak Türkçe anlam) `.synonymOf`. Sıra: tam doğru, eşanlamlı, yazım hatası, yanlış.
+    @MainActor
+    static func check(_ answer: String, expected: String, in words: [Word]) -> Result {
+        let result = check(answer, expected: expected)
+        guard result != .exact else { return result }
+        let given = AnswerChecker.fold(answer)
+        let target = AnswerChecker.fold(expected)
+        let meanings = words.filter { AnswerChecker.fold($0.english) == target }.map(\.turkish)
+        if !given.isEmpty, !meanings.isEmpty,
+           let synonym = words.first(where: { word in
+               AnswerChecker.fold(word.english) == given
+                   && meanings.contains { ChoiceQuiz.shareMeaning($0, word.turkish) }
+           }) {
+            return .synonymOf(synonym.english)
+        }
+        return result
+    }
 
     static func check(_ answer: String, expected: String) -> Result {
         let given = AnswerChecker.fold(answer)

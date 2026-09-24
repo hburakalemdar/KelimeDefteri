@@ -3,8 +3,8 @@ import SwiftData
 import Testing
 @testable import KelimeDefteri
 
-/// Mantık düzeltmelerinin testleri: duraklatılmış saat, tur süresi, gün dönümü, hemen arkasından
-/// gelen tekrar, %50 gösterimi, eski biçimli kelime, silinmiş kelime, bildirim sayısı.
+/// Mantık düzeltmelerinin testleri: duraklatılmış saat, tur süresi, gün dönümü, tur içinde yeniden
+/// sorma, %50 gösterimi, eski biçimli kelime, silinmiş kelime, bildirim sayısı.
 struct LogicFixesTests {
     private let now = Date(timeIntervalSince1970: 1_790_000_000)
 
@@ -114,12 +114,14 @@ struct LogicFixesTests {
 
     // MARK: - 4. Gün dönümü
 
-    @Test func answerOnAnotherDayChangesMemoryAgain() {
+    @Test func answerOnAnotherDayChangesMemoryAgain() throws {
+        let context = try makeContext()
         var calendar = Calendar.current
         calendar.timeZone = .current
         let dayOne = calendar.date(bySettingHour: 22, minute: 0, second: 0, of: now)!
         let dayTwo = dayOne.addingTimeInterval(14 * 3_600)
-        let words = [weakWord("a"), weakWord("b")]
+        let words = [weakWord("a"), weakWord("b"), weakWord("c")]
+        for word in words { context.insert(word) }
         let session = StudySession(seed: 1, defaults: defaults())
         session.start(with: words, plan: .daily, now: dayOne)
         #expect(!session.began(onAnotherDayThan: dayOne.addingTimeInterval(3_600)))
@@ -127,61 +129,76 @@ struct LogicFixesTests {
 
         let missed = session.current!
         session.grade(known: false, now: dayOne.addingTimeInterval(60))
+        #expect(missed.isLapsed)
         let lapsedStability = missed.stability
         session.grade(known: true, now: dayTwo)
+        session.grade(known: true, now: dayTwo.addingTimeInterval(10))
         #expect(session.current === missed)
         session.grade(known: true, now: dayTwo.addingTimeInterval(30))
         // Ertesi günkü cevap hafızayı değiştirdi: kelime zayıflıktan çıktı, dayanıklılık büyüdü.
-        #expect(missed.lastReviewedAt == dayTwo.addingTimeInterval(30))
+        #expect(missed.lastReviewedAt == DayBoundary.start(of: dayTwo))
         #expect(missed.stability > lapsedStability)
-        #expect(!missed.isWeak(at: dayTwo.addingTimeInterval(60)))
+        #expect(!missed.isLapsed)
+        #expect(!missed.isDue(at: dayTwo.addingTimeInterval(60)))
         // Özet ilk cevabı tutar.
-        #expect(session.roundEntries.count == 2)
+        #expect(session.roundEntries.count == 3)
         #expect(session.roundEntries.first { $0.word === missed }?.firstCorrect == false)
     }
 
     // MARK: - 6. Yanlış cevaptan sonra %50
 
-    @Test func lapsedMemoryShowsFiftyPercentForAWhile() {
+    @Test func lapsedMemoryShowsFiftyPercentForAWhile() throws {
+        let context = try makeContext()
         let word = strongWord("coalesce")
+        context.insert(word)
         ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
         #expect(MemoryStats.text(word.memory(at: now)) == "%50")
         #expect(MemoryStats.text(word.memory(at: now.addingTimeInterval(3_600))) == "%50")
 
         let new = Word(english: "quorum", turkish: "yeter sayı")
+        context.insert(new)
         ReviewRecorder.record(new, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
         #expect(MemoryStats.text(new.memory(at: now)) == "%50")
-        #expect(new.isWeak(at: now))
+        #expect(new.isLapsed)
+        // Zayıf kelime yarına kadar yeniden seçilmez.
+        #expect(!new.isDue(at: now))
+        #expect(new.isDue(at: DayBoundary.nextStart(after: now)))
     }
 
-    // MARK: - 7. Hemen arkasından gelen tekrar
+    // MARK: - 7. Tur içinde yeniden sorma
 
-    @Test func immediateRepeatKeepsTheWordWeak() {
+    @Test func missedWordWithoutRoomIsNotAskedAgain() throws {
+        let context = try makeContext()
         let word = strongWord("idempotent")
+        context.insert(word)
         let session = StudySession(seed: 1, defaults: defaults())
         session.start(with: [word], plan: .extraPractice, now: now)
         session.grade(known: false, now: now.addingTimeInterval(5))
-        #expect(session.current === word)
-        session.grade(known: true, now: now.addingTimeInterval(10))
+        // Arada 2 kart kalmadığı için yeniden sorulmaz, kelime biten sayılır.
         #expect(session.current == nil)
         #expect(session.finishedWordCount == 1)
         #expect(word.isLapsed)
-        #expect(word.isWeak(at: now.addingTimeInterval(20)))
     }
 
-    @Test func repeatAfterAnotherCardClearsTheLapse() {
-        let first = strongWord("idempotent")
-        let second = strongWord("coalesce")
+    @Test func sameDayRepeatDoesNotClearTheLapse() throws {
+        let context = try makeContext()
+        let words = ["idempotent", "coalesce", "quorum"].map(strongWord)
+        for word in words { context.insert(word) }
         let session = StudySession(seed: 1, defaults: defaults())
-        session.start(with: [first, second], plan: .extraPractice, now: now)
+        session.start(with: words, plan: .extraPractice, now: now)
         let missed = session.current!
         session.grade(known: false, now: now.addingTimeInterval(5))
         #expect(session.current !== missed)
         session.grade(known: true, now: now.addingTimeInterval(10))
-        #expect(session.current === missed)
         session.grade(known: true, now: now.addingTimeInterval(15))
-        #expect(!missed.isLapsed)
-        #expect(!missed.isWeak(at: now.addingTimeInterval(20)))
+        #expect(session.current === missed)
+        // Yanlıştan 30 dakika içindeki doğru günün notuna sayılmaz: kelime zayıf kalır, yarın sorulur.
+        session.grade(known: true, now: now.addingTimeInterval(20))
+        #expect(session.current == nil)
+        #expect(session.finishedWordCount == 3)
+        #expect(missed.isLapsed)
+        #expect(missed.dueDate == DayBoundary.nextStart(after: now))
+        #expect(session.roundEntries.first { $0.word === missed }?.firstCorrect == false)
     }
 
     // MARK: - 8. Eski biçimli kelime
@@ -203,13 +220,14 @@ struct LogicFixesTests {
         #expect(session.current === word)
         #expect(StudySession.dailyCount([word], now: now) == (weak: 1, new: 0))
         session.grade(known: true, now: now)
-        #expect(session.roundEntries.first?.memoryBefore != nil)
+        #expect(session.roundEntries.first?.dueBefore == now.addingTimeInterval(-2 * Memory.dayLength))
+        #expect(session.roundEntries.first?.lapsedBefore == false)
 
         let other = oldFormatWord()
         let round = GameRound(mode: .multipleChoice, seed: 1, defaults: defaults())
         round.start(with: [other], count: 1, now: now)
         round.record(other, grade: .good, now: now)
-        #expect(round.entries.first?.memoryBefore != nil)
+        #expect(round.entries.first?.dueBefore != nil)
 
         let synced = oldFormatWord()
         session.start(with: [], plan: .weak, now: now)
@@ -219,8 +237,10 @@ struct LogicFixesTests {
 
     // MARK: - 9. Öğrenildi
 
-    @Test func lapsedWordIsNotLearned() {
+    @Test func lapsedWordIsNotLearned() throws {
+        let context = try makeContext()
         let word = strongWord("coalesce")
+        context.insert(word)
         #expect(word.isLearned)
         ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
         word.stability = 25
@@ -239,10 +259,10 @@ struct LogicFixesTests {
         #expect(ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: now) == nil)
         #expect(word.reviewCount == 0)
 
-        // Bağlamı olmayan kelime yine kaydedilir.
+        // Depoya eklenmemiş kelimeye kayıt bağlanamaz; hafızası kayıtlardan hesaplandığı için değişmez.
         let loose = Word(english: "quorum", turkish: "yeter sayı")
-        ReviewRecorder.record(loose, grade: .good, mode: .dailyReview, responseTime: 3, now: now)
-        #expect(loose.reviewCount == 1)
+        #expect(ReviewRecorder.record(loose, grade: .good, mode: .dailyReview, responseTime: 3, now: now) == nil)
+        #expect(loose.isNew)
     }
 
     @Test func sessionSurvivesADeletedCurrentWord() throws {

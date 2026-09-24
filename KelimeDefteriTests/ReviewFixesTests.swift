@@ -24,6 +24,7 @@ struct ReviewFixesTests {
         word.reviewCount = 1
         word.stability = weak ? 1 : 30
         word.lastReviewedAt = Date.now.addingTimeInterval(weak ? -5 * 86_400 : 0)
+        word.dueDate = word.lastReviewedAt!.addingTimeInterval(word.stability * 86_400)
         return word
     }
 
@@ -88,23 +89,24 @@ struct ReviewFixesTests {
 
     // MARK: - Kapatınca cevap
 
-    @Test func closingAfterRevealRecordsTheKnownResult() {
+    @Test func closingAfterRevealRecordsTheKnownResult() throws {
+        let context = try makeContext()
         let correct = studied("stale", weak: true)
+        context.insert(correct)
         let session = StudySession(seed: 1, defaults: defaults())
         session.start(with: [correct], plan: .daily)
         session.reveal(answer: "anlam")
         session.gradePendingAnswer()
-        #expect(correct.reviewCount == 2)
-        #expect(correct.correctCount == 1)
+        #expect(correct.logs?.map(\.correct) == [true])
         #expect(session.current == nil)
 
         let wrong = studied("quorum", weak: true)
+        context.insert(wrong)
         let other = StudySession(seed: 1, defaults: defaults())
         other.start(with: [wrong], plan: .daily)
         other.reveal(answer: "başka")
         other.gradePendingAnswer()
-        #expect(wrong.reviewCount == 2)
-        #expect(wrong.correctCount == 0)
+        #expect(wrong.logs?.map(\.correct) == [false])
     }
 
     @Test func closingAfterPeekOrBeforeRevealRecordsNothing() {
@@ -155,14 +157,13 @@ struct ReviewFixesTests {
         context.insert(word)
 
         let values = MemoryMigration.values(box: 4, dueDate: now, reviewCount: 4, correctCount: 4)
-        let expected = Memory.review(
-            stability: values.stability, difficulty: values.difficulty, lastReviewedAt: values.lastReviewedAt,
-            grade: .good, weight: GameMode.dailyReview.weight, now: now
-        )
         ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: now)
-        #expect(word.stability == expected.stability)
-        #expect(word.difficulty == expected.difficulty)
+        // Kutudan çıkan değerler taban olur, cevap onun üstüne oynatılır.
+        #expect(word.baseStability == values.stability)
+        #expect(word.baseDifficulty == values.difficulty)
+        #expect(word.baseAnchorAt == values.lastReviewedAt)
         #expect(word.stability > values.stability)
+        #expect(word.lastReviewedAt == DayBoundary.start(of: now))
     }
 }
 
@@ -176,35 +177,33 @@ struct RepeatAnswerTests {
         return ModelContext(container)
     }
 
-    /// Aynı turda iki kez bilinmeyip sonra bilinen kelimenin hafızası yalnızca ilk cevapla değişir.
-    @Test func onlyFirstAnswerInRoundChangesMemory() throws {
+    /// Aynı gün iki kez bilinmeyip hemen sonra bilinen kelime: gün tek bir yanlış gibi değerlendirilir.
+    @Test func sameDayAnswersAreJudgedTogether() throws {
         let context = try makeContext()
         let start = Date.now
-        let word = Word(english: "stale", turkish: "eskimiş")
-        word.reviewCount = 5
-        word.correctCount = 5
-        word.stability = 20
-        word.difficulty = 5
-        word.lastReviewedAt = start.addingTimeInterval(-40 * 86_400)
-        context.insert(word)
-        let expected = Memory.review(
-            stability: 20, difficulty: 5, lastReviewedAt: word.lastReviewedAt, grade: .again,
-            weight: GameMode.dailyReview.weight, now: start
-        )
+        func word(_ english: String) -> Word {
+            let word = Word(english: english, turkish: "eskimiş")
+            word.reviewCount = 5
+            word.correctCount = 5
+            word.stability = 20
+            word.difficulty = 5
+            word.lastReviewedAt = start.addingTimeInterval(-40 * 86_400)
+            word.dueDate = word.lastReviewedAt!.addingTimeInterval(20 * 86_400)
+            context.insert(word)
+            return word
+        }
+        let repeated = word("stale")
+        let once = word("outdated")
+        for (offset, grade) in [(0.0, AnswerGrade.again), (10, .again), (20, .good)] {
+            ReviewRecorder.record(repeated, grade: grade, mode: .dailyReview, responseTime: 3, now: start.addingTimeInterval(offset))
+        }
+        ReviewRecorder.record(once, grade: .again, mode: .dailyReview, responseTime: 3, now: start)
 
-        let session = StudySession(seed: 1, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
-        session.start(with: [word], plan: .daily, now: start)
-        session.grade(known: false, now: start)
-        session.grade(known: false, now: start.addingTimeInterval(10))
-        session.grade(known: true, now: start.addingTimeInterval(20))
-
-        #expect(session.current == nil)
-        #expect(word.stability == expected.stability)
-        #expect(word.difficulty == expected.difficulty)
-        #expect(word.lastReviewedAt == start)
-        #expect(word.reviewCount == 8)
-        #expect(word.correctCount == 6)
-        #expect(try context.fetch(FetchDescriptor<ReviewLog>()).count == 3)
+        #expect(repeated.stability == once.stability)
+        #expect(repeated.difficulty == once.difficulty)
+        #expect(repeated.isLapsed)
+        #expect(repeated.lastReviewedAt == DayBoundary.start(of: start))
+        #expect(repeated.logs?.count == 3)
     }
 
     /// Sayaç iki cihazda aynı anda artınca biri kaybolsa da cevap kayıtları sayılır.
@@ -255,7 +254,7 @@ struct CommitPendingAnswerTests {
         session.reveal(answer: "eskimiş")
         session.commitPendingAnswer()
         session.commitPendingAnswer()
-        #expect(word.reviewCount == 1)
+        #expect(word.answerCount == 1)
         #expect(session.current === word)
         #expect(session.phase == .revealed(.correct))
         #expect(try context.fetch(FetchDescriptor<ReviewLog>()).count == 1)
@@ -263,7 +262,7 @@ struct CommitPendingAnswerTests {
         // Döndüğünde "Devam": yeniden kaydetmeden ilerler.
         session.grade(known: true)
         #expect(session.current == nil)
-        #expect(word.reviewCount == 1)
+        #expect(word.answerCount == 1)
         #expect(session.reviewedCount == 1)
         #expect(session.roundEntries.count == 1)
         #expect(try context.fetch(FetchDescriptor<ReviewLog>()).count == 1)
@@ -271,19 +270,22 @@ struct CommitPendingAnswerTests {
 
     @Test func differentChoiceAfterCommitReplacesTheRecord() throws {
         let (context, word, session) = try setUp()
+        // "Doğru Say" zor sayılır.
         let reference = Word(english: "stale", turkish: "eskimiş")
-        ReviewRecorder.record(reference, grade: .good, mode: .dailyReview, responseTime: 0)
+        context.insert(reference)
+        ReviewRecorder.record(reference, grade: .hard, mode: .dailyReview, responseTime: 0)
 
         session.reveal(answer: "bayat")
         session.commitPendingAnswer()
-        #expect(word.correctCount == 0)
-        // Döndüğünde "Doğru Say": yanlış kaydı geri alınır, doğru olarak yazılır.
+        #expect(word.correctAnswerCount == 0)
+        #expect(word.isLapsed)
+        // Döndüğünde "Doğru Say": yanlış kaydı geri alınır, hafıza yeniden hesaplanır, doğru olarak yazılır.
         session.grade(known: true)
         try context.save()
-        let logs = try context.fetch(FetchDescriptor<ReviewLog>())
-        #expect(logs.map(\.correct) == [true])
-        #expect(word.reviewCount == 1)
-        #expect(word.correctCount == 1)
+        #expect(word.logs?.map(\.correct) == [true])
+        #expect(word.answerCount == 1)
+        #expect(word.correctAnswerCount == 1)
+        #expect(!word.isLapsed)
         #expect(word.stability == reference.stability)
         #expect(session.roundEntries.map(\.firstCorrect) == [true])
     }
@@ -297,12 +299,23 @@ struct CommitPendingAnswerTests {
     }
 }
 
-/// Yanlış bilinen kelime doğru bilinene kadar zayıf kalır; yanlış cevap hafızayı hiç yükseltmez.
+/// Yanlış bilinen kelime zayıflar (turuncu, en fazla %50) ve ertesi güne kadar sorulmaz; ertesi gün
+/// üretimde doğru bilinince toparlanır.
 struct LapseTests {
     private let now = Date(timeIntervalSince1970: 1_790_000_000)
 
-    private func strongWord() -> Word {
+    private func makeContext() throws -> ModelContext {
+        let url = URL.temporaryDirectory.appending(path: "test-\(UUID().uuidString).store")
+        let container = try ModelContainer(
+            for: SharedStore.schema,
+            configurations: ModelConfiguration(schema: SharedStore.schema, url: url, cloudKitDatabase: .none)
+        )
+        return ModelContext(container)
+    }
+
+    private func strongWord(in context: ModelContext) -> Word {
         let word = Word(english: "coalesce", turkish: "birleştirmek")
+        context.insert(word)
         word.reviewCount = 3
         word.stability = 20
         word.difficulty = 5
@@ -311,63 +324,53 @@ struct LapseTests {
         return word
     }
 
-    @Test func wrongAnswerMakesAStrongWordWeakRightAway() {
-        let word = strongWord()
-        let before = word.memory(at: now)!
-        #expect(before > 0.97)
+    @Test func wrongAnswerMakesAStrongWordWeakRightAway() throws {
+        let word = strongWord(in: try makeContext())
+        #expect(word.memory(at: now)! > 0.97)
         ReviewRecorder.record(word, grade: .again, mode: .match, responseTime: 0, now: now)
-        let after = word.memory(at: now)!
-        #expect(abs(after - Memory.lapseTarget) < 1e-9)
-        #expect(word.isWeak(at: now))
-        #expect(word.isDue(at: now))
-        // Zaman geçtikçe düşmeye devam eder.
-        #expect(word.memory(at: now.addingTimeInterval(Memory.dayLength))! < after)
+        #expect(word.memory(at: now) == Memory.lapseMemory)
+        #expect(word.isLapsed)
+        #expect(!word.isLearned)
+        // Bugün bir daha seçilmez, yarın 04:00'te sırası gelir.
+        #expect(!word.isDue(at: now))
+        #expect(word.isDue(at: DayBoundary.nextStart(after: now)))
     }
 
-    @Test func wrongAnswerNeverRaisesAWeakWordsMemory() {
-        let word = strongWord()
-        word.lastReviewedAt = now.addingTimeInterval(-400 * Memory.dayLength)
-        word.dueDate = word.lastReviewedAt!.addingTimeInterval(20 * Memory.dayLength)
-        let before = word.memory(at: now)!
-        #expect(before < Memory.lapseMemory)
-        ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
-        #expect(abs(word.memory(at: now)! - before) < 1e-9)
-    }
-
-    @Test func newWordAnsweredWrongStartsWeak() {
+    @Test func newWordAnsweredWrongStartsWeak() throws {
+        let context = try makeContext()
         let word = Word(english: "quorum", turkish: "yeter sayı")
+        context.insert(word)
         ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
         #expect(!word.isNew)
-        #expect(abs(word.memory(at: now)! - Memory.lapseTarget) < 1e-9)
-        #expect(word.isWeak(at: now))
+        #expect(word.memory(at: now) == Memory.lapseMemory)
+        #expect(word.isLapsed)
     }
 
-    @Test func correctAnswerClearsTheLapse() {
-        let word = strongWord()
+    @Test func correctAnswerNextDayClearsTheLapse() throws {
+        let word = strongWord(in: try makeContext())
         ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
-        // Ertesi gün: aynı gün sonraki cevap hafızayı değiştirmez (bkz. SameDayMemoryTests).
         let later = now.addingTimeInterval(Memory.dayLength)
         ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: later)
-        #expect(word.memory(at: later)! > 0.99)
-        #expect(!word.isWeak(at: later))
-        #expect(word.dueDate == later.addingTimeInterval(word.stability * Memory.dayLength))
+        #expect(!word.isLapsed)
+        #expect(word.memory(at: later)! > 0.98)
+        #expect(!word.isDue(at: later))
+        #expect(word.dueDate == DayBoundary.start(of: later).addingTimeInterval(word.stability * Memory.dayLength))
     }
 
-    @Test func wrongThenRightInTheSameRoundClearsTheLapse() {
-        let word = strongWord()
+    @Test func wrongThenRightLaterTheSameDayIsStillWrong() throws {
+        let word = strongWord(in: try makeContext())
         ReviewRecorder.record(word, grade: .again, mode: .dailyReview, responseTime: 3, now: now)
         let stability = word.stability
-        ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, updatesMemory: false,
-                              now: now.addingTimeInterval(60))
+        // İki saat sonra doğru: günde 1 doğru + 1 yanlış "bilemedin" sayılır.
+        ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: now.addingTimeInterval(7_200))
         #expect(word.stability == stability)
-        #expect(word.dueDate == now.addingTimeInterval(stability * Memory.dayLength))
-        #expect(!word.isWeak(at: now.addingTimeInterval(120)))
+        #expect(word.isLapsed)
+        #expect(word.dueDate == DayBoundary.nextStart(after: now))
     }
 
-    @Test func normalScheduleIsUnchanged() {
-        let word = strongWord()
-        let elapsed = 2.0
-        #expect(word.memory(at: now) == Memory.retrievability(elapsedDays: elapsed, stability: 20))
+    @Test func normalScheduleIsUnchanged() throws {
+        let word = strongWord(in: try makeContext())
+        #expect(word.memory(at: now) == Memory.retrievability(elapsedDays: 2, stability: 20))
     }
 }
 
