@@ -188,10 +188,11 @@ struct RecallQuestionView: View {
             }
         }
         .gameCard()
+        // Mac'te kart tıklamayla açılmaz (yanlışlıkla tıklayınca cevap görünüyordu); Göster düğmesi ya da ↩.
+        #if os(iOS)
         .contentShape(.rect(cornerRadius: GameStyle.cardRadius, style: .continuous))
         .onTapGesture {
             guard session.phase == .asking else { return }
-            #if os(iOS)
             // Klavye açıkken karta dokunmak yalnızca klavyeyi kapatır. Pencerenin genel dokunuşu
             // (`dismissesKeyboardOnTap`) klavyeyi bu dokunuştan önce kapatmış olabilir; ona da bakılır.
             if answerFocused || Date.now.timeIntervalSince(keyboardHiddenAt) < 0.4 {
@@ -199,12 +200,10 @@ struct RecallQuestionView: View {
             } else {
                 reveal(withAnswer: false)
             }
-            #else
-            reveal(withAnswer: false)
-            #endif
         }
         .accessibilityAddTraits(session.phase == .asking ? .isButton : [])
         .accessibilityHint(session.phase == .asking ? (session.isReverse ? "İngilizcesini göster" : "Türkçesini göster") : "")
+        #endif
     }
 
     private func englishHeadline(_ word: Word, font: Font) -> some View {
