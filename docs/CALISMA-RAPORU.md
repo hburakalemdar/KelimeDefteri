@@ -436,3 +436,7 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
 - Hedef iCloud anahtar-değer deposunda (`GoalSync`, `NSUbiquitousKeyValueStore`); yerel kopya iOS'ta App Group (widget
   okur), Mac'te uygulama ayarları. iCloud'daki değer geçerli; seçilmemiş hedef yüklenmez. Seri/halka her cihazda aynı.
 - iOS ve Mac yetki dosyalarına `ubiquity-kvstore-identifier` eklendi (kullanıcı onayıyla). 267 testin hepsi geçti.
+
+### Mac soru kartı (24 Eylül 2026)
+- Mac'te soru kartı tıklamayla açılmaz (yanlışlıkla açılıyordu); cevap Göster ya da ↩ ile (yazı alanı odakta olmasa da,
+  `keyboardShortcut(.defaultAction)`). Tur özeti Mac'te 5 satır kesilmeden sığar. iPhone'da karta dokunma duruyor.
