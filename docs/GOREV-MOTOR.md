@@ -58,11 +58,8 @@ Word alanları önbellektir. Ayrıntı ve gerekçeler SPEC'te.
   - §2.5 ilk gün: yanlışta lapsedAt = bugün, vade = Yarın 04:00; doğruda vade = çıpa + S (§7.1 ile aynı).
   - (B) Hızlı Tur süre metni GameMode.swift:55'te; `GameDeck(count:withSentence:shortWords:)` elle yazılmış init.
 
-## Kesinti notu (24 Eylül, öğlen)
-Uygulama yanlışlıkla kapandı. O anki durum:
-- **Parça A bitti** ve main'e commit edildi (4f7cf01, d294718 "düzeltmeler") — henüz push edilmedi (origin'in 2 önünde).
-- **Parça B yarımdı:** `.claude/worktrees/agent-a96054e229b7e2570` içinde commit edilmemiş değişiklikler var (13 dosya:
-  StudyView, GameCatalogTests, MacGamesView, AnswerChecker, FillBlank/Letters/Match/QuickMix görünümleri…). Ajan yarıda
-  kesildi; bitmiş sayma. Yeni oturum: bu diff'e bak, testleri koş; sağlamsa B'yi oradan tamamlat, değilse worktree'yi
-  atıp B'yi temiz ajanla baştan yaptır. Diğer iki worktree (a7cc1…, adef9…) temiz, silinebilir.
-- Parça C başlamadı. Kurulum yapılmadı (A+B+C bitince).
+## Durum (24 Eylül, öğleden sonra)
+- **A** (4f7cf01, d294718 düzeltmeler) ve **B** (bb61123) main'de, testler geçti; henüz push yok.
+- **C** ajanı `.claude/worktrees/agent-a03e3c67d5328cd6d` içinde çalışıyor. Kesilirse: o worktree'deki diff'e bak,
+  sağlamsa tamamlat, değilse atıp temiz ajanla baştan yaptır.
+- Kurulum yapılmadı (C bitince iPhone + Mac birlikte).
