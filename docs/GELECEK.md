@@ -168,6 +168,19 @@ Yayına çıkmadan önce yapılacaklar. Sıra önerisi: iPad → üç cihaz uyum
 - Uygulama adı, alt başlık, anahtar kelimeler, açıklama (Türkçe + İngilizce), destek bağlantısı, yaş derecesi.
 - TestFlight: önce kendi cihazlar, sonra birkaç kişilik dış test grubu.
 
+### Genel ilke: Apple'ın kendi uygulaması gibi hissettirmeli
+Mağaza sayfasındaki her şey (görseller, video, müzik, yazılar) Apple'ın kendi uygulamalarının (Notlar, Kitaplar,
+Fitness, Günlük) tanıtım ambiyansında olmalı:
+- **Görsel dil:** bol boşluk, sade arka plan (açık/koyu düz renk ya da çok hafif degrade), gerçek cihaz çerçevesi,
+  tek vurgu rengi (sistem mavisi). Etiket/rozet/ok/yıldız kalabalığı, abartılı gölge, parlak "reklam" renkleri yok.
+- **Yazı:** SF Pro (başlıklar kalın, kısa), İngilizce kelimeler uygulamadaki gibi New York serif. Başlıklar tek satır,
+  sade ve sakin ton ("Kelimeni kaydet. Gerisini biz hatırlatırız." gibi), ünlem ve pazarlama dili yok.
+- **Video:** yavaş, akıcı geçişler; uygulamanın kendi animasyonları (Liquid Glass, halka dolması) öne çıkar; ekran kaydı
+  gerçek ama kurgusu Apple tanıtımları gibi temiz. Kesme sayısı az, her sahnede tek fikir.
+- **Müzik:** Apple tanıtımlarındaki gibi sakin, minimal enstrümantal (piyano / hafif elektronik), telifsiz ya da lisanslı;
+  sessiz izlendiğinde de anlaşılır olmalı (App Store videoları sessiz başlar).
+- Referans için izlenecekler: apple.com'daki uygulama tanıtımları ve App Store'daki Apple uygulamalarının sayfaları.
+
 ### Mağaza görselleri (ekran görüntüleri ve "thumbnail"lar)
 - Gereken boyutlar: iPhone 6,9" (ör. 1320×2868), iPad 13" (2064×2752), Mac (2880×1800 ya da 1440×900); en az 3, en fazla 10 adet.
 - Ham görüntüler `-demo` argümanıyla örnek veriden alınır (CLAUDE.md), gerçek defter görünmez. Açık ve koyu tema.
