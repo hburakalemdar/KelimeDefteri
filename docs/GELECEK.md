@@ -140,3 +140,48 @@ Durum: 1–6. adımlar tamamlandı. "Yeni Eklenenler" modu eklendi; aşağıdaki
   var; esneklik kaygıyı azaltıyor. Sade bir kural düşün (ör. haftada 1 kaçırılan gün seriyi koparmaz), ek düğme/envanter yok.
 - Elenenler: GitHub tarzı etkinlik ızgarası (halka/seri/Bu Hafta ile aynı veri, Apple diline yabancı), "bugün X kelime",
   "toplam X kez" (zaten var / gösteriş sayısı), doğruluk trendi (motor %90'da tuttuğu için düz çizgi).
+
+## İleride: App Store / TestFlight öncesi (not alındı 24 Eylül 2026)
+
+Yayına çıkmadan önce yapılacaklar. Sıra önerisi: iPad → üç cihaz uyumu → mağaza görselleri → tanıtım videosu.
+
+### iPad sürümü
+- Bugün: uygulama hedefi iPad'i zaten destekliyor (`TARGETED_DEVICE_FAMILY = "1,2"`), ama arayüz iPhone düzeninin
+  büyütülmüş hâli; `NavigationSplitView` / `horizontalSizeClass` kullanan ekran yok.
+- Yapılacak: geniş ekranda kenar çubuklu düzen (Kelimelerim listesi + ayrıntı yan yana, Çalış/oyunlar ortada makul
+  genişlikte), Split View / Stage Manager'da küçük pencerede iPhone düzenine dönme, klavye kısayolları (Mac'teki
+  ↩/Esc gibi) ve donanım klavyesiyle cevap yazma, Apple Pencil ile el yazısı cevap (Scribble zaten metin alanlarında çalışır).
+- Widget'ların iPad boyutları (büyük / çok büyük) ve kilit ekranı.
+- Paylaş/eylem eklentileri iPad'de (şu an eklenti hedeflerinden ikisi yalnızca iPhone: `TARGETED_DEVICE_FAMILY = 1`) — kontrol et.
+
+### iPhone + iPad + Mac uyumu
+- Üçü aynı iCloud deposunu kullanır; Motor 2 hafızayı cevap kayıtlarından hesapladığı için cihazlar aynı sonuca varır.
+  Gerçek üç cihazla dene: aynı gün farklı cihazlarda cevap, çevrimdışı cevap sonra eşitleme, aynı kelimeyi iki cihazda ekleme.
+- Ayarların (günlük hedef, bildirim saati, seri) hangi cihazda tutulduğu netleşmeli: Mac'te günlük hedef ayrı
+  (`DailyGoal.defaults`); iPad'de App Group mı, iCloud anahtar-değer deposu (`NSUbiquitousKeyValueStore`) mı? Seri ve
+  hedefin üç cihazda aynı görünmesi tercih edilir.
+- Evrensel satın alma (tek uygulama kaydı, iOS + macOS aynı paket kimliği `com.burakalemdar.KelimeDefteri` zaten).
+
+### Yayın hazırlığı
+- CloudKit şemasını üretime aktar (ayrı onay; CLAUDE.md'de not var).
+- Gizlilik: App Store gizlilik etiketi ("veri toplanmaz", yalnızca kullanıcının kendi iCloud'u), gizlilik politikası sayfası.
+- Uygulama adı, alt başlık, anahtar kelimeler, açıklama (Türkçe + İngilizce), destek bağlantısı, yaş derecesi.
+- TestFlight: önce kendi cihazlar, sonra birkaç kişilik dış test grubu.
+
+### Mağaza görselleri (ekran görüntüleri ve "thumbnail"lar)
+- Gereken boyutlar: iPhone 6,9" (ör. 1320×2868), iPad 13" (2064×2752), Mac (2880×1800 ya da 1440×900); en az 3, en fazla 10 adet.
+- Ham görüntüler `-demo` argümanıyla örnek veriden alınır (CLAUDE.md), gerçek defter görünmez. Açık ve koyu tema.
+- Önerilen sahneler: Paylaş menüsünden kelime ekleme, Günlük Tekrar kartı, bir oyun (Eşleştir / Boşluğu Doldur),
+  tur özeti ("Yeni → Yarın"), widget + kilit ekranı, Kelimelerim, Mac menü çubuğu penceresi.
+- Her görselin üstüne kısa başlık ("Kitapta gördüğün kelimeyi tek dokunuşla kaydet" gibi) ve cihaz çerçevesi; tek tip
+  yazı ve renk. Araç: kendi betiğimizle simülatör görüntüsü + çerçeve (fastlane `frameit` ya da benzeri).
+- Uygulama simgesi hazır (Icon Composer, `AppIcon.icon`).
+
+### Tanıtım videosu (App Preview)
+- App Store'da cihaz başına en fazla 3 video, 15–30 sn, cihazın kendi çözünürlüğünde; ekran kaydı esaslı olmalı
+  (Apple kuralı: uygulamanın gerçek kullanımını göstermeli).
+- Plan: simülatör/cihaz ekran kaydı (`xcrun simctl io booted recordVideo`) ile kurgu: kitapta kelimeyi seç → Paylaş →
+  kaydet → ertesi gün widget'ta soru → Günlük Tekrar → tur özeti.
+- Yapay zekâ ile: uygulamayı kullanan kişinin göründüğü sahneler (ör. kitap okurken telefonda kelime kaydetme) yapay
+  zekâ video araçlarıyla üretilebilir; App Store önizlemesinde değil, web sitesi / sosyal medya tanıtımında kullanılmalı
+  (mağaza önizlemesi gerçek ekran kaydı istiyor). Seslendirme/altyazı Türkçe + İngilizce.
