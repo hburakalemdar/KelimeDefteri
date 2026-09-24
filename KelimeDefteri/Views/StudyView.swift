@@ -179,13 +179,7 @@ struct StudyView: View {
             .joined(separator: " · ")
     }
 
-    private var allStrongText: String {
-        var text = "Bütün kelimeler güçlü"
-        if let next = words.map(\.dueDate).filter({ $0 > now }).min() {
-            text += " · sıradaki tekrar " + Leitner.dueDescription(for: next, now: now).lowercased(with: Locale(identifier: "tr_TR"))
-        }
-        return text
-    }
+    private var allStrongText: String { DeckSummary.allDoneText(for: words, now: now) }
 
     // MARK: - Günlük hedef
 

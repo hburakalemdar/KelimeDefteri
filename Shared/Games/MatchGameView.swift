@@ -62,6 +62,7 @@ struct MatchGameView: View {
             RoundSummaryView(
                 entries: round.entries.map(RoundSummaryView.Entry.init),
                 duration: round.finishedAt.timeIntervalSince(round.startedAt),
+                roundStartedAt: round.beganAt,
                 onAgain: startRound,
                 onDone: close
             )

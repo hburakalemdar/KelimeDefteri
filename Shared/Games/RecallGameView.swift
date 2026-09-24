@@ -8,6 +8,9 @@ struct RecallGameView: View {
     let mode: GameMode
     /// Mac'te oyun menü penceresinin içinde açılır; kapatınca oyun merkezine dönülür. iOS'ta `nil` (tam ekran kapanır).
     var onClose: (() -> Void)? = nil
+    /// Mac: "Bir Tur Daha" Günlük Tekrar'a (ya da "Yine de Çalış"a) geçecekse turu menü penceresinin
+    /// kalıcı Günlük Tekrar oturumuna devreder. `nil` ise tur burada başlar.
+    var onDailyHandoff: ((StudySession.Plan) -> Void)? = nil
 
     @Query(sort: \Word.dueDate) private var words: [Word]
     @Environment(\.dismiss) private var dismiss
@@ -44,25 +47,46 @@ struct RecallGameView: View {
         if session.current != nil {
             RecallQuestionView(session: session, words: words)
         } else if didStart {
+            let next = nextPlan
             RoundSummaryView(
                 entries: session.roundEntries.map(RoundSummaryView.Entry.init),
                 duration: session.finishedAt.timeIntervalSince(session.startedAt),
-                onAgain: startRound,
+                roundStartedAt: session.roundBeganAt,
+                againTitle: StudySession.againTitle(after: session.plan, next: next),
+                onAgain: { again(with: next) },
                 onDone: close
             )
         }
     }
 
+    /// "Bir Tur Daha"nın açacağı tur (bekleyen yeni kelime kalmadıysa Günlük Tekrar, iş kalmadıysa en zayıflar).
+    private var nextPlan: StudySession.Plan {
+        StudySession.againPlan(after: plan, words: words)
+    }
+
+    private func again(with next: StudySession.Plan) {
+        // Mac'te Günlük Tekrar menü penceresinin kalıcı turunda sürer; ikinci bir tur açılmaz.
+        if next != session.plan, next == .daily || next == .extraPractice, let onDailyHandoff {
+            onDailyHandoff(next)
+        } else {
+            startRound(plan: next)
+        }
+    }
+
     private func startRound() {
+        startRound(plan: plan)
+    }
+
+    private func startRound(plan: StudySession.Plan) {
         session.mode = mode
         session.start(with: words, plan: plan)
-        // Bekleyen yeni kelime kalmadıysa "Bir Tur Daha" Günlük Tekrar'la devam eder.
-        if session.current == nil && plan == .recent {
-            session.start(with: words, plan: .daily)
-        }
-        // Günlük Tekrar'dan sonra zayıf kelime kalmadıysa "Bir Tur Daha" en zayıflarla devam eder.
-        if session.current == nil && (plan == .daily || plan == .recent) {
-            session.start(with: words, plan: .extraPractice)
+        // Soracak kelime kalmadıysa (ör. açılışta) aynı sırayla bir sonraki akışa geçilir.
+        let next = StudySession.againPlan(after: plan, words: words)
+        if session.current == nil && next != plan {
+            session.start(with: words, plan: next)
+            if session.current == nil && next == .daily {
+                session.start(with: words, plan: .extraPractice)
+            }
         }
         didStart = true
     }

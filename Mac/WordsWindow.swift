@@ -27,17 +27,24 @@ struct WordsWindow: View {
             }
             TableColumn("Türkçe", value: \.turkish)
             TableColumn("Hafıza", value: \.memorySortValue) { word in
-                MemoryRing(memory: word.memory(), size: 14, text: .trailing)
+                MemoryRing(memory: word.memory(), size: 14, text: .trailing, isLapsed: word.isLapsed)
                     .foregroundStyle(.secondary)
-                    .help(word.isNew ? "Henüz çalışılmadı" : "Şu an hatırlama ihtimali")
+                    .help(word.isNew ? "Henüz çalışılmadı" : word.isLapsed ? "Yanlış bildin; tekrar edilecek" : "Şu an hatırlama ihtimali")
             }
             .width(min: 60, ideal: 70, max: 80)
             TableColumn("Sıradaki tekrar", value: \.dueDate) { word in
-                Text(Leitner.dueDescription(for: word.dueDate))
-                    .foregroundStyle(word.isDue(at: .now) ? Color.accentColor : .secondary)
-                    .monospacedDigit()
+                // Yanlış bilinen kelime vadesi gelmemiş olsa da turuncu "Tekrar edilecek · Yarın" yazar.
+                if word.isLapsed {
+                    Text(LapsedLabel.text(for: word))
+                        .foregroundStyle(.orange)
+                        .monospacedDigit()
+                } else {
+                    Text(Leitner.dueDescription(for: word.dueDate))
+                        .foregroundStyle(word.isDue(at: .now) ? Color.accentColor : .secondary)
+                        .monospacedDigit()
+                }
             }
-            .width(min: 90, ideal: 110)
+            .width(min: 90, ideal: 150)
         }
         .contextMenu(forSelectionType: Word.ID.self) { ids in
             if ids.count == 1, let word = word(for: ids.first) {

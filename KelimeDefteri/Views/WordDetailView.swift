@@ -102,10 +102,10 @@ extension WordDetailView {
         Section("Hafıza") {
             let memory = word.memory()
             HStack(spacing: 16) {
-                MemoryRing(memory: memory, size: 56, text: .center)
+                MemoryRing(memory: memory, size: 56, text: .center, isLapsed: word.isLapsed)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
-                        Text(memoryTitle(memory))
+                        memoryTitle(memory)
                         if word.isLearned { LearnedBadge() }
                     }
                     .font(.headline)
@@ -118,7 +118,10 @@ extension WordDetailView {
             .padding(.vertical, 4)
 
             if !word.isNew {
-                LabeledContent("Sıradaki tekrar", value: Leitner.dueDescription(for: word.dueDate))
+                LabeledContent("Sıradaki tekrar") {
+                    Text(Leitner.dueDescription(for: word.dueDate))
+                        .foregroundStyle(word.isLapsed ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                }
             }
             LabeledContent("Görülme", value: "\(word.answerCount)")
             if word.answerCount > 0 {
@@ -142,15 +145,26 @@ extension WordDetailView {
         }
     }
 
-    /// Halka yüzdeyi gösterdiği için yazı kelimenin durumunu anlatır.
-    private func memoryTitle(_ memory: Double?) -> String {
-        guard let memory else { return "Yeni" }
-        if memory < Memory.targetRetention { return "Zayıfladı" }
-        return word.isLearned ? "Öğrenildi" : "Güçlü"
+    /// Halka yüzdeyi gösterdiği için yazı kelimenin durumunu anlatır. Yanlış bilinen kelime turuncu
+    /// "Tekrar edilecek" ve ne zaman sorulacağıyla gösterilir (vadesi henüz gelmemiş olsa da).
+    @ViewBuilder
+    private func memoryTitle(_ memory: Double?) -> some View {
+        if memory != nil, word.isLapsed {
+            Text(LapsedLabel.title).foregroundStyle(.orange)
+        } else if let memory {
+            Text(memory < Memory.targetRetention ? "Tekrar zamanı" : word.isLearned ? "Öğrenildi" : "Güçlü")
+        } else {
+            Text("Yeni")
+        }
     }
 
     private func memoryDetail(_ memory: Double?) -> String {
         guard let memory else { return "Henüz çalışılmadı; ilk turda sorulacak." }
+        if word.isLapsed {
+            if word.isDue(at: .now) { return "Yanlış bildin; tekrar zamanı geldi." }
+            let when = Leitner.dueDescription(for: word.dueDate).lowercased(with: Locale(identifier: "tr_TR"))
+            return "Yanlış bildin; \(when) yeniden sorulacak."
+        }
         if memory < Memory.targetRetention { return "Hatırlama ihtimali %90'ın altına indi; tekrar zamanı." }
         return word.isLearned ? "Uzun aralıklarla sorulur." : "Zayıflayınca yeniden sorulur."
     }

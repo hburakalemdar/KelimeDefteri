@@ -1,8 +1,9 @@
 import SwiftData
 import SwiftUI
 
-/// Bütün oyunlarda ortak tur özeti: kaç doğru, ne kadar sürdü, her kelimenin turdan önceki ve sonraki
-/// tekrar zamanı ("önce → sonra"). Yüzde gösterilmez.
+/// Bütün oyunlarda (iPhone ve Mac) ortak tur özeti: kaç doğru, ne kadar sürdü, her kelimenin turdan önceki
+/// ve sonraki tekrar zamanı ("önce → sonra"). Yüzde gösterilmez; yanlış bilinip tekrar edilecek kelime
+/// turuncu vurgulanır. Kelime bugün başka bir turda da görüldüyse başlığın altında tek satır not çıkar.
 struct RoundSummaryView: View {
     struct Entry: Identifiable {
         let word: Word
@@ -33,6 +34,10 @@ struct RoundSummaryView: View {
 
     let entries: [Entry]
     let duration: TimeInterval
+    /// Turun başladığı an (duraklatmayla kaymaz); "bugün daha önce görüldü" notu için.
+    let roundStartedAt: Date
+    /// Düğme açacağı akışı söyler: "Bir Tur Daha", "Günlük Tekrar'a Geç", "Yine de Çalış".
+    var againTitle = "Bir Tur Daha"
     var onAgain: () -> Void
     var onDone: () -> Void
 
@@ -63,6 +68,13 @@ struct RoundSummaryView: View {
                     .font(.headline)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+                    if Self.showsSameDayNote(words: entries.map(\.word), roundStartedAt: roundStartedAt) {
+                        Label(Self.sameDayNote, systemImage: "info.circle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 4)
+                    }
                 }
                 .padding(.horizontal, 4)
                 #if os(iOS)
@@ -97,7 +109,7 @@ struct RoundSummaryView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 10) {
                 Button(action: onAgain) {
-                    Text("Bir Tur Daha")
+                    Text(againTitle)
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
@@ -105,7 +117,7 @@ struct RoundSummaryView: View {
                 .buttonStyle(.glassProminent)
                 #if os(macOS)
                 .keyboardShortcut(.defaultAction)
-                .help("Bir tur daha (↩)")
+                .help("\(againTitle) (↩)")
                 #endif
                 Button(action: onDone) {
                     Text("Bitti")
@@ -158,18 +170,33 @@ struct RoundSummaryView: View {
     }
 
     /// "3 gün gecikti → 8 gün sonra": turdan önceki ve sonraki tekrar zamanı; yeni kelimede "Yeni → Yarın".
+    /// Zayıf (yanlış bilinip tekrar edilecek) durum turuncu yazılır; sağdaki küçük halka kelimenin şimdiki hâli.
     private func memory(_ entry: Entry) -> some View {
-        HStack(spacing: 6) {
+        let word = entry.word
+        return HStack(spacing: 6) {
             Text(entry.dueBefore.map { Leitner.dueDescription(for: $0) } ?? "Yeni")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(entry.lapsedBefore ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
             Text("→")
                 .foregroundStyle(.secondary)
-            let due = entry.word.dueDate
-            Text(Leitner.dueDescription(for: due))
-                .foregroundStyle(due > .now ? Color.primary : Color.red)
+                .accessibilityLabel("sonra")
+            Text(Leitner.dueDescription(for: word.dueDate))
+                .foregroundStyle(word.isLapsed ? AnyShapeStyle(.orange) : AnyShapeStyle(.primary))
+            MemoryRing(memory: word.memory(), size: 12, isLapsed: word.isLapsed)
+                .accessibilityHidden(true)
         }
         .font(.footnote.weight(.medium))
         .monospacedDigit()
         .fixedSize()
+    }
+
+    static let sameDayNote = "Bu tur bugünün diğer cevaplarıyla birlikte değerlendiriliyor."
+
+    /// Turdaki kelimelerden biri bugün (04:00 sınırı) bu turdan önce başka bir turda cevaplandıysa not
+    /// gösterilir. Turun kendi cevapları (tur içi yeniden sorma dahil) sayılmaz.
+    static func showsSameDayNote(words: [Word], roundStartedAt: Date, now: Date = .now) -> Bool {
+        let today = DayBoundary.start(of: now)
+        return words.contains { word in
+            (word.logs ?? []).contains { $0.date < roundStartedAt && $0.date >= today }
+        }
     }
 }

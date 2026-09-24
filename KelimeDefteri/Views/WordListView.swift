@@ -3,23 +3,25 @@ import SwiftUI
 
 struct WordListView: View {
     enum Filter: String, CaseIterable, Identifiable {
-        case all, weak, strong, new
+        case all, weak, repeating, strong, new
         var id: Self { self }
 
         var title: String {
             switch self {
             case .all: "Tümü"
             case .weak: "Zayıf"
+            case .repeating: "Tekrar Edilecek"
             case .strong: "Güçlü"
             case .new: "Yeni"
             }
         }
 
-        /// Zayıf, Güçlü ve Yeni birbirini dışlar; tanım defter özetiyle ortak (`DeckSummary.group`).
+        /// Zayıf, Tekrar Edilecek, Güçlü ve Yeni birbirini dışlar; tanım defter özetiyle ortak (`DeckSummary.group`).
         func includes(_ word: Word, now: Date) -> Bool {
             switch self {
             case .all: true
             case .weak: DeckSummary.group(of: word, now: now) == .weak
+            case .repeating: DeckSummary.group(of: word, now: now) == .repeating
             case .strong: DeckSummary.group(of: word, now: now) == .strong
             case .new: DeckSummary.group(of: word, now: now) == .new
             }
@@ -156,9 +158,14 @@ private struct WordRow: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if word.isLapsed {
+                    LapsedLabel(word: word)
+                        .font(.caption.weight(.medium))
+                        .labelStyle(.titleOnly)
+                }
             }
             Spacer(minLength: 8)
-            MemoryRing(memory: word.memory(), size: 18, text: .trailing)
+            MemoryRing(memory: word.memory(), size: 18, text: .trailing, isLapsed: word.isLapsed)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

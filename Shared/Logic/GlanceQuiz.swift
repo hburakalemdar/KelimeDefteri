@@ -31,6 +31,8 @@ nonisolated struct GlanceSummary: Equatable, Sendable {
     /// Günlük Tekrar'ın soracağı yeni kelime sayısı (en fazla 5).
     var new: Int
     var total: Int
+    /// Yanlış bilinip vadesi henüz gelmemiş, tekrar edilecek kelime sayısı; varsa "hepsi güçlü" denmez.
+    var repeating: Int = 0
 
     /// "Hafıza %78"; çalışılmış kelime yoksa "Hafıza yeni".
     var memoryText: String {
@@ -42,6 +44,7 @@ nonisolated struct GlanceSummary: Equatable, Sendable {
         if total == 0 { return "Defterin boş" }
         if weak > 0 { return "\(weak) kelime zayıfladı" }
         if new > 0 { return "\(new) yeni kelime" }
+        if repeating > 0 { return "\(repeating) kelime tekrar edilecek" }
         return "Bütün kelimeler güçlü"
     }
 
@@ -114,7 +117,8 @@ enum GlanceQuiz {
         let count = StudySession.dailyCount(words, now: now)
         return GlanceSummary(
             average: MemoryStats.average(words.map { $0.memory(at: now) }),
-            weak: count.weak, new: count.new, total: words.count
+            weak: count.weak, new: count.new, total: words.count,
+            repeating: DeckSummary.repeatingCount(words, now: now)
         )
     }
 }

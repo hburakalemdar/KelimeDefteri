@@ -10,6 +10,9 @@ final class GameRound {
     private(set) var index = 0
     private(set) var entries: [StudySession.RoundEntry] = []
     private(set) var startedAt: Date = .now
+    /// Turun başladığı an; `startedAt`ten farklı olarak duraklatmayla kaymaz (tur özetindeki
+    /// "bugün daha önce görüldü" notu buna bakar).
+    private(set) var beganAt: Date = .now
     private(set) var finishedAt: Date = .now
     private(set) var shownAt: Date = .now
     private var pausedAt: Date?
@@ -55,6 +58,7 @@ final class GameRound {
         index = 0
         entries = []
         startedAt = now
+        beganAt = now
         finishedAt = now
         shownAt = now
         // Duraklatılmışken başlatılırsa saat duraklatılmış kalır.

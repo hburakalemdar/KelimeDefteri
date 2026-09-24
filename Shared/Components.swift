@@ -72,6 +72,24 @@ struct MemoryRing: View {
     }
 }
 
+/// Yanlış bilinip tekrar edilecek kelimenin (`Word.isLapsed`) etiketi: "Tekrar edilecek · Yarın".
+/// Yalnızca kelime listesinde ve ayrıntı sayfasında; tur özetinde etiket yok, yalnızca turuncu vurgu.
+struct LapsedLabel: View {
+    let word: Word
+
+    var body: some View {
+        Label(Self.text(for: word), systemImage: "arrow.counterclockwise")
+            .foregroundStyle(.orange)
+    }
+
+    static let title = "Tekrar edilecek"
+
+    /// Vadesi henüz gelmemiş olsa da ne zaman sorulacağı yazılır.
+    static func text(for word: Word, now: Date = .now) -> String {
+        "\(title) · \(Leitner.dueDescription(for: word.dueDate, now: now))"
+    }
+}
+
 extension MemoryStats.Level {
     var color: Color {
         switch self {
@@ -87,25 +105,48 @@ extension Word {
     var memorySortValue: Double { memory() ?? -1 }
 }
 
-/// Defterin tek satırlık özeti, Kelimelerim süzgeçleriyle birebir: "9 kelime · 2 zayıf · 4 güçlü · 3 yeni".
+/// Defterin tek satırlık özeti, Kelimelerim süzgeçleriyle birebir:
+/// "9 kelime · 2 zayıf · 1 tekrar edilecek · 3 güçlü · 3 yeni".
 enum DeckSummary {
-    enum Group { case weak, strong, new }
+    enum Group { case weak, repeating, strong, new }
 
-    /// Zayıf, Güçlü ve Yeni birbirini dışlar: yeni kelimenin hafızası henüz yok, zayıf da güçlü de sayılmaz.
+    /// Gruplar birbirini dışlar: yeni kelimenin hafızası henüz yok, zayıf da güçlü de sayılmaz.
     /// "Zayıf" burada Günlük Tekrar'ın soracağı küme: vadesi gelmiş çalışılmış kelimeler (`isDue`).
+    /// Yanlış bilinip vadesi henüz gelmemiş kelime (`isLapsed`) "tekrar edilecek"tir; güçlü sayılmaz.
     static func group(of word: Word, now: Date = .now) -> Group {
         if word.isNew { return .new }
-        return word.isDue(at: now) ? .weak : .strong
+        if word.isDue(at: now) { return .weak }
+        return word.isLapsed ? .repeating : .strong
+    }
+
+    /// Vadesi gelmemiş, yanlış bilinip tekrar edilecek kelime sayısı.
+    static func repeatingCount(_ words: [Word], now: Date = .now) -> Int {
+        words.count { group(of: $0, now: now) == .repeating }
     }
 
     /// Sıfır olan parça yazılmaz.
     static func text(for words: [Word], now: Date = .now) -> String {
         let groups = words.map { group(of: $0, now: now) }
-        let parts = [(Group.weak, "zayıf"), (.strong, "güçlü"), (.new, "yeni")].compactMap { group, name in
-            let count = groups.count { $0 == group }
-            return count > 0 ? "\(count) \(name)" : nil
-        }
+        let parts = [(Group.weak, "zayıf"), (.repeating, "tekrar edilecek"), (.strong, "güçlü"), (.new, "yeni")]
+            .compactMap { group, name in
+                let count = groups.count { $0 == group }
+                return count > 0 ? "\(count) \(name)" : nil
+            }
         return (["\(words.count) kelime"] + parts).joined(separator: " · ")
+    }
+
+    /// Günlük Tekrar'da bugün iş kalmadığında kartın alt satırı. "Bütün kelimeler güçlü" yalnızca gerçekten
+    /// öyleyse; yanlış bilinip tekrar edilecek ya da bugünün sınırı yüzünden bekleyen yeni kelime varsa
+    /// "Bugünlük tekrar bitti · 6 kelime tekrar edilecek · sıradaki tekrar yarın".
+    static func allDoneText(for words: [Word], now: Date = .now) -> String {
+        let repeating = repeatingCount(words, now: now)
+        let newWaiting = StudySession.recentWaitingCount(words, now: now)
+        var parts = [repeating > 0 || newWaiting > 0 ? "Bugünlük tekrar bitti" : "Bütün kelimeler güçlü"]
+        if repeating > 0 { parts.append("\(repeating) kelime tekrar edilecek") }
+        if let next = words.filter({ !$0.isNew }).map(\.dueDate).filter({ $0 > now }).min() {
+            parts.append("sıradaki tekrar " + Leitner.dueDescription(for: next, now: now).lowercased(with: Locale(identifier: "tr_TR")))
+        }
+        return parts.joined(separator: " · ")
     }
 }
 

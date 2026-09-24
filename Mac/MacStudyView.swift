@@ -4,6 +4,7 @@ import SwiftUI
 /// Menü çubuğu penceresindeki Günlük Tekrar; oyun merkezinden (`MacGamesView`) açılır.
 /// Kart ve cevap çubuğu iOS ile ortak (`RecallQuestionView`); klavyeyle oynanır: Return kontrol eder
 /// (boşken gösterir) ve sonra devam eder; ← Bilemedim, → Bildim, Esc oyunlara döner.
+/// Tur bitince iPhone'daki tur özeti (`RoundSummaryView`) gösterilir; yeni tur yalnızca "Bir Tur Daha" ile başlar.
 struct MacStudyView: View {
     /// Tur `MenuBarView`'de yaşar; sayfa değişince ya da oyunlara dönünce kaybolmaz.
     let session: StudySession
@@ -14,8 +15,12 @@ struct MacStudyView: View {
     @Environment(\.modelContext) private var context
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
+        // Tur özetinde üst çubuk gizlenir (iPhone'daki oyunlar gibi); Esc yine oyunlara döner.
+        GameScaffold(showsBar: session.current != nil || !session.hasRound, onClose: onClose) {
+            if session.current != nil {
+                GameProgressHeader(done: session.finishedWordCount, total: session.wordCount)
+            }
+        } content: {
             Group {
                 if let word = session.current {
                     // Silinmiş kelime (ör. başka cihazdan) çizilmez; kimlik kümesi değişince tur onu atlar.
@@ -24,6 +29,8 @@ struct MacStudyView: View {
                     } else {
                         RecallQuestionView(session: session, words: words)
                     }
+                } else if session.hasRound {
+                    summary
                 } else {
                     finished
                 }
@@ -31,49 +38,27 @@ struct MacStudyView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
-            // Pencere günlerce açık kalmış olabilir: dünkü turun açık cevabı kaydedilir, bugünün turu başlar.
-            // Yoksa aynı turda bugün verilen cevaplar hafızayı değiştirmezdi.
-            if session.began(onAnotherDayThan: .now) {
+            // Pencere günlerce açık kalmış olabilir: dünkü yarım turun açık cevabı kaydedilir, bugünün turu
+            // başlar. Biten turun özeti ise kullanıcı "Bir Tur Daha"ya basana kadar ekranda kalır.
+            if session.current != nil && session.began(onAnotherDayThan: .now) {
                 session.gradePendingAnswer()
                 session.start(with: words, plan: .daily)
             }
             session.resumeClock()
-            // Pencere her açıldığında gün dönmüş olabilir; zamanı gelenleri sıraya al.
-            refresh()
+            syncRound()
         }
         .onDisappear { saveOpenAnswer() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             saveOpenAnswer()
         }
         // Sayı değil kimlik kümesi: aynı anda biri silinip biri eklenince de sıra güncellensin.
-        .onChange(of: words.aliveIDs) { refresh() }
-        .onChange(of: session.current == nil) { _, ended in
-            // iOS'taki Günlük Tekrar gibi tur en fazla 20 kelime (5'i yeni). Tur bitince yeni tur yalnızca
-            // çalışılmış zayıf kelime kaldıysa kendiliğinden başlar; yalnızca yeni kelime kaldıysa "Hepsi Güçlü"
-            // görünür. Bu turda sorulup zayıf kalan kelime (hemen arkasından doğru bilinen) sayılmaz, yoksa
-            // az önce gördüğü kart hemen yeniden gelirdi.
-            if ended && session.plan == .daily { continueDailyIfWeakRemain() }
-        }
+        .onChange(of: words.aliveIDs) { syncRound() }
     }
 
-    /// Üstte oyunlara dönüş (Esc) ve tur ilerlemesi.
-    private var header: some View {
-        HStack(spacing: 10) {
-            MacBackButton(action: onClose)
-            Spacer(minLength: 8)
-            if session.current != nil {
-                ProgressView(value: progress)
-                    .frame(width: 120)
-                    .accessibilityLabel("Tur ilerlemesi")
-                Text("\(session.remaining + 1) kaldı")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .fixedSize()
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
+    /// Silinen kelimeler turdan çıkar. Tur hiç başlamadıysa dokunulmaz (boş oturumun planı `.weak`tır ve
+    /// eşitleme onu kendiliğinden başlatırdı); turu oyun merkezi ya da "Bir Tur Daha" başlatır.
+    private func syncRound() {
+        if session.hasRound { session.sync(with: words) }
     }
 
     /// Pencere kapanınca ya da uygulamadan çıkılınca açık cevap kaydedilir; kart olduğu gibi kalır.
@@ -83,45 +68,36 @@ struct MacStudyView: View {
         context.saveLogging()
     }
 
-    private func refresh() {
-        if session.current == nil && !session.isPracticeAll {
-            startDailyIfNeeded()
-        } else {
-            session.sync(with: words)
-        }
+    // MARK: - Tur özeti
+
+    /// iPhone'daki özetin aynısı; yeni tur kendiliğinden başlamaz. Düğme açacağı akışı adıyla söyler.
+    private var summary: some View {
+        let next = StudySession.againPlan(after: session.plan, words: words)
+        return RoundSummaryView(
+            entries: session.roundEntries.map(RoundSummaryView.Entry.init),
+            duration: session.finishedAt.timeIntervalSince(session.startedAt),
+            roundStartedAt: session.roundBeganAt,
+            againTitle: StudySession.againTitle(after: session.plan, next: next),
+            onAgain: { session.start(with: words, plan: next) },
+            onDone: onClose
+        )
     }
 
-    private func continueDailyIfWeakRemain() {
-        let asked = session.roundEntries.map(\.word)
-        let remaining = words.filter { word in !asked.contains { $0 === word } }
-        guard StudySession.dailyCount(remaining).weak > 0 else { return }
-        session.start(with: words, plan: .daily)
-    }
+    // MARK: - Soracak kelime yok
 
-    private func startDailyIfNeeded() {
-        let count = StudySession.dailyCount(words)
-        guard count.weak + count.new > 0 else { return }
-        session.start(with: words, plan: .daily)
-    }
-
-    /// Turda cevaplanan kartların oranı; bilinmeyen kelime sıraya yeniden girdiği için
-    /// toplam da onunla büyür.
-    private var progress: Double {
-        let total = session.reviewedCount + session.remaining + 1
-        return Double(session.reviewedCount) / Double(total)
-    }
-
-    // MARK: - Bitti
-
+    /// Tur hiç başlamadıysa (soracak kelime yoktu): gerçekten iş kalmadıysa "Hepsi Güçlü"; yeni kelimeler
+    /// bugünün sınırı dolduğu için bekliyorsa ayrı metin.
     private var finished: some View {
-        ContentUnavailableView {
-            Label(session.isPracticeAll ? "Tur Bitti" : "Hepsi Güçlü", systemImage: "checkmark.circle")
+        let waiting = StudySession.recentWaitingCount(words)
+        let allStrong = waiting == 0 && DeckSummary.repeatingCount(words) == 0
+        return ContentUnavailableView {
+            Label(allStrong ? "Hepsi Güçlü" : "Bugünlük Bu Kadar", systemImage: "checkmark.circle")
         } description: {
-            Text(finishedDescription)
+            Text(finishedDescription(waiting: waiting))
         } actions: {
             VStack(spacing: 10) {
                 Button {
-                    session.start(with: words, practiceAll: true)
+                    session.start(with: words, plan: .extraPractice)
                 } label: {
                     Text("Yine de Çalış").frame(minWidth: 140)
                 }
@@ -136,12 +112,12 @@ struct MacStudyView: View {
         }
     }
 
-    private var finishedDescription: String {
+    private func finishedDescription(waiting: Int) -> String {
         var lines: [String] = []
-        if session.reviewedCount > 0 {
-            lines.append("Bu turda \(session.reviewedCount) cevap verdin.")
+        if waiting > 0 {
+            lines.append("Bugünkü yeni kelimeler tamam; \(RoundText.recentWaiting(waiting)). Oyunlar'daki Tanış ile hemen başlayabilirsin.")
         }
-        if let next = words.map(\.dueDate).filter({ $0 > .now }).min() {
+        if let next = words.filter({ !$0.isNew }).map(\.dueDate).filter({ $0 > .now }).min() {
             let when = Leitner.dueDescription(for: next)
             lines.append("Sıradaki tekrar: \(when.lowercased(with: Locale(identifier: "tr_TR"))).")
         }

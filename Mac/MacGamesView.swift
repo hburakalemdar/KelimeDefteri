@@ -34,7 +34,7 @@ struct MacGamesView: View {
             case .daily:
                 MacStudyView(session: session, onAddTapped: onAddTapped, onClose: backToHub)
             case .recent:
-                RecallGameView(plan: .recent, mode: .dailyReview, onClose: backToHub)
+                RecallGameView(plan: .recent, mode: .dailyReview, onClose: backToHub, onDailyHandoff: openDaily)
             case .weekly:
                 WeeklySummaryView(onClose: backToHub)
             case .game(let mode):
@@ -57,6 +57,17 @@ struct MacGamesView: View {
     private func backToHub() {
         now = .now
         page = nil
+    }
+
+    /// Günlük Tekrar sayfasını açar. Yarım bir tur (bugün başlamış) varsa onunla sürer; yoksa — ilk açılış,
+    /// biten turun özetinden dönülmüş ya da tur dün başlamış — verilen tur doğrudan başlar. Tanış'tan
+    /// geçilen Günlük Tekrar da buraya gelir: tur her zaman bu kalıcı oturumda, ikinci bir tur açılmaz.
+    private func openDaily(_ plan: StudySession.Plan) {
+        if session.current == nil || session.began(onAnotherDayThan: .now) {
+            session.gradePendingAnswer()
+            session.start(with: words, plan: plan)
+        }
+        page = .daily
     }
 
     @ViewBuilder
@@ -131,8 +142,7 @@ struct MacGamesView: View {
             }
             Button {
                 // Zayıf kelime yoksa en zayıflarla ek tur (eski Mac kartındaki "Yine de Çalış").
-                if !hasWork && session.current == nil { session.start(with: words, practiceAll: true) }
-                page = .daily
+                openDaily(hasWork ? .daily : .extraPractice)
             } label: {
                 Text(dailyInProgress ? "Devam Et" : hasWork ? "Başla" : "Yine de Çalış")
                     .fontWeight(.semibold)
@@ -164,13 +174,7 @@ struct MacGamesView: View {
         }
     }
 
-    private var allStrongText: String {
-        var text = "Bütün kelimeler güçlü"
-        if let next = words.map(\.dueDate).filter({ $0 > now }).min() {
-            text += " · sıradaki tekrar " + Leitner.dueDescription(for: next, now: now).lowercased(with: Locale(identifier: "tr_TR"))
-        }
-        return text
-    }
+    private var allStrongText: String { DeckSummary.allDoneText(for: words, now: now) }
 
     // MARK: Günlük hedef
 

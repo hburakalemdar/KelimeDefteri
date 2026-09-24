@@ -96,8 +96,12 @@ final class StudySession {
     private var shownAt: Date = .now
     private var responseTime: Double = 0
     private var pausedAt: Date?
-    /// Turun başladığı an (duraklatmayla kaymaz); tur başka bir günde mi başladı diye bakılır.
-    private var roundBeganAt: Date = .now
+    /// Turun başladığı an (duraklatmayla kaymaz); tur başka bir günde mi başladı diye ve tur özetindeki
+    /// "bugün daha önce görüldü" notu için bakılır.
+    private(set) var roundBeganAt: Date = .now
+    /// En az bir kelimeyle bir tur başlatıldı mı. `current == nil` iken "tur bitti" (özet) ile
+    /// "tur hiç başlamadı / soracak kelime yoktu" durumlarını ayırır.
+    private(set) var hasRound = false
     /// Turun başında verilen defter; Ters Yön'de eşanlamlı cevabı tanımak için.
     private var words: [Word] = []
 
@@ -156,7 +160,32 @@ final class StudySession {
         }
         wordCount = queue.count
         finishedWordCount = 0
+        hasRound = !queue.isEmpty
         advance(now: now)
+    }
+
+    /// "Bir Tur Daha"nın açacağı tur: Yeni Eklenenler bitince Günlük Tekrar, Günlük Tekrar'da iş
+    /// kalmayınca en zayıflarla ek tur ("Yine de Çalış"); diğer turlar kendini tekrarlar.
+    static func againPlan(after plan: Plan, words: [Word], now: Date = .now) -> Plan {
+        switch plan {
+        case .recent where !recentWords(words, now: now).isEmpty:
+            return .recent
+        case .recent, .daily, .extraPractice:
+            let count = dailyCount(words, now: now)
+            return count.weak + count.new > 0 ? .daily : .extraPractice
+        case .weak, .quick, .reverse:
+            return plan
+        }
+    }
+
+    /// Tur özetindeki düğmenin adı: aynı tur tekrarlanıyorsa "Bir Tur Daha", başka akışa geçiliyorsa onun adı.
+    static func againTitle(after plan: Plan, next: Plan) -> String {
+        guard next != plan else { return "Bir Tur Daha" }
+        return switch next {
+        case .daily: "Günlük Tekrar'a Geç"
+        case .extraPractice: "Yine de Çalış"
+        default: "Bir Tur Daha"
+        }
     }
 
     private func dailyWords(_ words: [Word], now: Date, avoidingFirst previousFirst: String?) -> [Word] {
