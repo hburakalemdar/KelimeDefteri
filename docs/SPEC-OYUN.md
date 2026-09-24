@@ -57,6 +57,8 @@ Yeni model `ReviewLog` (`Shared/ReviewLog.swift`):
 
 ## 2. Hafıza motoru (B2)
 
+> **Not (24 Eylül 2026):** Bu bölümün yerine `docs/SPEC-MOTOR2.md` geçer (loglardan yeniden oynatılan motor).
+
 `Shared/Logic/Memory.swift`, saf fonksiyonlar, `nonisolated`.
 
 **Hatırlama ihtimali** (FSRS-4.5 unutma eğrisi):

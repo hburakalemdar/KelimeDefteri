@@ -419,3 +419,15 @@ iPhone ekranları simülatörde tek tek denendi, mantık ve ekran kodu yeniden i
 - `Word.learnedAt` (yalnızca ekleme): öğrenildiği cevapta yazılır, yanlışta silinir; mevcut öğrenilmişlere geçişte
   `lastReviewedAt`. "Bu Hafta"da "Öğrendiğin kelime · 42 (bu hafta +4)". Geçişin ilk haftası +N biraz şişebilir.
 - 215 testin hepsi geçti.
+
+### Motor 2 (24 Eylül 2026)
+- Hafıza durumu artık cevap kayıtlarından gün gün (04:00 sınırı) yeniden hesaplanıyor (`Memory.replay`); Word alanları
+  önbellek. Aynı gün 1 doğru + 1 yanlış = "bilemedin". Eski veriler ilk açılışta kelime kelime tabana göç eder
+  (`MemoryMigration.migrateBaseIfNeeded`). Tasarım ve gerekçeler: `docs/SPEC-MOTOR2.md`, `docs/motor/`.
+- Tur özeti yüzde yerine "önce → sonra" vade gösterir; ✓/✗ turdaki ilk cevap. Yanlış bilinen kelime listede/ayrıntıda
+  turuncu halka + "Tekrar edilecek · Yarın"; vadesi gelince Günlük Tekrar'a girer. "Bir Tur Daha" açacağı turu adıyla söyler.
+- Tur içi: çoktan seçmeli/eşleştirme farklı anlam sayısına bakar, aynı anlamlı çeldirici yok, yazılı cevapta yalnızca bilinen
+  Türkçe ekler "neredeyse" sayılır, Harfleri Diz'de 3+ hata = bilemedin, Ters Yön eşanlamı tanır.
+- Widget/bildirim önce vadesi gelmiş, yeni olmayan kelimeyi sorar. Mac'te tur bitince özet ekranı; kendiliğinden yeniden başlama yok.
+- Depo açılışı kilitle sıraya kondu (uygulama + widget aynı anda göç edince "Veritabanı açılamadı" oluyordu).
+- 261 testin hepsi geçti. iPhone ve Mac aynı anda güncellendi. CloudKit şeması hâlâ geliştirme ortamında.
