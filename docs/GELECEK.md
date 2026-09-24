@@ -204,7 +204,7 @@ Fitness, Günlük) tanıtım ambiyansında olmalı:
   `NavigationStack` → `NavigationSplitView` (liste + ayrıntı yan yana); `GameScaffold` içeriğine ortalanmış
   `maxWidth ≈ 600` (oyunlar 13" ekranda ~1000 pt'ye yayılıyor, en çirkin yer). Risk: çoklu pencerede `rootController`
   ve tekil `GlanceRouter`/`AddRouter`. Widget'a büyük boyut eklenebilir.
-- **Üç cihaz:** kelimeler/cevaplar eşitleniyor; günlük hedef cihazda (seri hedefe bağlı → cihazlar farklı seri
+- **Üç cihaz — kullanıcı kararı: seri, halka ve günlük hedef bütün cihazlarda TEK sayı olmalı.** Kelimeler/cevaplar eşitleniyor; günlük hedef cihazda (seri hedefe bağlı → cihazlar farklı seri
   gösterebilir). Çözüm: `DailyGoal`'u `NSUbiquitousKeyValueStore`'a taşı (entitlements'a `ubiquity-kvstore` — hesap
   tarafı, onay). Eski bildirim/widget içeriği bilinen sınır olarak kalır.
 - **Görseller:** örnek veri (16 kelime, hepsi DDIA jargonu, bazı Türkçeler kötü, yeni kelimelerde cümle yok) mağaza
