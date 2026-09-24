@@ -115,7 +115,7 @@ struct StudyView: View {
     private var dailyCount: (weak: Int, new: Int) { StudySession.dailyCount(words, now: now) }
 
     private var deck: GameDeck {
-        GameDeck(entries: words.map { ($0.english, $0.example) })
+        GameDeck(entries: words.map { ($0.english, $0.example, $0.turkish) })
     }
 
     // MARK: - Günlük Tekrar

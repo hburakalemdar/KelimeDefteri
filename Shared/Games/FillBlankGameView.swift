@@ -65,8 +65,13 @@ struct FillBlankGameView: View {
         round.start(with: playable, count: Self.questionCount)
         questions = round.words.compactMap { word in
             guard let cloze = ClozeSentence(sentence: word.example, word: word.english) else { return nil }
-            let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(text: $0.english) }
-            let answer = ChoiceQuiz.Candidate(text: word.english)
+            // İngilizce seçenekler Türkçe anlamlarıyla karşılaştırılır: ipucuyla aynı anlamı taşıyan
+            // başka kelime çeldirici olmaz (iki doğru şık çıkmasın).
+            let candidate = { (word: Word) in
+                ChoiceQuiz.Candidate(text: word.english, meanings: AnswerChecker.meanings(in: word.turkish))
+            }
+            let others = words.filter { $0 !== word }.map(candidate)
+            let answer = candidate(word)
             let result = round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
             return Question(word: word, cloze: cloze, options: result.options, correctIndex: result.correctIndex)
         }
@@ -114,19 +119,26 @@ struct ClozeCard: View {
         .gameCard()
     }
 
+    /// Kelimenin cümledeki bütün geçişleri boş (ya da açılınca vurgulu kelime) gösterilir.
     private var sentence: AttributedString {
-        var result = AttributedString("“" + cloze.before)
-        var gap: AttributedString
-        if revealed {
-            gap = AttributedString(cloze.match)
-            gap.foregroundColor = .accentColor
-            gap.inlinePresentationIntent = .stronglyEmphasized
-        } else {
-            gap = AttributedString(ClozeSentence.blank)
-            gap.foregroundColor = .secondary
+        var result = AttributedString("“")
+        for (index, piece) in cloze.pieces.enumerated() {
+            guard index % 2 == 1 else {
+                result += AttributedString(piece)
+                continue
+            }
+            var gap: AttributedString
+            if revealed {
+                gap = AttributedString(piece)
+                gap.foregroundColor = .accentColor
+                gap.inlinePresentationIntent = .stronglyEmphasized
+            } else {
+                gap = AttributedString(ClozeSentence.blank)
+                gap.foregroundColor = .secondary
+            }
+            result += gap
         }
-        result += gap
-        result += AttributedString(cloze.after + "”")
+        result += AttributedString("”")
         return result
     }
 }

@@ -214,13 +214,15 @@ struct MatchGameView: View {
             selectedRight = selectedRight == id ? nil : id
         }
         guard let left = selectedLeft, let right = selectedRight else { return }
-        pick(left: left, right: right)
+        // Çifti tamamlayan dokunuş ikinci kutudur; soru rolündeki ilk dokunulan öbür sütundadır.
+        pick(left: left, right: right, questionIsLeft: !isLeft)
     }
 
     /// Bir soldan bir sağdan kutu seçilince çifti dener: doğruysa kaydeder, yanlışsa sallar.
-    private func pick(left: Int, right: Int) {
+    /// Yanlış çiftte hata soru rolündeki (ilk seçilen/sürüklenen) kutunun kelimesine yazılır.
+    private func pick(left: Int, right: Int, questionIsLeft: Bool) {
         guard var board else { return }
-        let result = board.pick(left: left, right: right)
+        let result = board.pick(left: left, right: right, questionIsLeft: questionIsLeft)
         self.board = board
         selectedLeft = nil
         selectedRight = nil
@@ -260,7 +262,8 @@ struct MatchGameView: View {
         else { return false }
         selectedLeft = nil
         selectedRight = nil
-        if isLeft { pick(left: id, right: source) } else { pick(left: source, right: id) }
+        // Sürüklenen kutu soru rolündedir.
+        if isLeft { pick(left: id, right: source, questionIsLeft: false) } else { pick(left: source, right: id, questionIsLeft: true) }
         return true
     }
     #endif

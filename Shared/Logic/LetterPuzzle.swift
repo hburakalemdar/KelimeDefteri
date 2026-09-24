@@ -106,6 +106,11 @@ nonisolated struct LetterPuzzle: Equatable {
         return mistakes == 0 ? .good : .hard
     }
 
+    /// Taşta ve yuvada gösterilen hâli: küçük harf (büyük harfli taş kelimenin ilk harfini ele vermesin).
+    static func display(_ character: Character) -> String {
+        String(character).lowercased(with: Locale(identifier: "en_US"))
+    }
+
     static func fold(_ character: Character) -> String {
         String(character).folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US"))
     }

@@ -12,8 +12,9 @@ nonisolated struct MatchBoard: Equatable {
     /// Sağ sütun sırası: anlamı hangi kelimeye ait.
     let right: [Int]
     private(set) var matched: Set<Int> = []
-    /// Eşleşmeden önce yanlış bir anlamla eşleştirilmeye çalışılmış kelimeler. Yanlış çiftte yalnızca
-    /// soldaki kelime sayılır: anlamı seçilen kelimeyi kullanıcı yanlış bilmiş değildir.
+    /// Eşleşmeden önce yanlış bir çiftte "soru" rolünde olmuş kelimeler. Yanlış çiftte yalnızca ilk
+    /// dokunulan (soru rolündeki) kutunun kelimesi sayılır: kullanıcı onun eşini arıyordu; öbür kutunun
+    /// kelimesini yanlış bilmiş değildir.
     private(set) var mistaken: Set<Int> = []
     private(set) var errors = 0
 
@@ -27,14 +28,16 @@ nonisolated struct MatchBoard: Equatable {
 
     var isComplete: Bool { matched.count == left.count }
 
-    /// Sol `leftID` ile sağdaki `rightID` anlamı seçildi.
-    mutating func pick(left leftID: Int, right rightID: Int) -> Result {
+    /// Sol `leftID` ile sağdaki `rightID` anlamı seçildi. `questionIsLeft`: ilk dokunulan (soru rolündeki)
+    /// kutu soldaki mi; yanlış çiftte hata o kutunun kelimesine yazılır.
+    mutating func pick(left leftID: Int, right rightID: Int, questionIsLeft: Bool = true) -> Result {
         if leftID == rightID {
             matched.insert(leftID)
             return .matched(leftID)
         }
         errors += 1
-        if !matched.contains(leftID) { mistaken.insert(leftID) }
+        let question = questionIsLeft ? leftID : rightID
+        if !matched.contains(question) { mistaken.insert(question) }
         return .mismatched(left: leftID, right: rightID)
     }
 

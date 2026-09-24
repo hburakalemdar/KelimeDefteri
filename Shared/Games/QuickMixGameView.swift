@@ -112,8 +112,10 @@ struct QuickMixGameView: View {
 
     private func startRound() {
         round.start(with: words, count: StudySession.quickCount)
+        // Seçmeli türler için ham kelime sayısı değil, farklı anlam sayısı yetmeli (ortak anlamlılar çeldirici olamaz).
+        let meaningCount = GameDeck.distinctMeaningCount(words.map(\.turkish))
         let allowed = round.words.map {
-            QuickMix.allowedModes(english: $0.english, example: $0.example, deckCount: words.count)
+            QuickMix.allowedModes(english: $0.english, example: $0.example, deckCount: meaningCount)
         }
         let modes = round.random { QuickMix.modes(allowed: allowed, using: &$0) }
         questions = zip(round.words, modes).map { word, mode in makeQuestion(word, mode: mode) }
@@ -128,7 +130,9 @@ struct QuickMixGameView: View {
             return .choice(word, options: result.options, correct: result.correctIndex)
         case .fillBlank:
             if let cloze = ClozeSentence(sentence: word.example, word: word.english) {
-                let result = options(for: word) { ChoiceQuiz.Candidate(text: $0.english) }
+                let result = options(for: word) {
+                    ChoiceQuiz.Candidate(text: $0.english, meanings: AnswerChecker.meanings(in: $0.turkish))
+                }
                 return .blank(word, cloze: cloze, options: result.options, correct: result.correctIndex)
             }
             return .recall(word, reverse: false)

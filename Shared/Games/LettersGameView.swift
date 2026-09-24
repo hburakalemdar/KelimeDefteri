@@ -101,13 +101,19 @@ struct LettersQuestionView: View {
                 meaningCard(word)
                 slotsView(puzzle)
                     .modifier(ShakeEffect(trigger: shakes))
+                if solved && !puzzle.grade.isCorrect {
+                    // Özetteki ✗ ile tutarlı: 3+ hatayla bulunan kelime bilinmemiş sayılır.
+                    Label("Çok denemeyle bulundu, bilemedin sayıldı", systemImage: "xmark.circle")
+                        .font(.subheadline)
+                        .foregroundStyle(.orange)
+                }
                 tilesView(puzzle)
             }
             .gamePagePadding()
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Group {
-                if puzzle.isRevealed {
+                if puzzle.isRevealed || (solved && !puzzle.grade.isCorrect) {
                     ContinueButton(action: onNext)
                 } else {
                     Button {
@@ -131,7 +137,7 @@ struct LettersQuestionView: View {
         }
         .animation(.snappy(duration: 0.2), value: puzzle)
         .sensoryFeedback(.warning, trigger: shakes)
-        .sensoryFeedback(.success, trigger: solved) { _, new in new }
+        .sensoryFeedback(.success, trigger: solved) { _, new in new && puzzle.grade.isCorrect }
         #if os(macOS)
         .focusable()
         .focusEffectDisabled()
@@ -195,20 +201,21 @@ struct LettersQuestionView: View {
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Cevap: " + puzzle.slots.map { $0.map { String(puzzle.tiles[$0]) } ?? "boş" }.joined(separator: " "))
+        .accessibilityLabel("Cevap: " + puzzle.slots.map { $0.map { LetterPuzzle.display(puzzle.tiles[$0]) } ?? "boş" }.joined(separator: " "))
     }
 
     private func slotView(_ slot: Int, puzzle: LetterPuzzle, width: CGFloat) -> some View {
         let tile = puzzle.slots[slot]
         // Doluyken yanlışsa kırmızı kalır; kullanıcı bir harfi çıkarınca normale döner.
-        let color: Color = solved ? .green
+        // 3+ hatadan sonra bulunan kelime özette ✗ sayılır; ekranda da yeşil kutlanmaz (turuncu).
+        let color: Color = solved ? (puzzle.grade.isCorrect ? .green : .orange)
             : puzzle.isRevealed ? .accentColor
             : (puzzle.isFull && !puzzle.isCorrect) ? .red
             : .primary
         return Button {
             update { $0.remove(slot: slot) }
         } label: {
-            Text(tile.map { String(puzzle.tiles[$0]) } ?? "")
+            Text(tile.map { LetterPuzzle.display(puzzle.tiles[$0]) } ?? "")
                 .font(.system(size: width * 0.7, weight: .semibold, design: .serif))
                 .foregroundStyle(color)
                 .frame(width: width, height: width * 1.3)
@@ -231,7 +238,7 @@ struct LettersQuestionView: View {
                 Button {
                     place(index)
                 } label: {
-                    Text(String(puzzle.tiles[index]))
+                    Text(LetterPuzzle.display(puzzle.tiles[index]))
                         .font(.system(.title2, design: .serif, weight: .semibold))
                         .frame(width: 34, height: 34)
                 }
@@ -260,6 +267,8 @@ struct LettersQuestionView: View {
         if correct {
             solved = true
             onAnswer(puzzle.grade)
+            // Bilemedin sayılan çözümde kendiliğinden geçilmez; kullanıcı notu görüp Devam'a basar.
+            guard puzzle.grade.isCorrect else { return }
             Task {
                 try? await Task.sleep(for: .seconds(0.8))
                 onNext()

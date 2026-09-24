@@ -221,7 +221,7 @@ struct MacGamesView: View {
     // MARK: Oyunlar
 
     private var gameGrid: some View {
-        let deck = GameDeck(entries: words.map { ($0.english, $0.example) })
+        let deck = GameDeck(entries: words.map { ($0.english, $0.example, $0.turkish) })
         let games = Array(GameMode.hubGames.enumerated())
         return Grid(horizontalSpacing: 8, verticalSpacing: 8) {
             ForEach(Array(stride(from: 0, to: games.count, by: 2)), id: \.self) { start in

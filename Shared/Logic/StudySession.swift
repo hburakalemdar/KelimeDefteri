@@ -65,7 +65,7 @@ final class StudySession {
     nonisolated static let dailyLimit = 20
     nonisolated static let dailyNewLimit = 5
     nonisolated static let recentLimit = 10
-    static let quickCount = 5
+    nonisolated static let quickCount = 5
     static let reverseCount = 10
 
     /// Kelimeler güçlüyken "Yine de Çalış" ile açılan turdaki kelime sayısı.
