@@ -1,5 +1,7 @@
 # Görev devri: yeni anlam öğretme (2026-09-26)
 
+**BİTTİ (2026-09-26):** 38b3279 + örnek veri; tasarım ve uygulama notları docs/SPEC-ANLAM.md.
+
 ## Durum
 Bu oturumda bitti, commit + push edildi, iPhone 14 ve Mac'e kuruldu (321 test geçiyor):
 - b4b8a61 yeniden eklemede cümle kaybı · c24a975 widget bugün cevaplananı atlar + anlamlar sırayla (`Word.meaningTurn` = logs.count, `ChoiceQuiz.meaning`)

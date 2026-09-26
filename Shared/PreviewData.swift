@@ -111,6 +111,11 @@ enum PreviewData {
                 log.word = word
             }
         }
+        // Güçlü "coalesce"e sonradan eklenmiş anlam: Günlük Tekrar'da "Yeni anlam" tanıtımı olarak sorulur.
+        for word in allWords where !word.isNew { word.fillMeaningBaselineIfNeeded() }
+        if let coalesce = allWords.first(where: { $0.english == "coalesce" }) {
+            coalesce.turkish += ", bir araya toplamak"
+        }
         MemoryCache.refreshAll(in: container.mainContext, now: now)
         return container
     }()
