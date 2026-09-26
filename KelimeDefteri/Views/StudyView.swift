@@ -23,6 +23,8 @@ struct StudyView: View {
     @Query(sort: \Word.dueDate) private var words: [Word]
     @Query private var logs: [ReviewLog]
     @AppStorage(DailyGoal.key, store: DailyGoal.defaults) private var goalTarget = DailyGoal.defaultTarget
+    /// Günlük yeni hakkı; Ayarlar'da ya da başka cihazda değişince kart hemen yenilensin.
+    @AppStorage(DailyNewAllowance.key, store: DailyGoal.defaults) private var storedNewAllowance = DailyNewAllowance.defaultValue
     /// Son turdan önce hedef tamamlanmış mıydı; tur hedefi kapatınca hafif bir titreşim verilir.
     @State private var goalWasComplete = false
     @State private var celebration = 0
@@ -114,7 +116,8 @@ struct StudyView: View {
     // MARK: - Özet
 
     private var averageMemory: Double? { MemoryStats.average(words.map { $0.memory(at: now) }) }
-    private var dailyCount: (weak: Int, new: Int) { StudySession.dailyCount(words, now: now) }
+    private var newAllowance: Int { DailyNewAllowance.validated(storedNewAllowance) }
+    private var dailyCount: (weak: Int, new: Int) { StudySession.dailyCount(words, now: now, newAllowance: newAllowance) }
 
     private var deck: GameDeck {
         GameDeck(entries: words.map { ($0.english, $0.sentenceTexts, $0.turkish) })
@@ -159,7 +162,7 @@ struct StudyView: View {
     /// Günlük Tekrar'ın bugün almadığı yeni kelimeler varsa onlarla ayrı tur; yoksa satır hiç görünmez.
     @ViewBuilder
     private var recentRow: some View {
-        let waiting = StudySession.recentWaitingCount(words, now: now)
+        let waiting = StudySession.recentWaitingCount(words, now: now, newAllowance: newAllowance)
         if waiting > 0 {
             HStack(spacing: 12) {
                 Text(RoundText.recentWaiting(waiting))

@@ -29,9 +29,9 @@ nonisolated struct GlanceFeedback: Codable, Equatable, Sendable {
 nonisolated struct GlanceSummary: Equatable, Sendable {
     /// Çalışılmış kelimelerin ortalama hafızası; hiç çalışılmamışsa `nil`.
     var average: Double?
-    /// Günlük Tekrar'ın soracağı çalışılmış zayıf kelime sayısı (en fazla 20).
+    /// Günlük Tekrar'ın bugünkü çalışılmış zayıf kelime sayısı (güvenlik tavanı 100).
     var weak: Int
-    /// Günlük Tekrar'ın bugünkü tanışma sayısı (yeni kelime + yeni anlam, en fazla 5).
+    /// Günlük Tekrar'ın bugünkü tanışma sayısı (yeni kelime + yeni anlam, günlük yeni hakkı kadar).
     var new: Int
     var total: Int
     /// Yanlış bilinip vadesi henüz gelmemiş, tekrar edilecek kelime sayısı; varsa "hepsi güçlü" denmez.

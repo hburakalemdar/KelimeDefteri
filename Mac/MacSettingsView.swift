@@ -13,6 +13,7 @@ struct MacSettingsView: View {
     @AppStorage(ReminderSettings.hourKey) private var reminderHour = ReminderSettings.defaultHour
     @AppStorage(ReminderSettings.minuteKey) private var reminderMinute = ReminderSettings.defaultMinute
     @AppStorage(DailyGoal.key, store: DailyGoal.defaults) private var dailyGoal = DailyGoal.defaultTarget
+    @AppStorage(DailyNewAllowance.key, store: DailyGoal.defaults) private var newAllowance = DailyNewAllowance.defaultValue
     @State private var permissionDenied = false
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var iCloudStatus: CKAccountStatus?
@@ -67,7 +68,17 @@ struct MacSettingsView: View {
             } header: {
                 Text("Hedef")
             } footer: {
-                Text("Çalış sayfasındaki halka her gün bu kadar cevapla kapanır; iPhone ve Mac'teki cevaplar birlikte sayılır. Halkayı üst üste kapattığın günler serini oluşturur. Hedef her cihazda ayrı seçilir.")
+                Text("Çalış sayfasındaki halka her gün bu kadar cevapla kapanır; iPhone ve Mac'teki cevaplar birlikte sayılır. Halkayı üst üste kapattığın günler serini oluşturur.")
+            }
+
+            Section {
+                Picker("Günlük yeni", selection: newAllowanceSelection) {
+                    ForEach(DailyNewAllowance.options, id: \.self) { Text("\($0) kelime").tag($0) }
+                }
+            } header: {
+                Text("Günlük Tekrar")
+            } footer: {
+                Text("Günlük Tekrar'a her gün, sırası gelen tekrarların üstüne eklenecek yeni kelime ve yeni anlam sayısı.")
             }
 
             Section {
@@ -128,8 +139,18 @@ struct MacSettingsView: View {
         }
         // Hedef bütün cihazlarda tek (iCloud).
         .onChange(of: dailyGoal) { _, goal in GoalCloudSync.userChose(goal) }
+        // Yeni hakkı da bütün cihazlarda tek; menü çubuğundaki sayı ve bildirim değişir.
+        .onChange(of: newAllowance) { _, value in
+            GoalCloudSync.userChose(value, setting: .dailyNew)
+            Task { await ReminderScheduler.refresh(context: context) }
+        }
         .onChange(of: reminderHour) { Task { await ReminderScheduler.refresh(context: context) } }
         .onChange(of: reminderMinute) { Task { await ReminderScheduler.refresh(context: context) } }
+    }
+
+    /// Kayıtlı değer geçersizse seçici varsayılanı gösterir.
+    private var newAllowanceSelection: Binding<Int> {
+        Binding { DailyNewAllowance.validated(newAllowance) } set: { newAllowance = $0 }
     }
 
     private var accuracy: Double? {

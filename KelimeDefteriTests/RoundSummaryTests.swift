@@ -97,11 +97,12 @@ struct RoundSummaryTests {
 
     @Test func againPlanNamesTheNextFlow() throws {
         let context = try makeContext()
-        // 12 yeni kelime: Günlük Tekrar 5'ini, Yeni Eklenenler kalan 7'den 10'a kadarını alır.
+        // 12 yeni kelime, hak 10: Günlük Tekrar 10'unu, Yeni Eklenenler kalan 2'yi alır.
         let deck = words(12, in: context)
-        #expect(StudySession.againPlan(after: .recent, words: deck, now: now) == .recent)
-        #expect(StudySession.againPlan(after: .daily, words: deck, now: now) == .daily)
-        #expect(StudySession.againTitle(after: .daily, next: .daily) == "Bir Tur Daha")
+        #expect(StudySession.againPlan(after: .recent, words: deck, now: now, newAllowance: 10) == .recent)
+        #expect(StudySession.againPlan(after: .daily, words: deck, now: now, newAllowance: 10) == .daily)
+        // Günlük Tekrar'da günün kalanı varsa düğme "Devam Et".
+        #expect(StudySession.againTitle(after: .daily, next: .daily) == "Devam Et")
         #expect(StudySession.againPlan(after: .quick, words: deck, now: now) == .quick)
         #expect(StudySession.againPlan(after: .reverse, words: deck, now: now) == .reverse)
 
@@ -109,8 +110,8 @@ struct RoundSummaryTests {
         for word in deck {
             ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: now)
         }
-        #expect(StudySession.againPlan(after: .recent, words: deck, now: now) == .extraPractice)
-        #expect(StudySession.againPlan(after: .daily, words: deck, now: now) == .extraPractice)
+        #expect(StudySession.againPlan(after: .recent, words: deck, now: now, newAllowance: 10) == .extraPractice)
+        #expect(StudySession.againPlan(after: .daily, words: deck, now: now, newAllowance: 10) == .extraPractice)
         #expect(StudySession.againTitle(after: .daily, next: .extraPractice) == "Yine de Çalış")
         #expect(StudySession.againTitle(after: .recent, next: .daily) == "Günlük Tekrar'a Geç")
         #expect(StudySession.againTitle(after: .extraPractice, next: .extraPractice) == "Bir Tur Daha")

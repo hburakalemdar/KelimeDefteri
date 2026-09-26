@@ -11,7 +11,7 @@ iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
   bkz. `docs/SPEC-CUMLE.md`).
   - *Türkçesini bul:* Apple'ın cihaz üstü çeviri motoruyla (Translation framework) öneri.
   - *Sözlük:* iOS'un yerleşik sözlüğünde İngilizce tanıma bakma.
-- **Çalış (oyun merkezi):** Üstte **Günlük Tekrar** (zayıflayan kelimeler, en fazla 20, en fazla 5 yeni),
+- **Çalış (oyun merkezi):** Üstte **Günlük Tekrar** (vadesi gelen bütün kelimeler + günlük yeni hakkı kadar yeni; tur başına 20 kelime, "Devam Et"),
   altında oyunlar: **Hızlı Tur** (5 karışık soru), **Çoktan Seçmeli**, **Eşleştir**, **Boşluğu Doldur**
   (kitaptaki cümle), **Harfleri Diz**, **Ters Yön** (Türkçeden İngilizceye). Her tur sonunda özet:
   kaç doğru, ne kadar sürdü, her kelimenin hafızası nasıl değişti.

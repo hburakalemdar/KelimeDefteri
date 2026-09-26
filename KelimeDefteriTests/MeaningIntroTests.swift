@@ -17,8 +17,8 @@ struct MeaningIntroTests {
         return ModelContext(container)
     }
 
-    private func makeSession(seed: UInt64 = 1) -> StudySession {
-        StudySession(seed: seed, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+    private func makeSession(seed: UInt64 = 1, newAllowance: Int = 10) -> StudySession {
+        StudySession(seed: seed, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!, newAllowance: newAllowance)
     }
 
     /// Güçlü, vadesi gelmemiş, anlam tabanı alınmış kelime.
@@ -281,24 +281,27 @@ struct MeaningIntroTests {
             return word
         }
         let deck = fresh + intros + distractors(in: context)
-        let count = StudySession.dailyCount(deck)
+        // Yeni hakkı 5: yeni anlamlar da bu haktan yer alır.
+        let count = StudySession.dailyCount(deck, newAllowance: 5)
         #expect(count == (0, 5))
         #expect(StudySession.dailyMeaningCount(deck, count: count) == 2)
-        let taken = StudySession.dailyNewWords(deck)
+        let taken = StudySession.dailyNewWords(deck, newAllowance: 5)
         #expect(taken.map(\.english) == ["s0", "s1", "n0", "n1", "n2"])
-        #expect(StudySession.recentWaitingCount(deck) == 2)
-        #expect(StudySession.recentWords(deck).map(\.english) == ["n4", "n3"])
+        #expect(StudySession.recentWaitingCount(deck, newAllowance: 5) == 2)
+        #expect(StudySession.recentWords(deck, newAllowance: 5).map(\.english) == ["n4", "n3"])
         #expect(RoundText.daily(weak: 0, new: 5, meanings: 2, seconds: 60) == "3 yeni kelime · 2 yeni anlam · yaklaşık 1 dk")
 
-        let session = makeSession()
+        let session = makeSession(newAllowance: 5)
         session.start(with: deck, plan: .daily)
         #expect(session.wordCount == 5)
         let asked = drain(session)
         #expect(asked.filter { $0.hasPrefix("intro") }.count == 2)
         #expect(StudySession.introducedToday(deck) == 5)
         // Bütçe doldu: kalan yeniler Tanış'ta.
-        #expect(StudySession.dailyCount(deck).new == 0)
-        #expect(StudySession.recentWaitingCount(deck) == 2)
+        #expect(StudySession.dailyCount(deck, newAllowance: 5).new == 0)
+        #expect(StudySession.recentWaitingCount(deck, newAllowance: 5) == 2)
+        // Hak 10 olsaydı kalan 2 yeni de bugün Günlük Tekrar'a girerdi.
+        #expect(StudySession.dailyCount(deck, newAllowance: 10).new == 2)
     }
 
     /// Yanlış tanıtım yeniden sorulmaz: yalnız tanıtım için gelen kelime çıkar, vadesi gelmiş kelimeye yalnız takip adımı eklenir.
@@ -341,7 +344,7 @@ struct MeaningIntroTests {
         }
         let due = date(day: 24, hour: 0)
         let plan = ReminderPlanner.plan(
-            studiedDueDates: [due], newCount: 0, introDueDates: [due], introducedToday: 0,
+            studiedDueDates: [due], newCount: 0, introDueDates: [due], introducedToday: 0, newAllowance: 10,
             hour: 20, minute: 0, now: date(day: 22, hour: 10), calendar: calendar
         )
         #expect(plan.prefix(3).map(\.dueCount) == [1, 1, 1])

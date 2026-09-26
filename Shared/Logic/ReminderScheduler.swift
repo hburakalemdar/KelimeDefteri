@@ -24,15 +24,15 @@ enum ReminderScheduler {
     }
 
     /// Günlük Tekrar'ın şu an soracağı kelime sayısı; simge rozeti bunu gösterir.
-    static func dailyTotal(_ words: [Word], now: Date = .now) -> Int {
-        let count = StudySession.dailyCount(words, now: now)
+    static func dailyTotal(_ words: [Word], now: Date = .now, newAllowance: Int = DailyNewAllowance.value()) -> Int {
+        let count = StudySession.dailyCount(words, now: now, newAllowance: newAllowance)
         return count.weak + count.new
     }
 
     /// Bekleyen hatırlatmaları siler, güncel kelime durumuna göre yeniden kurar ve ikon rozetini günceller.
     static func refresh(context: ModelContext, now: Date = .now) async {
         let words = (try? context.fetch(FetchDescriptor<Word>())) ?? []
-        // Rozet ve bildirim Günlük Tekrar'ın soracağı sayıyı gösterir (20 sınırı, en fazla 5 yeni).
+        // Rozet ve bildirim Günlük Tekrar'ın bugünkü toplamını gösterir (vadesi gelenler + günlük yeni hakkı).
         // Üretimi bekleyen kelime vadesi gelmemiş olsa da bugün sorulur (bkz. `DailyMix`).
         let studied = words.filter { !$0.isNew }
         let pendingIDs = Set(studied.filter { $0.isPendingProduction(now: now) }.map(ObjectIdentifier.init))
@@ -43,6 +43,8 @@ enum ReminderScheduler {
         let newCount = words.count(where: \.isNew)
         let introDueDates = StudySession.introOnlyWords(words, now: now).map(\.dueDate)
         let introducedToday = StudySession.introducedToday(words, now: now)
+        let newAllowance = DailyNewAllowance.value()
+        let reviewedToday = StudySession.reviewedToday(words, now: now)
         let center = UNUserNotificationCenter.current()
 
         let pending = await center.pendingNotificationRequests()
@@ -54,14 +56,15 @@ enum ReminderScheduler {
         let enabled = defaults.bool(forKey: ReminderSettings.enabledKey)
         let authorized = await center.notificationSettings().authorizationStatus == .authorized
 
-        try? await center.setBadgeCount(enabled && authorized ? dailyTotal(words, now: now) : 0)
+        try? await center.setBadgeCount(enabled && authorized ? dailyTotal(words, now: now, newAllowance: newAllowance) : 0)
         guard enabled, authorized else { return }
 
         let hour = defaults.object(forKey: ReminderSettings.hourKey) as? Int ?? ReminderSettings.defaultHour
         let minute = defaults.object(forKey: ReminderSettings.minuteKey) as? Int ?? ReminderSettings.defaultMinute
         let reminders = ReminderPlanner.plan(
             studiedDueDates: studiedDueDates, pendingDueDates: pendingDueDates, newCount: newCount,
-            introDueDates: introDueDates, introducedToday: introducedToday, hour: hour, minute: minute, now: now
+            introDueDates: introDueDates, introducedToday: introducedToday, newAllowance: newAllowance,
+            reviewedToday: reviewedToday, hour: hour, minute: minute, now: now
         )
 
         #if os(iOS)

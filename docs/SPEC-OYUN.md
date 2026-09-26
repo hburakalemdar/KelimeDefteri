@@ -18,6 +18,8 @@ mevcut desene en yakın seçeneği seç, `docs/CALISMA-RAPORU.md`'ye "Verilen ka
   (kullanıcının gerçek defterinde az sayıda deneme kelimesi var).
 - Mac derlenir ve yeni dili gösterir (hafıza gücü, karışık sıra); oyunlar Mac'e sonra gelecek.
 - Her görev `main`'e commit edilip push edilir.
+- Tekrarlarda tavan yok (güvenlik tavanı 100, aşılınca o gün yeni verilmez); yeni hakkı ayrı, varsayılan 10
+  (5/10/15/20); tur başına 20 kelime + Devam Et (Burak, 2026-09-26).
 
 ---
 
@@ -103,7 +105,7 @@ Harfleri Diz `0.8`, tanıma oyunları `0.6`.
 
 **Türetilen kavramlar** (`Word` uzantısı):
 - `memory(at:)` → `Double?` (yeni ise `nil`)
-- `isWeak` → yeni **ya da** `R < 0.9`. Günlük Tekrar bunu sayar; sekme ve simge rozeti ile bildirim Günlük Tekrar'ın soracağı sayıyı (en fazla 20, 5'i yeni) gösterir.
+- `isWeak` → yeni **ya da** `R < 0.9`. Günlük Tekrar bunu sayar; sekme ve simge rozeti ile bildirim Günlük Tekrar'ın bugünkü toplam kalanını (vadesi gelenlerin hepsi + günlük yeni hakkı) gösterir.
 - `isLearned` → `stability ≥ 21` gün (eski `box ≥ maxBox` tanımının yerini alır).
 
 **Testler (zorunlu):** R(S,S)=0.9; yeni kelimenin ilk notları; doğru cevap S'yi büyütür, easy > good > hard;
@@ -121,7 +123,17 @@ zorluk sınırlar içinde kalır.
   (turda yeterli kelime yoksa en sona).
 - **Yeni turun ilk kelimesi, önceki turun ilk kelimesi olamaz.** Önceki ilk kelimenin kimliği
   `UserDefaults`'ta tutulur.
-- **Günlük Tekrar:** zayıf kelimeler, en fazla 20; bunların en fazla 5'i yeni.
+- **Günlük Tekrar:** vadesi gelen (ve üretim bekleyen) çalışılmış kelimelerin hepsi — güvenlik tavanı 100
+  (`dailyReviewCap`), aşılınca en zayıflar alınır ve o gün yeni verilmez — üstüne günlük yeni hakkı kadar tanışma
+  (yeni kelime ya da yeni anlam; Ayarlar'dan 5/10/15/20, varsayılan 10, iCloud'da tek değer; bugün tanışılanlar
+  düşülür). Bir tur en fazla 20 kelime (`dailyRoundSize`): önce üretim bekleyenler, kalan yere tekrarlar (en
+  zayıftan) ve yeniler günün listesindeki oranla (yeni varsa en az 1). Tur özetinde günün kalanı varsa "Devam Et";
+  kart, rozet, bildirim ve widget günün toplam kalanını gösterir.
+  - "Yeni yok" kuralı günlüktür: günün tekrar yükü = şu an bekleyen tekrarlar + bugün tekrar olarak cevaplanmış
+    çalışılmış kelimeler (`reviewedToday`; bugün tanışılanlar ve tanıtım kayıtları sayılmaz); bu 100'ü aşarsa o gün
+    yeni verilmez, tur bitip bekleyenler azalsa da. Bildirimin ileri günlerinde yük o gün vadesi gelenlerle yaklaşıklanır.
+  - Tanışma sayısı (`introducedToday`): tabanı boş ve ilk silinmemiş, tanıtım olmayan cevabı bugün olan kelime ya da
+    bugün yeni anlam tanıtımı olan kelime; Motor 2 göçünden tabanla gelen eski kelimenin bugünkü ilk cevabı tanışma değildir.
 - **Hızlı Tur:** 5 kelime, bütün defterden ağırlıklı seçim.
 - **Diğer oyunlar:** oyunun kuralına göre (aşağıda), ağırlıklı seçim.
 
@@ -253,7 +265,7 @@ Hızlı Tur'un 5 sorusu oynanabilir oyun türlerinden rastgele seçilir; art ard
 ### 5.11 Günlük Tekrar'da oyunlar (İŞ 5, 2026-09-26)
 
 Günlük Tekrar, Tanış ve Yine de Çalış aynı karışımı kullanır (`Shared/Logic/DailyMix.swift`, `StudySession`);
-Hızlı Tur ve Ters Yön değişmez. Kelime seçimi aynı: toplam 20, bunun en fazla 5'i yeni.
+Hızlı Tur ve Ters Yön değişmez. Kelime seçimi §3'teki gibi: tur başına en fazla 20, yeniler günlük yeni hakkından.
 
 - **Yeni ya da zayıf (`isLapsed`) kelime:** önce Çoktan Seçmeli (ısınma). Cevaplanınca üretim sorusu sıraya
   araya en az iki başka kelime girecek yere eklenir (o kadar kelime yoksa sona): en fazla 14 harfliyse
@@ -264,7 +276,7 @@ Hızlı Tur ve Ters Yön değişmez. Kelime seçimi aynı: toplam 20, bunun en f
 - Her cevap kendi türüyle kaydedilir (`choice`, `letters`, `daily`). Kelime turdan ancak üretimle çıkar;
   ilerleme ("3/5") ve silme benzersiz kelimeyle sayılır.
 - **Yarıda bırakma:** bugün (04:00 sınırıyla) Çoktan Seçmeli cevabı olup hiç üretim cevabı olmayan, ilk cevabı
-  bugün olan ya da zayıf kelime "üretim bekliyor" sayılır; sonraki Günlük Tekrar'a (20 sınırı içinde, önce)
+  bugün olan ya da zayıf kelime "üretim bekliyor" sayılır; sonraki Günlük Tekrar turuna (turun 20 kelimesi içinde, önce)
   girer ve doğrudan üretimle sorulur. Kart sayısı ve rozet de onu sayar. Çoktan Seçmeli oyunu ve widget aynı
   türle yazdığı için orada tanınan yeni/zayıf kelime de böyle gelir. Kartta "1 kelime tekrar bekliyor" diye
   zayıflayanlardan ayrı yazılır; bugünün hatırlatması da onu sayar.

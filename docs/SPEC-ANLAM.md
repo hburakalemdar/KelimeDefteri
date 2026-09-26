@@ -88,7 +88,8 @@ farklı anlam var (`DailyMix.minimumMeanings`).
   turdan düşer (`wordCount` düzeltilir).
 - Yeni kelimede bekleyen anlam olmaz (taban ilk cevapta alınır), yani yeni kelime akışı değişmez.
 
-**"5 yeni" bütçesi = günde 5 tanışma** (yeni kelime ya da yeni anlam):
+**Günlük yeni hakkı = günde o kadar tanışma** (yeni kelime ya da yeni anlam; hak Ayarlar'dan 5/10/15/20, varsayılan
+10, `DailyNewAllowance`; tekrarlardan ayrı, 2026-09-26):
 - `introducedToday` = ilk kaydı bugün olan kelimeler + ilk kaydı daha eski olup bugün `isIntro` kaydı olan kelimeler.
 - Bütçe havuzu (`dailyCount`'un `new` sayısı): hiç çalışılmamış kelimeler + **yalnız tanıtım için gelecek** kelimeler
   (tanıtıma uygun, vadesi gelmemiş, üretim beklemeyen). Vadesi gelmiş/üretim bekleyen kelimenin tanıtımı zaten
@@ -97,7 +98,7 @@ farklı anlam var (`DailyMix.minimumMeanings`).
   (bugünkü gibi en eski eklenen). `dailyNewWords` bu birleşik listeyi döner.
 - `recentWords` / `recentWaitingCount` yalnız **yeni kelimeleri** sayar: alınan yeni kelime sayısı = `new` − alınan
   anlam sayısı. Tanış turu yeni anlam almaz; bütçeye sığmayan anlamlar ertesi günü bekler.
-- `dailyCount(weak:new:introducedToday:)` imzası ve tuple aynı kalır → rozet, bildirim (`ReminderScheduler`,
+- `dailyCount(weak:new:introducedToday:newAllowance:)` tuple'ı aynı kalır → rozet, bildirim (`ReminderScheduler`,
   `ReminderPlanner`'ın `newCount`'u: yeni kelimeler + yalnız tanıtım için gelecek kelimeler), widget özeti ve kart
   aynı sayıyı gösterir.
 - Kart metni (iOS `StudyView.dailyText`, Mac `MacGamesView`): yeni anlam varsa "yeni kelime"den ayrı yazılır
@@ -119,7 +120,7 @@ farklı anlam var (`DailyMix.minimumMeanings`).
 - `isIntro`: tanıma + bekleyen anlam → true; üretim → false. Güçlü kelimede yanlış tanıtım hafızayı değiştirmez.
 - Yazarak cevapta yazılan anlam kaydedilir (başka anlam yazılınca o).
 - Günlük Tekrar: vadesi gelmemiş güçlü kelime yalnız tanıtımla girer ve tek adımda çıkar; vadesi gelmişte tanıtım +
-  yazarak; aynı gün ikinci kez girmez; bütçe: 5 yeni kelime + 2 yeni anlam → 2 anlam + 3 kelime; `recentWaitingCount`
+  yazarak; aynı gün ikinci kez girmez; bütçe (hak 5): 5 yeni kelime + 2 yeni anlam → 2 anlam + 3 kelime; `recentWaitingCount`
   doğru; `introducedToday` tanıtımı sayar.
 - Birleştirme: tabanlar birleşir.
 

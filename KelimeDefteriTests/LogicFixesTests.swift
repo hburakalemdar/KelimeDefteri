@@ -286,10 +286,14 @@ struct LogicFixesTests {
     // MARK: - 11. Rozet ve bildirim sayısı
 
     @Test func badgeCountMatchesDailyReview() {
-        let fresh = (0..<8).map { Word(english: "n\($0)", turkish: "anlam") }
-        #expect(ReminderScheduler.dailyTotal(fresh, now: now) == 5)
+        let fresh = (0..<12).map { Word(english: "n\($0)", turkish: "anlam") }
+        #expect(ReminderScheduler.dailyTotal(fresh, now: now, newAllowance: 10) == 10)
+        #expect(ReminderScheduler.dailyTotal(fresh, now: now, newAllowance: 5) == 5)
+        // Tekrarlarda tavan yok (güvenlik tavanı 100); yeni hakkı tekrarların üstüne.
         let weak = (0..<25).map { weakWord("w\($0)") }
-        #expect(ReminderScheduler.dailyTotal(weak + fresh, now: now) == 20)
-        #expect(ReminderScheduler.dailyTotal([strongWord("s")], now: now) == 0)
+        #expect(ReminderScheduler.dailyTotal(weak + fresh, now: now, newAllowance: 10) == 35)
+        let piledUp = (0..<120).map { weakWord("p\($0)") }
+        #expect(ReminderScheduler.dailyTotal(piledUp + fresh, now: now, newAllowance: 10) == 100)
+        #expect(ReminderScheduler.dailyTotal([strongWord("s")], now: now, newAllowance: 10) == 0)
     }
 }

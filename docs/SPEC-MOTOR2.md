@@ -300,6 +300,11 @@ kabul edilir (o günün henüz hiç kelime tanıtmadığı varsayımıyla).
         : StudySession.dailyCount(weak: weak, new: newCount, introducedToday: 0).new
       return weak + takenNew   // StudySession.dailyCount zaten weak'i de dailyLimit'e göre kısıyor
 
+> **Güncelleme (2026-09-26):** 20/5 sınırı kalktı. `dailyCount(weak:new:introducedToday:newAllowance:)`:
+> `weak` tavanı 100 (`dailyReviewCap`); `new = weak > 100 ? 0 : min(new, max(0, newAllowance − introducedToday))`.
+> Yeni hakkı Ayarlar'dan (5/10/15/20, varsayılan 10). Bildirimde ileri günlerin yeni tahmini `min(newAllowance, newCount)`;
+> `ReminderPlanner.plan` ve `dailyCount` hakkı parametre olarak alır. Tur başına 20 kelime (`dailyRoundSize`).
+
 `introducedToday` yalnızca `ReminderScheduler.refresh`teki çağrıda hesaplanır (`introducedToday(words,
 now: now)`, §2.6'daki tanım) ve `plan`e geçirilir; `plan`in kendisi `nonisolated` kalır, kelime
 listesini görmez (yalnızca sayıları alır — bugünkü tasarım deseni).

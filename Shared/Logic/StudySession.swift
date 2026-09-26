@@ -24,7 +24,8 @@ final class StudySession {
     enum Plan: Equatable {
         /// Bütün zayıf kelimeler, sınırsız; tur sürerken zayıflayanlar da eklenir.
         case weak
-        /// Günlük Tekrar: zayıf kelimeler, en fazla 20, bunların en fazla 5'i yeni.
+        /// Günlük Tekrar: vadesi gelen tekrarlar ve günlük yeni hakkı kadar tanışma; bir turda en fazla 20
+        /// kelime (`dailyRoundSize`), kalanlar "Devam Et" ile sonraki turda.
         case daily
         /// Hepsi güçlüyken "Yine de Çalış": önce son günlerde zorlanılanlar, kalan yere en zayıflar; toplam 10.
         case extraPractice
@@ -101,8 +102,11 @@ final class StudySession {
         }
     }
 
-    nonisolated static let dailyLimit = 20
-    nonisolated static let dailyNewLimit = 5
+    /// Günlük Tekrar'daki tekrar sayısının güvenlik tavanı (gün atlanınca birikenler için); aşılınca en
+    /// zayıflar seçilir ve o gün yeni verilmez.
+    nonisolated static let dailyReviewCap = 100
+    /// Günlük Tekrar'ın bir turunda en fazla kaç kelime sorulur; günün kalanı sonraki turlara kalır.
+    nonisolated static let dailyRoundSize = 20
     nonisolated static let recentLimit = 10
     nonisolated static let quickCount = 5
     static let reverseCount = 10
@@ -184,10 +188,15 @@ final class StudySession {
     }
 
     /// `seed` testte sırayı sabitlemek için; verilmezse her açılışta farklı sıra çıkar.
-    init(seed: UInt64 = .random(in: .min ... .max), defaults: UserDefaults = .standard) {
+    /// `newAllowance`: Günlük Tekrar'ın günlük yeni hakkı; verilmezse Ayarlar'daki (`DailyNewAllowance`).
+    init(seed: UInt64 = .random(in: .min ... .max), defaults: UserDefaults = .standard, newAllowance: Int? = nil) {
         generator = SeededGenerator(seed: seed)
         self.defaults = defaults
+        self.newAllowance = newAllowance
     }
+
+    private let newAllowance: Int?
+    private var allowance: Int { newAllowance ?? DailyNewAllowance.value() }
 
     /// `practiceAll` false ise bütün zayıf kelimeler, true ise en zayıf 10 kelime (Mac menü penceresi).
     func start(with words: [Word], practiceAll: Bool, now: Date = .now) {
@@ -218,7 +227,7 @@ final class StudySession {
         case .extraPractice:
             extraPracticeWords(words, now: now, avoidingFirst: previousFirst)
         case .recent:
-            ordered(Self.recentWords(words, now: now), now: now, avoidingFirst: previousFirst)
+            ordered(Self.recentWords(words, now: now, newAllowance: allowance), now: now, avoidingFirst: previousFirst)
         case .quick:
             ordered(words, now: now, avoidingFirst: previousFirst, limit: Self.quickCount)
         case .reverse:
@@ -235,22 +244,27 @@ final class StudySession {
         advance(now: now)
     }
 
-    /// "Bir Tur Daha"nın açacağı tur: Yeni Eklenenler bitince Günlük Tekrar, Günlük Tekrar'da iş
-    /// kalmayınca en zayıflarla ek tur ("Yine de Çalış"); diğer turlar kendini tekrarlar.
-    static func againPlan(after plan: Plan, words: [Word], now: Date = .now) -> Plan {
+    /// "Bir Tur Daha"nın açacağı tur: Yeni Eklenenler bitince Günlük Tekrar, Günlük Tekrar'da günün kalanı
+    /// varsa sıradaki parçası ("Devam Et"), iş kalmayınca en zayıflarla ek tur ("Yine de Çalış"); diğer turlar
+    /// kendini tekrarlar.
+    static func againPlan(
+        after plan: Plan, words: [Word], now: Date = .now, newAllowance: Int = DailyNewAllowance.value()
+    ) -> Plan {
         switch plan {
-        case .recent where !recentWords(words, now: now).isEmpty:
+        case .recent where !recentWords(words, now: now, newAllowance: newAllowance).isEmpty:
             return .recent
         case .recent, .daily, .extraPractice:
-            let count = dailyCount(words, now: now)
+            let count = dailyCount(words, now: now, newAllowance: newAllowance)
             return count.weak + count.new > 0 ? .daily : .extraPractice
         case .weak, .quick, .reverse:
             return plan
         }
     }
 
-    /// Tur özetindeki düğmenin adı: aynı tur tekrarlanıyorsa "Bir Tur Daha", başka akışa geçiliyorsa onun adı.
+    /// Tur özetindeki düğmenin adı: Günlük Tekrar'da günün kalanı varsa "Devam Et", aynı tur tekrarlanıyorsa
+    /// "Bir Tur Daha", başka akışa geçiliyorsa onun adı.
     static func againTitle(after plan: Plan, next: Plan) -> String {
+        if plan == .daily, next == .daily { return "Devam Et" }
         guard next != plan else { return "Bir Tur Daha" }
         return switch next {
         case .daily: "Günlük Tekrar'a Geç"
@@ -259,21 +273,38 @@ final class StudySession {
         }
     }
 
+    /// Günlük Tekrar'ın bu turu: günün listesinden en fazla `dailyRoundSize` kelime. Önce üretimi bekleyenler
+    /// (yarıda bırakılan turdan kalanlar), kalan yere tekrarlar (en zayıftan) ve yeniler oranla (`dailyRoundSplit`).
+    /// Cevaplanan kelimenin vadesi ilerlediği ve tanışılan yeni bugünün hakkından düştüğü için sonraki tur kalanları alır.
     private func dailyWords(
         _ words: [Word], now: Date, avoidingFirst previousFirst: String?, introOnly: inout Set<ObjectIdentifier>
     ) -> [Word] {
-        let count = Self.dailyCount(words, now: now)
-        // Yarıda bırakılan turdan üretimi kalan kelimeler önce alınır; sınır dolsa da dışarıda kalmasın.
-        let pending = ordered(words.filter { !$0.isNew && $0.isPendingProduction(now: now) }, now: now, limit: count.weak)
+        let count = Self.dailyCount(words, now: now, newAllowance: allowance)
+        let pending = Self.weakest(words.filter { !$0.isNew && $0.isPendingProduction(now: now) }, count: count.weak, now: now)
         let taken = Set(pending.map(ObjectIdentifier.init))
-        let due = ordered(
+        let due = Self.weakest(
             words.filter { !$0.isNew && $0.isDue(at: now) && !taken.contains(ObjectIdentifier($0)) },
-            now: now, limit: max(0, count.weak - pending.count)
+            count: max(0, count.weak - pending.count), now: now
         )
         // Bütçeden alınanlar: önce yeni anlamlar (çalışılmış kelimeler, yalnız tanıtım için), sonra yeni kelimeler.
-        let fresh = Self.dailyNewWords(words, now: now)
-        introOnly = Set(fresh.filter { !$0.isNew }.map(ObjectIdentifier.init))
-        return ordered(pending + due + fresh, now: now, avoidingFirst: previousFirst)
+        let fresh = Self.dailyNewWords(words, now: now, newAllowance: allowance)
+        let first = Array(pending.prefix(Self.dailyRoundSize))
+        let split = Self.dailyRoundSplit(reviews: due.count, fresh: fresh.count, room: Self.dailyRoundSize - first.count)
+        let roundFresh = Array(fresh.prefix(split.fresh))
+        introOnly = Set(roundFresh.filter { !$0.isNew }.map(ObjectIdentifier.init))
+        return ordered(first + due.prefix(split.reviews) + roundFresh, now: now, avoidingFirst: previousFirst)
+    }
+
+    /// Turdaki boş yerin (`room`) tekrarlar ve yeniler arasında paylaşımı: sığıyorsa hepsi; sığmıyorsa
+    /// günün listesindeki oranla, yeni varsa en az 1. Birinin payı dolmazsa kalan yer öbürüne geçer.
+    nonisolated static func dailyRoundSplit(reviews: Int, fresh: Int, room: Int) -> (reviews: Int, fresh: Int) {
+        guard room > 0 else { return (0, 0) }
+        guard reviews + fresh > room else { return (reviews, fresh) }
+        var takenFresh = Int((Double(room) * Double(fresh) / Double(reviews + fresh)).rounded())
+        if fresh > 0 { takenFresh = max(takenFresh, 1) }
+        takenFresh = min(takenFresh, fresh)
+        let takenReviews = min(reviews, room - takenFresh)
+        return (takenReviews, min(fresh, room - takenReviews))
     }
 
     /// Seçilen kelimelerin ilk adımları. Karışık turda yeni anlamı tanıtılacak kelime tanıtımla (Çoktan Seçmeli, doğru
@@ -327,8 +358,8 @@ final class StudySession {
     }
 
     /// Günlük Tekrar kartının ikinci satırı için: üretimi bekleyen kelime sayısı ve soru türlerine göre tahmini
-    /// süre (saniye; "yaklaşık 3 dk"). Bekleyen kelimeler tek geçişte bulunur. Çalışılmış kelimeler 20'yi aşarsa
-    /// hangilerinin seçileceği rastgele olduğu için ortalamaları alınır. `count`: `dailyCount(words, now:)`.
+    /// süre (saniye; "yaklaşık 3 dk"), günün bütün turları için. Bekleyen kelimeler tek geçişte bulunur. Çalışılmış
+    /// kelimeler tavanı (`dailyReviewCap`) aşarsa ortalamaları alınır. `count`: `dailyCount(words, now:)`.
     static func dailyEstimate(
         _ words: [Word], now: Date = .now, count: (weak: Int, new: Int)
     ) -> (pending: Int, seconds: Double) {
@@ -387,8 +418,9 @@ final class StudySession {
 
     /// Günlük Tekrar'ın bugünkü tanışmaları: önce yeni anlamlar (`introOnlyWords`), sonra yeni kelimeler (en önce
     /// eklenenler; sırası gelen bekletilmez); toplam `dailyCount(...).new`.
-    static func dailyNewWords(_ words: [Word], now: Date = .now) -> [Word] {
-        Array((introOnlyWords(words, now: now) + newWordsOldestFirst(words)).prefix(dailyCount(words, now: now).new))
+    static func dailyNewWords(_ words: [Word], now: Date = .now, newAllowance: Int = DailyNewAllowance.value()) -> [Word] {
+        Array((introOnlyWords(words, now: now) + newWordsOldestFirst(words))
+            .prefix(dailyCount(words, now: now, newAllowance: newAllowance).new))
     }
 
     /// Günlük Tekrar'ın bugün tanıtacağı yeni anlam sayısı (`count.new`in içinden; kartta ayrı yazılır).
@@ -397,21 +429,21 @@ final class StudySession {
     }
 
     /// Günlük Tekrar'ın bugün alacağı yeni kelime sayısı: bütçe, önce alınan yeni anlamlar düşülerek.
-    private static func dailyNewWordCount(_ words: [Word], now: Date) -> Int {
-        let count = dailyCount(words, now: now)
+    private static func dailyNewWordCount(_ words: [Word], now: Date, newAllowance: Int) -> Int {
+        let count = dailyCount(words, now: now, newAllowance: newAllowance)
         return count.new - dailyMeaningCount(words, now: now, count: count)
     }
 
     /// Yeni Eklenenler turunun kelimeleri: Günlük Tekrar'ın almadığı yeniler, en yeni eklenen önce, en fazla 10.
     /// Günlük Tekrar en eskileri aldığı için ikisi aynı kelimeyi sormaz. Yeni anlam almaz.
-    static func recentWords(_ words: [Word], now: Date = .now) -> [Word] {
-        let queued = newWordsOldestFirst(words).dropFirst(dailyNewWordCount(words, now: now))
+    static func recentWords(_ words: [Word], now: Date = .now, newAllowance: Int = DailyNewAllowance.value()) -> [Word] {
+        let queued = newWordsOldestFirst(words).dropFirst(dailyNewWordCount(words, now: now, newAllowance: newAllowance))
         return Array(queued.reversed().prefix(recentLimit))
     }
 
     /// Günlük Tekrar'ın bugün almadığı yeni kelime sayısı; 0 ise Günlük Tekrar kartındaki satır görünmez.
-    static func recentWaitingCount(_ words: [Word], now: Date = .now) -> Int {
-        words.count(where: \.isNew) - dailyNewWordCount(words, now: now)
+    static func recentWaitingCount(_ words: [Word], now: Date = .now, newAllowance: Int = DailyNewAllowance.value()) -> Int {
+        words.count(where: \.isNew) - dailyNewWordCount(words, now: now, newAllowance: newAllowance)
     }
 
     /// Zorlanılan kelimeler ağırlıklı karışık sırayla önde; kalan yer hafızası en düşüklerle dolar.
@@ -448,32 +480,64 @@ final class StudySession {
         Array(words.sorted { ($0.memory(at: now) ?? -1) < ($1.memory(at: now) ?? -1) }.prefix(count))
     }
 
-    /// Günlük Tekrar turuna girecek kelime sayısı: vadesi gelmiş çalışılmış kelimeler ve yeniler; günde en
-    /// fazla 5 tanışma (yeni kelime ya da yeni anlam; bugün tanıtılanlar düşülür), toplam en fazla 20.
+    /// Günlük Tekrar'ın bugünkü toplamı (bütün turları): vadesi gelmiş çalışılmış kelimelerin hepsi (güvenlik
+    /// tavanı `dailyReviewCap`) ve üstüne günlük yeni hakkı kadar tanışma (yeni kelime ya da yeni anlam; bugün
+    /// tanıtılanlar düşülür). Günün tekrar yükü (şu an bekleyenler + bugün tekrar olarak cevaplananlar,
+    /// `reviewedToday`) tavanı aşınca o gün yeni verilmez; tur bitip bekleyenler azalınca yeniler geri gelmez.
     /// Yarıda bırakılan turdan üretimi kalan kelimeler (`isPendingProduction`) de çalışılmış sayılır. `new` havuzu:
     /// hiç çalışılmamış kelimeler + yalnız tanıtım için gelecek kelimeler (`introOnlyWords`).
-    static func dailyCount(_ words: [Word], now: Date = .now) -> (weak: Int, new: Int) {
+    static func dailyCount(
+        _ words: [Word], now: Date = .now, newAllowance: Int = DailyNewAllowance.value()
+    ) -> (weak: Int, new: Int) {
         dailyCount(
-            weak: words.count { !$0.isNew && ($0.isDue(at: now) || $0.isPendingProduction(now: now)) },
+            weak: words.count { isWaitingReview($0, now: now) },
             new: words.count(where: \.isNew) + introOnlyWords(words, now: now).count,
-            introducedToday: introducedToday(words, now: now)
+            introducedToday: introducedToday(words, now: now),
+            newAllowance: newAllowance,
+            reviewedToday: reviewedToday(words, now: now)
         )
     }
 
-    /// Aynı sınır yalnızca sayılarla; bildirim ve rozet de Günlük Tekrar'ın soracağı sayıyı gösterir.
-    nonisolated static func dailyCount(weak: Int, new: Int, introducedToday: Int) -> (weak: Int, new: Int) {
-        let takenNew = min(new, max(0, dailyNewLimit - introducedToday), max(0, dailyLimit - min(weak, dailyLimit)))
-        return (min(weak, dailyLimit), takenNew)
+    /// Aynı kural yalnızca sayılarla; bildirim ve rozet de Günlük Tekrar'ın soracağı sayıyı gösterir.
+    /// `reviewedToday`: bugün tekrar olarak cevaplanıp artık beklemeyen kelimeler; yalnız yeni verilip
+    /// verilmeyeceğine (günün tekrar yükü) bakılırken sayılır.
+    nonisolated static func dailyCount(
+        weak: Int, new: Int, introducedToday: Int, newAllowance: Int, reviewedToday: Int = 0
+    ) -> (weak: Int, new: Int) {
+        let takenNew = weak + reviewedToday > dailyReviewCap ? 0 : min(new, max(0, newAllowance - introducedToday))
+        return (min(weak, dailyReviewCap), takenNew)
     }
 
-    /// Bugün (04:00 sınırıyla) tanışılan kelime sayısı: ilk cevabı bugün verilenler ve ilk cevabı daha eski olup
-    /// bugün yeni anlam tanıtımı (`ReviewLog.isIntro`) olanlar. Günlük tanışma sınırı bunlarla dolar.
+    /// Günlük Tekrar'da bekleyen çalışılmış kelime: vadesi gelmiş ya da üretimi bekliyor.
+    private static func isWaitingReview(_ word: Word, now: Date) -> Bool {
+        !word.isNew && (word.isDue(at: now) || word.isPendingProduction(now: now))
+    }
+
+    /// Bugün (04:00 sınırıyla) tanışılan kelime sayısı. Günlük yeni hakkı bunlarla dolar.
     static func introducedToday(_ words: [Word], now: Date = .now) -> Int {
         let today = DayBoundary.start(of: now)
+        return words.count { isIntroduced($0, on: today) }
+    }
+
+    /// Bugün tanışılmış mı: tabanı boş (Motor 2 göçünden cevapsız gelen eski çalışılmış kelime tanışma değildir) ve
+    /// ilk silinmemiş, tanıtım olmayan cevabı bugün; ya da bugün yeni anlam tanıtımı (`ReviewLog.isIntro`) var.
+    private static func isIntroduced(_ word: Word, on today: Date) -> Bool {
+        guard let logs = word.logs?.filter({ !$0.isDeleted }), !logs.isEmpty else { return false }
+        if logs.contains(where: { $0.isIntro && DayBoundary.start(of: $0.date) == today }) { return true }
+        guard (word.baseAt ?? .distantPast) == .distantPast,
+              let first = logs.filter({ !$0.isIntro }).min(by: { $0.date < $1.date }) else { return false }
+        return DayBoundary.start(of: first.date) == today
+    }
+
+    /// Bugün tekrar olarak cevaplanıp artık beklemeyen çalışılmış kelimeler: bugün tanıtım olmayan kaydı var, bugün
+    /// tanışılmamış, şu an bekleyenler arasında değil (orada zaten sayılır). Günün tekrar yükünün cevaplanmış kısmı.
+    static func reviewedToday(_ words: [Word], now: Date = .now) -> Int {
+        let today = DayBoundary.start(of: now)
         return words.count { word in
-            guard let logs = word.logs, let first = logs.min(by: { $0.date < $1.date }) else { return false }
-            if DayBoundary.start(of: first.date) == today { return true }
-            return logs.contains { $0.isIntro && !$0.isDeleted && DayBoundary.start(of: $0.date) == today }
+            guard !word.isNew, let logs = word.logs,
+                  logs.contains(where: { !$0.isDeleted && !$0.isIntro && DayBoundary.start(of: $0.date) == today })
+            else { return false }
+            return !isIntroduced(word, on: today) && !isWaitingReview(word, now: now)
         }
     }
 

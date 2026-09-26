@@ -254,16 +254,17 @@ struct StudyPlanTests {
         return asked
     }
 
-    @Test func dailyTakesAtMostTwentyAndFiveNew() {
+    /// Tekrarlar yeni hakkını kısmaz: 18 tekrar + 10 yeni; tur yine 20 kelime (13 tekrar + 7 yeni).
+    @Test func dailyTakesAtMostTwentyPerRound() {
         let words = (0..<18).map { studied("w\($0)", weak: true) }
-            + (0..<10).map { Word(english: "n\($0)", turkish: "yeni") }
+            + (0..<12).map { Word(english: "n\($0)", turkish: "yeni") }
             + (0..<5).map { studied("s\($0)", weak: false) }
-        #expect(StudySession.dailyCount(words) == (weak: 18, new: 2))
-        let session = makeSession()
+        #expect(StudySession.dailyCount(words, newAllowance: 10) == (weak: 18, new: 10))
+        let session = StudySession(seed: 3, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!, newAllowance: 10)
         session.start(with: words, plan: .daily)
         let asked = drain(session)
         #expect(asked.count == 20)
-        #expect(asked.count { $0.english.hasPrefix("n") } <= 5)
+        #expect(asked.count { $0.english.hasPrefix("n") } == 7)
         #expect(!asked.contains { $0.english.hasPrefix("s") })
     }
 

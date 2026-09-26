@@ -97,4 +97,29 @@ struct GoalSyncTests {
             #expect(cloud.syncCount == 1)
         }
     }
+
+    /// Günlük yeni hakkı aynı desenle, ayrı anahtarda eşitlenir; hedefin anahtarına dokunmaz.
+    @Test func dailyNewAllowanceSyncsSeparately() throws {
+        try withDefaults { local in
+            let cloud = FakeCloud()
+            cloud.values[DailyNewAllowance.key] = 15
+            #expect(GoalSync.reconcile(cloud: cloud, local: local, setting: .dailyNew))
+            #expect(DailyNewAllowance.value(in: local) == 15)
+            #expect(local.object(forKey: DailyGoal.key) == nil)
+            // Hedef anahtarı değişti bildirimi yeni hakkını etkilemez.
+            cloud.values[DailyNewAllowance.key] = 20
+            #expect(!GoalSync.applyExternalChange(changedKeys: [DailyGoal.key], cloud: cloud, local: local, setting: .dailyNew))
+            #expect(GoalSync.applyExternalChange(changedKeys: [DailyNewAllowance.key], cloud: cloud, local: local, setting: .dailyNew))
+            #expect(DailyNewAllowance.value(in: local) == 20)
+            // Geçersiz değer (seçenek dışı) yok sayılır.
+            cloud.values[DailyNewAllowance.key] = 30
+            #expect(!GoalSync.applyExternalChange(changedKeys: nil, cloud: cloud, local: local, setting: .dailyNew))
+            GoalSync.setTarget(7, cloud: cloud, local: local, setting: .dailyNew)
+            #expect(DailyNewAllowance.value(in: local) == 20)
+            GoalSync.setTarget(5, cloud: cloud, local: local, setting: .dailyNew)
+            #expect(DailyNewAllowance.value(in: local) == 5)
+            #expect(cloud.values[DailyNewAllowance.key] as? Int == 5)
+            #expect(cloud.values[DailyGoal.key] == nil)
+        }
+    }
 }

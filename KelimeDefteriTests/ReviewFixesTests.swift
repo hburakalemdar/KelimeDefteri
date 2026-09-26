@@ -70,11 +70,13 @@ struct ReviewFixesTests {
 
     // MARK: - Günlük Tekrar
 
+    /// Günün listesi 18 tekrar + 5 yeni (kartta 23): tur 20 kelime alır, yeniler oranla (4), her tohumda aynı.
     @Test func dailyRoundMatchesTheCardBreakdown() {
         for seed in 0..<20 as Range<UInt64> {
             let words = (0..<18).map { studied("w\($0)", weak: true) }
                 + (0..<5).map { Word(english: "n\($0)", turkish: "yeni") }
-            let session = StudySession(seed: seed, defaults: defaults())
+            #expect(StudySession.dailyCount(words, newAllowance: 10) == (weak: 18, new: 5))
+            let session = StudySession(seed: seed, defaults: defaults(), newAllowance: 10)
             session.start(with: words, plan: .daily)
             var asked: [Word] = []
             while let current = session.current, asked.count < 100 {
@@ -82,8 +84,8 @@ struct ReviewFixesTests {
                 session.play(known: true)
             }
             #expect(asked.count == 20)
-            #expect(asked.count { $0.english.hasPrefix("w") } == 18)
-            #expect(asked.count { $0.english.hasPrefix("n") } == 2)
+            #expect(asked.count { $0.english.hasPrefix("w") } == 16)
+            #expect(asked.count { $0.english.hasPrefix("n") } == 4)
         }
     }
 

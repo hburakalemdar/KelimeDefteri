@@ -15,10 +15,12 @@ struct ContentView: View {
     /// Kilit ekranı widget'ı ya da Denetim Merkezi'nden istenen Hızlı Tur.
     @State private var showQuickRound = false
     private let router = GlanceRouter.shared
+    /// Günlük yeni hakkı; değişince rozet hemen yenilensin.
+    @AppStorage(DailyNewAllowance.key, store: DailyGoal.defaults) private var newAllowance = DailyNewAllowance.defaultValue
 
-    /// Rozet: Günlük Tekrar'ın soracağı kelime sayısı.
+    /// Rozet: Günlük Tekrar'ın bugün kalan kelime sayısı (bütün turları).
     private var badgeCount: Int {
-        let count = StudySession.dailyCount(words, now: now)
+        let count = StudySession.dailyCount(words, now: now, newAllowance: DailyNewAllowance.validated(newAllowance))
         return count.weak + count.new
     }
 

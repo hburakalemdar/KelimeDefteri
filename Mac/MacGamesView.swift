@@ -23,6 +23,8 @@ struct MacGamesView: View {
     @Query private var logs: [ReviewLog]
     @Environment(\.modelContext) private var context
     @AppStorage(DailyGoal.key, store: DailyGoal.defaults) private var goalTarget = DailyGoal.defaultTarget
+    /// Günlük yeni hakkı; Ayarlar'da ya da başka cihazda değişince kart hemen yenilensin.
+    @AppStorage(DailyNewAllowance.key, store: DailyGoal.defaults) private var storedNewAllowance = DailyNewAllowance.defaultValue
     /// Hafıza zamanla azaldığı için sayılar her dakika tazelenir.
     @State private var now = Date.now
 
@@ -115,7 +117,8 @@ struct MacGamesView: View {
 
     // MARK: Günlük Tekrar
 
-    private var dailyCount: (weak: Int, new: Int) { StudySession.dailyCount(words, now: now) }
+    private var newAllowance: Int { DailyNewAllowance.validated(storedNewAllowance) }
+    private var dailyCount: (weak: Int, new: Int) { StudySession.dailyCount(words, now: now, newAllowance: newAllowance) }
 
     /// Tur yarıda bırakıldıysa (bugün başlamışsa) "Devam Et".
     private var dailyInProgress: Bool {
@@ -160,7 +163,7 @@ struct MacGamesView: View {
     /// Günlük Tekrar'ın bugün almadığı yeni kelimeler varsa onlarla ayrı tur; yoksa satır hiç görünmez.
     @ViewBuilder
     private var recentRow: some View {
-        let waiting = StudySession.recentWaitingCount(words, now: now)
+        let waiting = StudySession.recentWaitingCount(words, now: now, newAllowance: newAllowance)
         if waiting > 0 {
             HStack(spacing: 8) {
                 Text(RoundText.recentWaiting(waiting))

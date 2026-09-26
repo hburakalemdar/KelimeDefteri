@@ -108,8 +108,8 @@ struct DailyMixSessionTests {
                                    "şema", "yama", "düğüm", "akış", "kilit", "bağ", "yük", "iz", "kök", "dal", "ağ",
                                    "uç", "kapı", "yol", "su", "taş", "gök", "ay", "gün", "yıl", "el", "göz"]
 
-    private func makeSession(seed: UInt64 = 1) -> StudySession {
-        StudySession(seed: seed, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
+    private func makeSession(seed: UInt64 = 1, newAllowance: Int = 10) -> StudySession {
+        StudySession(seed: seed, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!, newAllowance: newAllowance)
     }
 
     private func makeContext() throws -> ModelContext {
@@ -247,7 +247,8 @@ struct DailyMixSessionTests {
         #expect(session.finishedWordCount == session.wordCount)
     }
 
-    @Test func dailyStillTakesTwentyAndFiveNew() throws {
+    /// Günün listesi 18 tekrar + 10 yeni: tur 20 kelime alır, yeniler oranla (7); ikinci tur kalanları alır.
+    @Test func dailyRoundTakesTwentyWithNewInProportion() throws {
         let context = try makeContext()
         let weak = (0..<18).map { dueWord("d\($0)", meaning: Self.meanings[$0], in: context) }
         let fresh = (0..<10).map { index in
@@ -255,15 +256,28 @@ struct DailyMixSessionTests {
             context.insert(word)
             return word
         }
+        let all = weak + fresh
+        #expect(StudySession.dailyCount(all, newAllowance: 10) == (weak: 18, new: 10))
         let session = makeSession()
-        session.start(with: weak + fresh, plan: .daily)
+        session.start(with: all, plan: .daily)
         let asked = drain(session)
         let words = Set(asked.map(\.word))
         #expect(words.count == 20)
-        #expect(words.count { $0.hasPrefix("n") } == 2)
+        #expect(words.count { $0.hasPrefix("n") } == 7)
         #expect(session.wordCount == 20)
         #expect(session.finishedWordCount == 20)
-        #expect(asked.count == 22)
+        // Yeniler ısınma + üretim, tekrarlar tek adım.
+        #expect(asked.count == 27)
+        // Cevaplanan tekrarların vadesi ilerledi, tanışılanlar hakkından düştü: kalan 5 tekrar + 3 yeni.
+        #expect(StudySession.dailyCount(all, newAllowance: 10) == (weak: 5, new: 3))
+        #expect(StudySession.againPlan(after: .daily, words: all, newAllowance: 10) == .daily)
+        let next = makeSession(seed: 2)
+        next.start(with: all, plan: .daily)
+        let rest = Set(drain(next).map(\.word))
+        #expect(rest.count == 8)
+        #expect(rest.isDisjoint(with: words))
+        #expect(StudySession.dailyCount(all, newAllowance: 10) == (weak: 0, new: 0))
+        #expect(StudySession.againPlan(after: .daily, words: all, newAllowance: 10) == .extraPractice)
     }
 
     @Test func longPhraseAndSmallDeckFallBackToTyping() throws {
@@ -299,7 +313,7 @@ struct DailyMixSessionTests {
     @Test func recentUsesTheSameMix() throws {
         let context = try makeContext()
         let words = newWords(8, in: context)
-        let session = makeSession()
+        let session = makeSession(newAllowance: 5)
         session.start(with: words, plan: .recent)
         #expect(session.wordCount == 3)
         let asked = drain(session)
@@ -430,13 +444,19 @@ struct DailyMixSessionTests {
         }
         let later = at.addingTimeInterval(600)
         #expect(words.allSatisfy { $0.isPendingProduction(now: later) })
-        #expect(StudySession.dailyCount(words, now: later) == (weak: 20, new: 0))
+        #expect(StudySession.dailyCount(words, now: later, newAllowance: 10) == (weak: 22, new: 0))
         #expect(StudySession.pendingProductionCount(words, now: later) == 22)
         let session = makeSession()
         session.start(with: words, plan: .daily, now: later)
         let asked = drain(session, now: later)
+        // Tur 20 kelimeyle sınırlı; kalan 2 bekleyen sonraki tura girer.
         #expect(asked.count == 20)
         #expect(asked.allSatisfy { if case .letters = $0 { true } else { false } })
+        let afterwards = later.addingTimeInterval(60)
+        #expect(StudySession.pendingProductionCount(words, now: afterwards) == 2)
+        let next = makeSession(seed: 2)
+        next.start(with: words, plan: .daily, now: afterwards)
+        #expect(drain(next, now: afterwards).count == 2)
     }
 
     /// Kayıtları olan eski güçlü kelime Çoktan Seçmeli oyununda bugün cevaplanınca bekleyen sayılmaz.

@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage(ReminderSettings.hourKey) private var reminderHour = ReminderSettings.defaultHour
     @AppStorage(ReminderSettings.minuteKey) private var reminderMinute = ReminderSettings.defaultMinute
     @AppStorage(DailyGoal.key, store: DailyGoal.defaults) private var dailyGoal = DailyGoal.defaultTarget
+    @AppStorage(DailyNewAllowance.key, store: DailyGoal.defaults) private var newAllowance = DailyNewAllowance.defaultValue
     @State private var permissionDenied = false
     @State private var iCloudStatus: CKAccountStatus?
 
@@ -59,6 +60,18 @@ struct SettingsView: View {
                 Text("Hedef")
             } footer: {
                 Text("Çalış ekranındaki halka her gün bu kadar cevapla kapanır; iPhone ve Mac'teki cevaplar birlikte sayılır. Halkayı üst üste kapattığın günler serini oluşturur.")
+            }
+
+            Section {
+                Picker(selection: newAllowanceSelection) {
+                    ForEach(DailyNewAllowance.options, id: \.self) { Text("\($0) kelime").tag($0) }
+                } label: {
+                    Label { Text("Günlük Yeni") } icon: { SettingsIcon(systemName: "sparkles", color: .indigo) }
+                }
+            } header: {
+                Text("Günlük Tekrar")
+            } footer: {
+                Text("Günlük Tekrar'a her gün, sırası gelen tekrarların üstüne eklenecek yeni kelime ve yeni anlam sayısı.")
             }
 
             Section {
@@ -128,6 +141,17 @@ struct SettingsView: View {
             GoalCloudSync.userChose(goal)
             Glance.reloadWidgets()
         }
+        // Yeni hakkı da bütün cihazlarda tek; rozet, bildirim ve widget'taki sayı değişir.
+        .onChange(of: newAllowance) { _, value in
+            GoalCloudSync.userChose(value, setting: .dailyNew)
+            Glance.reloadWidgets()
+            Task { await ReminderScheduler.refresh(context: context) }
+        }
+    }
+
+    /// Kayıtlı değer geçersizse seçici varsayılanı gösterir.
+    private var newAllowanceSelection: Binding<Int> {
+        Binding { DailyNewAllowance.validated(newAllowance) } set: { newAllowance = $0 }
     }
 
     private static var version: String {
