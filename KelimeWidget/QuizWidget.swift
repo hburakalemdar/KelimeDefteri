@@ -113,20 +113,13 @@ struct QuizWidgetView: View {
 
     private func layout(_ question: GlanceQuestion, feedback: GlanceFeedback?) -> some View {
         VStack(alignment: .leading, spacing: isSmall ? 6 : 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(question.english)
-                    .font(.system(isSmall ? .headline : .title3, design: .serif, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                Spacer(minLength: 0)
-                if let feedback {
-                    Image(systemName: feedback.isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(feedback.isCorrect ? .green : .red)
-                        .font(isSmall ? .headline : .title3)
-                        .widgetAccentable()
-                        .accessibilityLabel(feedback.isCorrect ? "Doğru" : "Yanlış")
-                }
-            }
+            // Sonuç şıkların renginden okunur; başlığa ayrı simge konmaz (kelimeyi küçültüyordu).
+            Text(question.english)
+                .font(.system(isSmall ? .headline : .title3, design: .serif, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityValue(feedback.map { $0.isCorrect ? "Doğru" : "Yanlış" } ?? "")
             // Cevaptan sonra birden çok anlamlı kelimenin bütün anlamları (şıkta yalnızca biri soruldu).
             if feedback != nil, let meanings = question.otherMeaningsText {
                 Text(meanings)
