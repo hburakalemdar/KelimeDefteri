@@ -21,7 +21,7 @@ struct DailyStepView: View {
                     onAnswer: { session.answer(.recognition(correct: $0), step: step.id) },
                     onNext: { session.next(from: step.id) }
                 ) { revealed in
-                    GameWordCard(word: step.word, showsMeanings: revealed)
+                    GameWordCard(word: step.word, meaning: options[correctIndex], showsMeanings: revealed)
                 }
                 .id(step.id)
             case .letters(let puzzle):

@@ -17,7 +17,7 @@ enum SharedStore {
     private static let storeName = "default.store"
 
     /// Depodaki bütün modeller; uygulama, eklenti, örnek veri ve testler aynı şemayı kullanır.
-    nonisolated static let schema = Schema([Word.self, ReviewLog.self])
+    nonisolated static let schema = Schema([Word.self, ReviewLog.self, WordSentence.self])
 
     static let logger = Logger(subsystem: "com.burakalemdar.KelimeDefteri", category: "store")
 

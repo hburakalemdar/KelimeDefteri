@@ -87,7 +87,7 @@ struct QuickMixGameView: View {
                 onAnswer: { round.record(word, grade: .recognition(correct: $0), mode: .multipleChoice) },
                 onNext: { next(from: index) }
             ) { revealed in
-                GameWordCard(word: word, showsMeanings: revealed)
+                GameWordCard(word: word, meaning: options[correct], showsMeanings: revealed)
             }
         case .blank(let word, let cloze, let hint, let options, let correct):
             ChoiceQuestionView(
@@ -116,7 +116,7 @@ struct QuickMixGameView: View {
         // Seçmeli türler için ham kelime sayısı değil, farklı anlam sayısı yetmeli (ortak anlamlılar çeldirici olamaz).
         let meaningCount = GameDeck.distinctMeaningCount(words.map(\.turkish))
         let allowed = round.words.map {
-            QuickMix.allowedModes(english: $0.english, example: $0.example, deckCount: meaningCount)
+            QuickMix.allowedModes(english: $0.english, sentences: $0.sentenceTexts, deckCount: meaningCount)
         }
         let modes = round.random { QuickMix.modes(allowed: allowed, using: &$0) }
         questions = zip(round.words, modes).map { word, mode in makeQuestion(word, mode: mode) }
@@ -131,12 +131,13 @@ struct QuickMixGameView: View {
             let result = options(for: word, answer: word.askedCandidate) { ChoiceQuiz.Candidate(turkish: $0.turkish) }
             return .choice(word, options: result.options, correct: result.correctIndex)
         case .fillBlank:
-            if let cloze = ClozeSentence(sentence: word.example, word: word.english) {
+            // Cümle sorulan anlamınki öncelikli; ipucu seçilen cümleyle uyuşur (bkz. `Word.cloze(for:)`).
+            if let blank = word.cloze(for: word.askedMeaning) {
                 let result = options(for: word) {
                     ChoiceQuiz.Candidate(text: $0.english, meanings: AnswerChecker.meanings(in: $0.turkish))
                 }
                 return .blank(
-                    word, cloze: cloze, hint: word.askedMeaning, options: result.options, correct: result.correctIndex
+                    word, cloze: blank.cloze, hint: blank.hint, options: result.options, correct: result.correctIndex
                 )
             }
             return .recall(word, reverse: false)

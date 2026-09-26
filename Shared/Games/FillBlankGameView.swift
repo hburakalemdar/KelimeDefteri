@@ -64,10 +64,11 @@ struct FillBlankGameView: View {
     }
 
     private func startRound() {
-        let playable = words.filter { ClozeSentence(sentence: $0.example, word: $0.english) != nil }
+        let playable = words.filter(\.hasClozeSentence)
         round.start(with: playable, count: Self.questionCount)
         questions = round.words.compactMap { word in
-            guard let cloze = ClozeSentence(sentence: word.example, word: word.english) else { return nil }
+            // Cümle sorulan anlamınki öncelikli; ipucu seçilen cümleyle uyuşur (bkz. `Word.cloze(for:)`).
+            guard let blank = word.cloze(for: word.askedMeaning) else { return nil }
             // İngilizce seçenekler Türkçe anlamlarıyla karşılaştırılır: ipucuyla aynı anlamı taşıyan
             // başka kelime çeldirici olmaz (iki doğru şık çıkmasın).
             let candidate = { (word: Word) in
@@ -77,7 +78,7 @@ struct FillBlankGameView: View {
             let answer = candidate(word)
             let result = round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
             return Question(
-                word: word, cloze: cloze, hint: word.askedMeaning, options: result.options, correctIndex: result.correctIndex
+                word: word, cloze: blank.cloze, hint: blank.hint, options: result.options, correctIndex: result.correctIndex
             )
         }
         didStart = true
@@ -108,7 +109,7 @@ struct FillBlankGameView: View {
 /// Cevap açılınca boşluk kelimeyle dolar (vurgu rengi, kalın).
 struct ClozeCard: View {
     let cloze: ClozeSentence
-    /// Türkçe ipucu (`Word.askedMeaning`, soru kurulurken alınır).
+    /// Türkçe ipucu: cümlenin anlamı ya da sorulan anlam (`Word.cloze(for:)`, soru kurulurken alınır).
     let hint: String
     let revealed: Bool
 

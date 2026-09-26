@@ -21,10 +21,12 @@ nonisolated enum QuickMix {
     }
 
     /// Kelimenin hangi türlerde sorulabileceği.
-    static func allowedModes(english: String, example: String, deckCount: Int) -> [GameMode] {
+    static func allowedModes(english: String, sentences: [String], deckCount: Int) -> [GameMode] {
         var modes: [GameMode] = [.quickRound, .reverse]
         if deckCount >= 4 { modes.append(.multipleChoice) }
-        if deckCount >= 4, ClozeSentence(sentence: example, word: english) != nil { modes.append(.fillBlank) }
+        if deckCount >= 4, sentences.contains(where: { ClozeSentence(sentence: $0, word: english) != nil }) {
+            modes.append(.fillBlank)
+        }
         if (1...GameDeck.maxLetters).contains(GameDeck.letterCount(english)) { modes.append(.letters) }
         return modes
     }

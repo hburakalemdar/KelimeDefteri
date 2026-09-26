@@ -53,7 +53,7 @@ struct ChoiceGameView: View {
                 onAnswer: { round.record(question.word, grade: .recognition(correct: $0)) },
                 onNext: { advance(from: index) }
             ) { revealed in
-                GameWordCard(word: question.word, showsMeanings: revealed)
+                GameWordCard(word: question.word, meaning: question.options[question.correctIndex], showsMeanings: revealed)
             }
             .id(round.index)
         }
@@ -142,9 +142,11 @@ struct ChoiceQuestionView<Prompt: View>: View {
     }
 }
 
-/// Oyunlarda sorulan İngilizce kelimenin kartı: serif kelime, telaffuz, varsa kitaptaki cümle.
+/// Oyunlarda sorulan İngilizce kelimenin kartı: serif kelime, telaffuz, varsa sorulan anlamın cümlesi.
 struct GameWordCard: View {
     let word: Word
+    /// Sorulan anlam (doğru şık); ipucu cümlesi buna göre seçilir (`Word.hintSentence(for:)`).
+    let meaning: String
     var showsSentence = true
     /// Cevaptan sonra birden çok anlamlı kelimenin bütün anlamları (şıkta yalnızca biri soruldu).
     var showsMeanings = false
@@ -174,8 +176,8 @@ struct GameWordCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .transition(.opacity)
             }
-            if showsSentence && !word.example.isEmpty {
-                Text(AttributedString(quoting: word.example, highlighting: word.english))
+            if showsSentence, let sentence = word.hintSentence(for: meaning) {
+                Text(AttributedString(quoting: sentence.text, highlighting: word.english))
                     .font(.system(.subheadline, design: .serif).italic())
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

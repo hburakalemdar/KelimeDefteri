@@ -26,7 +26,10 @@ struct WordFormView: View {
 
     @State private var english = ""
     @State private var turkish = ""
-    @State private var example = ""
+    /// Formdaki cümleler; en az bir satır (boş olabilir). Kayıtlı cümlenin kimliği `sentenceID`'sidir.
+    @State private var sentences = [SentenceDraft()]
+    /// Düzenleme açılırken yüklenen cümleler (değişiklik denetimi için).
+    @State private var loadedSentences: [SentenceDraft] = []
     /// Türkçe alanı doluyken gelen çeviri önerisi; "Kullan" ile alana yazılır.
     @State private var suggestion: String?
     /// Türkçe alanı çeviriyle dolduruldu; kullanıcıya kontrol etmesi hatırlatılır.
@@ -49,9 +52,6 @@ struct WordFormView: View {
     @State private var confirmDelete = false
     #endif
     @State private var showDictionary = false
-    /// Kelime zaten defterdeyse ve başka bir cümleyle geldiyse: mevcut kayda eklerken yeni cümle eskisinin yerine geçer.
-    /// Varsayılan yeni cümle: kelime yeniden, yeni bir bağlamdan eklendi; eskisi seçenek olarak görünür.
-    @State private var keepsNewExample = true
     @State private var didLoad = false
     @State private var selection: ClosedRange<Int>?
     @FocusState private var focusedField: Field?
@@ -69,7 +69,8 @@ struct WordFormView: View {
     /// Düzenlenen kelimenin alanları yüklenen değerlerden farklı; kapatmadan önce sorulur.
     private var hasChanges: Bool {
         guard let word = editingWord, didLoad else { return false }
-        return english != word.english || turkish != word.turkish || example != word.example
+        return english != word.english || turkish != word.turkish
+            || Self.filled(sentences) != Self.filled(loadedSentences)
     }
 
     /// Yazılan kelime defterde zaten varsa o kayıt (düzenlenen kelimenin kendisi hariç).
@@ -91,11 +92,22 @@ struct WordFormView: View {
             .sorted { $0.english.count < $1.english.count }
     }
 
-    private var cleanExample: String { example.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// Metni dolu cümleler, kırpılmış.
+    private var filledSentences: [SentenceDraft] { Self.filled(sentences) }
+
+    private static func filled(_ drafts: [SentenceDraft]) -> [SentenceDraft] {
+        drafts.compactMap { draft in
+            let text = draft.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? nil : SentenceDraft(id: draft.id, text: text, meaning: draft.meaning)
+        }
+    }
+
+    /// Cümlenin bağlanabileceği anlamlar (Türkçe alanındaki); anlam seçici yalnızca iki ya da daha fazlası varsa görünür.
+    private var meaningOptions: [String] { ChoiceQuiz.displayMeanings(turkish) }
 
     /// Cümle yapıştırıldıysa kelimelerini seçilebilir düğmeler olarak göster (sırasıyla, tekrarlar dahil).
     private var sentenceWords: [String] {
-        editingWord == nil ? SharedTextParser.tokens(in: example) : []
+        editingWord == nil ? SharedTextParser.tokens(in: sentences.first?.text ?? "") : []
     }
 
     /// Düğmelerle seçilen kelimeler; İngilizce alanı elle değiştirildiyse geçersiz sayılır.
@@ -323,9 +335,29 @@ struct WordFormView: View {
             }
         }
 
-        Section("Ayrıntılar") {
-            TextField("Kitaptaki cümle", text: $example, axis: .vertical)
-                .lineLimit(1...5)
+        Section("Cümleler") {
+            ForEach($sentences) { $sentence in
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Kitaptaki cümle", text: $sentence.text, axis: .vertical)
+                        .lineLimit(1...5)
+                    if meaningOptions.count > 1 {
+                        meaningPicker($sentence)
+                            .font(.subheadline)
+                    }
+                }
+            }
+            .onDelete { offsets in
+                sentences.remove(atOffsets: offsets)
+                if sentences.isEmpty { sentences = [SentenceDraft()] }
+            }
+            // Boş satır varken yenisi eklenmez; pasif düğme iOS 26 formunda siyah kalmasın diye renk elle.
+            Button {
+                sentences.append(SentenceDraft())
+            } label: {
+                Label("Cümle Ekle", systemImage: "plus")
+                    .foregroundStyle(canAddSentence ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+            }
+            .disabled(!canAddSentence)
         }
 
         if let editingWord {
@@ -428,9 +460,29 @@ struct WordFormView: View {
             existingSection(existingMatch)
         }
 
-        Section("Ayrıntılar") {
-            TextField("Cümle", text: $example, prompt: Text("Kelimeyi gördüğün cümle"), axis: .vertical)
-                .lineLimit(1...4)
+        Section("Cümleler") {
+            ForEach($sentences) { $sentence in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    TextField("Cümle", text: $sentence.text, prompt: Text("Kelimeyi gördüğün cümle"), axis: .vertical)
+                        .labelsHidden()
+                        .lineLimit(1...4)
+                    if meaningOptions.count > 1 {
+                        meaningPicker($sentence)
+                            .labelsHidden()
+                            .fixedSize()
+                    }
+                    if sentences.count > 1 || !sentence.text.isEmpty {
+                        Button("Cümleyi Sil", systemImage: "minus.circle") { removeSentence(sentence.id) }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .foregroundStyle(.secondary)
+                            .help("Cümleyi sil")
+                    }
+                }
+            }
+            Button("Cümle Ekle", systemImage: "plus") { sentences.append(SentenceDraft()) }
+                .buttonStyle(.borderless)
+                .disabled(!canAddSentence)
         }
     }
 
@@ -466,6 +518,40 @@ struct WordFormView: View {
     }
     #endif
 
+
+    /// Son satır doluysa yeni cümle satırı eklenebilir.
+    private var canAddSentence: Bool {
+        !(sentences.last?.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? false)
+    }
+
+    /// Cümlenin anlamı: Türkçe alanındaki anlamlar ya da "Belirsiz". Etiket artık anlamlar arasında yoksa (anlam
+    /// değişti) kendi seçeneği olarak "(anlamlarda yok)" notuyla görünür: kullanıcı ne olduğunu görür, "Belirsiz"
+    /// seçerse etiket gerçekten temizlenir, dokunmazsa kayıttaki etiket değişmez.
+    private func meaningPicker(_ sentence: Binding<SentenceDraft>) -> some View {
+        let options = meaningOptions
+        let label = sentence.wrappedValue.meaning.trimmingCharacters(in: .whitespaces)
+        let key = AnswerChecker.fold(label)
+        let current = options.first { !key.isEmpty && AnswerChecker.fold($0) == key }
+        let stale = key.isEmpty || current != nil ? nil : label
+        let selection = Binding<String> {
+            current ?? stale ?? ""
+        } set: {
+            sentence.wrappedValue.meaning = $0
+        }
+        return Picker("Anlamı", selection: selection) {
+            Text("Belirsiz").tag("")
+            ForEach(options, id: \.self) { Text($0).tag($0) }
+            if let stale {
+                Text("\(stale) (anlamlarda yok)").tag(stale)
+            }
+        }
+        .pickerStyle(.menu)
+    }
+
+    private func removeSentence(_ id: String) {
+        sentences.removeAll { $0.id == id }
+        if sentences.isEmpty { sentences = [SentenceDraft()] }
+    }
 
     private var suggestionRow: some View {
         HStack {
@@ -547,9 +633,6 @@ struct WordFormView: View {
                     .help("\(absorbDetail(for: word)) (⌘S)")
             }
             .padding(.vertical, 2)
-            if word.hasDifferentExample(cleanExample) {
-                exampleChoice(word)
-            }
             #else
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -569,10 +652,6 @@ struct WordFormView: View {
             .listRowBackground(Self.warningBackground)
             #endif
             #if os(iOS)
-            if word.hasDifferentExample(cleanExample) {
-                exampleChoice(word)
-                    .listRowBackground(Self.warningBackground)
-            }
             existingOption(
                 absorbTitle(for: word), detail: absorbDetail(for: word),
                 systemImage: "plus.circle.fill", enabled: canAbsorb(into: word)
@@ -596,13 +675,18 @@ struct WordFormView: View {
     }
 
     private func canAbsorb(into word: Word) -> Bool {
-        word.wouldAbsorb(turkish: trimmedTurkish, example: cleanExample, replacingExample: keepsNewExample)
+        word.wouldAbsorb(turkish: trimmedTurkish, sentences: filledSentences.map(\.text))
     }
 
-    /// Uyarının altındaki kısa açıklama: gelen cümle farklıysa bunu söyler.
+    /// Mevcut kayda eklenecek yeni cümle var mı (kayıtta zaten olan cümle yeniden eklenmez).
+    private func addsSentences(to word: Word) -> Bool {
+        filledSentences.contains { word.addsSentence($0.text) }
+    }
+
+    /// Uyarının altındaki kısa açıklama: gelen cümle kayıtta yoksa bunu söyler.
     private func existingHint(for word: Word) -> String {
-        if word.hasDifferentExample(cleanExample) {
-            return "Yeni bir cümleyle geldi; kayıtta hangisinin kalacağını seç."
+        if addsSentences(to: word) {
+            return "Yeni bir cümleyle geldi; kayıttaki cümlelerin yanına eklenir."
         }
         #if os(macOS)
         return "Türkçesi alanına yeni bir anlam yazıp mevcut kayda ekleyebilirsin."
@@ -614,45 +698,19 @@ struct WordFormView: View {
     /// Mevcut kayda ekleme eyleminin adı, neyi değiştireceğine göre.
     private func absorbTitle(for word: Word) -> String {
         let meanings = word.addsMeanings(trimmedTurkish)
-        let sentence = word.takesExample(cleanExample, replacing: keepsNewExample)
-        switch (meanings, sentence) {
+        switch (meanings, addsSentences(to: word)) {
         case (true, true): return "Kaydı Güncelle"
-        case (false, true): return word.example.isEmpty ? "Cümleyi Ekle" : "Cümleyi Değiştir"
+        case (false, true): return "Cümleyi Ekle"
         default: return "Anlamları Ekle"
         }
     }
 
     private func absorbDetail(for word: Word) -> String {
         let meanings = word.addsMeanings(trimmedTurkish)
-        let sentence = word.takesExample(cleanExample, replacing: keepsNewExample)
-        switch (meanings, sentence) {
-        case (true, true): return "Yeni anlamlar ve cümle mevcut kayda yazılır; ilerleme korunur."
-        case (false, true): return "Cümle mevcut kayda yazılır; ilerleme korunur."
+        switch (meanings, addsSentences(to: word)) {
+        case (true, true): return "Yeni anlamlar ve cümle mevcut kayda eklenir; ilerleme korunur."
+        case (false, true): return "Cümle mevcut kayda eklenir; ilerleme korunur."
         default: return "Yeni anlamlar mevcut kayda eklenir; ilerleme korunur."
-        }
-    }
-
-    /// Kayıttaki cümle ile gelen cümle farklıyken hangisinin kalacağı (Ayarlar'daki gibi satır içi seçim).
-    private func exampleChoice(_ word: Word) -> some View {
-        Picker("Kalacak cümle", selection: $keepsNewExample) {
-            exampleOption(cleanExample, caption: "Yeni cümle").tag(true)
-            exampleOption(word.example, caption: "Kayıttaki cümle").tag(false)
-        }
-        #if os(macOS)
-        .pickerStyle(.radioGroup)
-        #else
-        .pickerStyle(.inline)
-        .labelsHidden()
-        #endif
-    }
-
-    private func exampleOption(_ sentence: String, caption: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(sentence)
-                .lineLimit(3)
-            Text(caption)
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -706,10 +764,14 @@ struct WordFormView: View {
         if let word = editingWord {
             english = word.english
             turkish = word.turkish
-            example = word.example
+            // Kayda alınmamış eski cümle önce kayda alınır (yalnız uygulamada; eklenti göç yapmaz).
+            if !SharedStore.isExtension { word.importLegacyExample() }
+            let loaded = word.exampleSentences.map { SentenceDraft(id: $0.id, text: $0.text, meaning: $0.meaning) }
+            sentences = loaded.isEmpty ? [SentenceDraft()] : loaded
+            loadedSentences = sentences
         } else {
             english = draft.english
-            example = draft.example
+            sentences = [SentenceDraft(text: draft.example)]
             if !english.isEmpty && existingMatch == nil {
                 // Paylaşılan kelime geldi; sıra Türkçesinde. Zaten defterdeyse klavye "Zaten defterinde"
                 // uyarısını örtmesin diye odak verilmez.
@@ -737,22 +799,25 @@ struct WordFormView: View {
         if let word = editingWord {
             word.english = trimmedEnglish
             word.turkish = trimmedTurkish
-            word.example = cleanExample
+            applySentences(to: word)
             guard commit() else { return }
             dismiss()
         } else {
-            context.insert(Word(
-                english: trimmedEnglish,
-                turkish: trimmedTurkish,
-                example: cleanExample
-            ))
+            let word = Word(english: trimmedEnglish, turkish: trimmedTurkish)
+            context.insert(word)
+            applySentences(to: word)
             finishAdding(message: "“\(trimmedEnglish)” eklendi")
         }
     }
 
-    /// Aynı kelime yeniden eklenirken yeni bilgileri mevcut kayda katar.
+    /// Formdaki cümleleri kayda yazar (bkz. `Word.applySentenceDrafts`): yalnız formda yüklenip kaldırılan kayıt silinir.
+    private func applySentences(to word: Word) {
+        word.applySentenceDrafts(filledSentences, loaded: Self.filled(loadedSentences))
+    }
+
+    /// Aynı kelime yeniden eklenirken yeni bilgileri mevcut kayda katar; yeni cümleler de tutulur.
     private func absorb(into word: Word) {
-        word.absorb(turkish: trimmedTurkish, example: cleanExample, replacingExample: keepsNewExample)
+        word.absorb(turkish: trimmedTurkish, sentences: filledSentences.map { ($0.text, $0.meaning) })
         finishAdding(message: "“\(word.english)” güncellendi")
     }
 
@@ -766,9 +831,8 @@ struct WordFormView: View {
         }
         english = ""
         turkish = ""
-        example = ""
+        sentences = [SentenceDraft()]
         selection = nil
-        keepsNewExample = true
         resetTranslation()
         savedMessage = message
         savedCount += 1

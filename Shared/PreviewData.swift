@@ -66,6 +66,16 @@ enum PreviewData {
         // Eski biçimli örnekler taban olur; aşağıdaki son günlerin cevapları bunun üstüne oynatılır.
         let allWords = (try? container.mainContext.fetch(FetchDescriptor<Word>())) ?? []
         for word in allWords { MemoryMigration.migrateBaseIfNeeded(word, now: now) }
+        // Cümleler kayda alınır; "stale" iki anlamına bağlı iki cümleyle çok cümleli örnek olur.
+        for word in allWords { word.importLegacyExample(now: now) }
+        if let stale = allWords.first(where: { $0.english == "stale" }) {
+            stale.sentenceRecords.first?.meaning = "güncel olmayan"
+            stale.insertSentence("Old builds leave stale artifacts on disk.", meaning: "eskimiş",
+                                 createdAt: stale.createdAt.addingTimeInterval(60))
+            stale.insertSentence("Stale reads are acceptable for this dashboard.",
+                                 createdAt: stale.createdAt.addingTimeInterval(120))
+            stale.refreshExampleMirror()
+        }
 
         // Ayrıntı sayfasındaki geçmiş için örnek cevaplar: önce yanlışlar, sonra doğrular.
         let modes: [GameMode] = [.dailyReview, .dailyReview, .match, .multipleChoice, .dailyReview, .quickRound]

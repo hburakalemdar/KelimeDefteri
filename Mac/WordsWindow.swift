@@ -26,6 +26,24 @@ struct WordsWindow: View {
                     .font(.system(.body, design: .serif).weight(.semibold))
             }
             TableColumn("Türkçe", value: \.turkish)
+            TableColumn("Cümle") { word in
+                // İlk cümle tek satır; başka cümleleri varsa sayısı. Hepsi imleç ipucunda.
+                let sentences = word.sentenceTexts
+                if let first = sentences.first {
+                    HStack(spacing: 4) {
+                        Text(first)
+                            .lineLimit(1)
+                            .foregroundStyle(.secondary)
+                        if sentences.count > 1 {
+                            Text("+\(sentences.count - 1)")
+                                .foregroundStyle(.tertiary)
+                                .monospacedDigit()
+                        }
+                    }
+                    .help(sentences.joined(separator: "\n\n"))
+                }
+            }
+            .width(min: 120, ideal: 220)
             TableColumn("Hafıza", value: \.memorySortValue) { word in
                 MemoryRing(memory: word.memory(), size: 14, text: .trailing, isLapsed: word.isLapsed)
                     .foregroundStyle(.secondary)

@@ -34,17 +34,6 @@ nonisolated enum WordMatcher {
         return ([base].filter { !$0.isEmpty } + new).joined(separator: ", ")
     }
 
-    /// Kopya kayıtlar birleşirken iki cümleyi de korur: aynıysa (ya da biri boşsa) tek cümle, farklıysa
-    /// kalan kaydınki önce olmak üzere alt alta. Şemada tek cümle alanı olduğu için ikisi de burada durur;
-    /// kullanıcı düzenlerken istemediğini siler. Zaten içinde geçen cümle yeniden eklenmez.
-    static func mergedExamples(_ kept: String, _ other: String) -> String {
-        let first = kept.trimmingCharacters(in: .whitespacesAndNewlines)
-        let second = other.trimmingCharacters(in: .whitespacesAndNewlines)
-        if second.isEmpty || first.contains(second) { return first }
-        if first.isEmpty { return second }
-        return first + "\n" + second
-    }
-
     private static func tokens(_ text: String) -> [String] {
         AnswerChecker.fold(text).split(separator: " ").map(String.init)
     }
@@ -57,19 +46,29 @@ extension Word {
             .sorted { $0.english.count < $1.english.count }
     }
 
-    /// Aynı kelime yeniden eklenirken yeni bilgileri bu kayda katar: yeni anlamlar eklenir, boş cümle
-    /// doldurulur; kayıtta başka bir cümle varsa yenisi yalnızca `replacingExample` ile yazılır.
-    /// İlerleme (hafıza, sıradaki tekrar) değişmez.
-    func absorb(turkish: String, example: String, replacingExample: Bool = false) {
+    /// Aynı kelime yeniden eklenirken yeni bilgileri bu kayda katar: yeni anlamlar eklenir, yeni cümleler de tutulur
+    /// (zaten olan cümle yeniden eklenmez). Anlamı belirtilmemiş yeni cümle, bu eklemede tam olarak bir yeni anlam
+    /// geldiyse ona bağlanır; yoksa belirsiz kalır. İlerleme (hafıza, sıradaki tekrar) değişmez.
+    func absorb(turkish: String, sentences incoming: [(text: String, meaning: String)], now: Date = .now) {
+        let added = newMeanings(in: turkish)
         self.turkish = WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish)
-        if takesExample(example, replacing: replacingExample) {
-            self.example = example.trimmingCharacters(in: .whitespacesAndNewlines)
+        var inserted = false
+        for (offset, sentence) in incoming.enumerated() where !hasSentence(sentence.text) {
+            let meaning = sentence.meaning.isEmpty && added.count == 1 ? added[0] : sentence.meaning
+            // Aynı anda eklenenler yazıldıkları sırada kalsın.
+            inserted = insertSentence(sentence.text, meaning: meaning, createdAt: now.addingTimeInterval(Double(offset) / 1000)) != nil || inserted
         }
+        // Kayda alınmamış eski cümle varsa ayna ona dokunmaz (eklenti göç yapmaz; bkz. `refreshExampleMirror`).
+        if inserted { refreshExampleMirror() }
+    }
+
+    func absorb(turkish: String, example: String, now: Date = .now) {
+        absorb(turkish: turkish, sentences: [(example, "")], now: now)
     }
 
     /// `absorb` bu kayıtta bir şey değiştirir mi.
-    func wouldAbsorb(turkish: String, example: String, replacingExample: Bool = false) -> Bool {
-        addsMeanings(turkish) || takesExample(example, replacing: replacingExample)
+    func wouldAbsorb(turkish: String, sentences: [String]) -> Bool {
+        addsMeanings(turkish) || sentences.contains(where: addsSentence)
     }
 
     /// `absorb` bu kayda yeni bir anlam ekler mi.
@@ -77,18 +76,14 @@ extension Word {
         WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish) != self.turkish.trimmingCharacters(in: .whitespaces)
     }
 
-    /// Kayıtta dolu bir cümle var ve gelen cümle ondan farklı: hangisinin kalacağı seçilmeli.
-    func hasDifferentExample(_ example: String) -> Bool {
-        let current = self.example.trimmingCharacters(in: .whitespacesAndNewlines)
-        let incoming = example.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !current.isEmpty && !incoming.isEmpty && current != incoming
+    /// `absorb` bu cümleyi ekler mi: dolu ve kelimede henüz yok.
+    func addsSentence(_ text: String) -> Bool {
+        !WordSentence.key(text).isEmpty && !hasSentence(text)
     }
 
-    /// `absorb` gelen cümleyi bu kayda yazar mı: kayıt boşsa ya da farklı cümlenin yerine geçmesi seçildiyse.
-    func takesExample(_ example: String, replacing: Bool) -> Bool {
-        let incoming = example.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !incoming.isEmpty else { return false }
-        return self.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || (replacing && hasDifferentExample(incoming))
+    /// Kayıtta olmayan anlamlar, yazıldığı gibi (tekrarsız).
+    func newMeanings(in turkish: String) -> [String] {
+        let known = Set(AnswerChecker.meanings(in: self.turkish))
+        return ChoiceQuiz.displayMeanings(turkish).filter { !known.contains(AnswerChecker.fold($0)) }
     }
 }

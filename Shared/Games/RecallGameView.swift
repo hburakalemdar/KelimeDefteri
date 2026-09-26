@@ -228,8 +228,9 @@ struct RecallQuestionView: View {
 
     @ViewBuilder
     private func exampleSentence(_ word: Word) -> some View {
-        if !word.example.isEmpty {
-            Text(AttributedString(quoting: word.example, highlighting: word.english))
+        // Sorulan anlamın cümlesi (soru gösterilirken alınan anlam; cevap kaydedilince değişmez).
+        if let sentence = word.hintSentence(for: session.questionMeaning) {
+            Text(AttributedString(quoting: sentence.text, highlighting: word.english))
                 .font(.system(.body, design: .serif).italic())
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

@@ -12,7 +12,12 @@ final class Word {
     /// İngilizce tanım. Artık kullanılmıyor (elle yazılması gerekiyordu, pratikte boş kalıyordu);
     /// CloudKit şemasından alan silinemediği için duruyor.
     var definition: String = ""
+    /// İlk cümlenin aynası: eski sürümler yalnızca bu alanı görür. Asıl cümleler `sentences`te
+    /// (bkz. `WordSentences.swift`, `docs/SPEC-CUMLE.md`).
     var example: String = ""
+    /// Yeni sürümün `example`'a en son yazdığı değer; `nil` = eski `example` henüz cümle kaydına alınmadı.
+    /// `example` bundan farklıysa onu eski bir sürüm yazmıştır ve yeni cümle olarak alınır.
+    var exampleMirror: String? = nil
     /// Kaynak kitap. Artık kullanılmıyor (kitaplar çoğunlukla PDF'ten okunuyor, ad hiç dolmuyordu);
     /// CloudKit şemasından alan silinemediği için duruyor.
     var source: String = ""
@@ -49,6 +54,8 @@ final class Word {
     var baseAt: Date? = nil
     @Relationship(deleteRule: .cascade, inverse: \ReviewLog.word)
     var logs: [ReviewLog]?
+    @Relationship(deleteRule: .cascade, inverse: \WordSentence.word)
+    var sentences: [WordSentence]?
 
     init(
         english: String,

@@ -50,7 +50,7 @@ final class StoreMaintenanceTests {
         try context.save()
 
         let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base)
-        #expect(summary == StoreMaintenance.Summary(mergedWords: 1, removedLogs: 0))
+        #expect(summary.mergedWords == 1 && summary.removedLogs == 0)
 
         let remaining = try words(context)
         #expect(remaining.count == 2)
@@ -62,7 +62,7 @@ final class StoreMaintenanceTests {
         #expect(kept.correctCount == 3)
     }
 
-    /// Farklı iki cümle de korunur: kalan kaydınki önce, öbürü alt satırda.
+    /// Farklı iki cümle de korunur: her kaydın eski cümlesi önce cümle kaydına alınır, sonra kalan kayda taşınır.
     @Test func differentExamplesAreBothKept() throws {
         let context = try makeContext()
         let older = Word(english: "stale", turkish: "eskimiş", example: "A stale cache.", createdAt: base)
@@ -72,8 +72,11 @@ final class StoreMaintenanceTests {
 
         StoreMaintenance.run(in: context, defaults: defaults, now: base)
         let kept = try #require(try words(context).first)
-        #expect(kept.example == "A stale cache.\nStale bread.")
+        #expect(kept.sentenceTexts == ["A stale cache.", "Stale bread."])
+        #expect(kept.example == "A stale cache.")
+        #expect(kept.exampleMirror == "A stale cache.")
         #expect(kept.turkish == "eskimiş, bayat")
+        #expect(try context.fetchCount(FetchDescriptor<WordSentence>()) == 2)
     }
 
     @Test func logsMoveToKeptWord() throws {
@@ -257,7 +260,7 @@ final class StoreMaintenanceTests {
         try context.save()
 
         let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base)
-        #expect(!summary.changed)
+        #expect(summary.mergedWords == 0)
         #expect(try words(context).count == 2)
     }
 
@@ -279,8 +282,9 @@ final class StoreMaintenanceTests {
         _ = insertOrphan(in: context)
         try context.save()
 
+        // İlk çalışma yalnız cümle aynasını yazar (bkz. `Word.importLegacyExample`); cevap kaydı silinmez.
         let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base)
-        #expect(!summary.changed)
+        #expect(summary.removedLogs == 0 && summary.mergedWords == 0)
         #expect(try logCount(context) == 2)
         #expect(defaults.data(forKey: StoreMaintenance.orphanDefaultsKey) != nil)
 
@@ -325,7 +329,7 @@ final class StoreMaintenanceTests {
         orphan.word = word
         try context.save()
         let summary = StoreMaintenance.run(in: context, defaults: defaults, now: base.addingTimeInterval(2 * 60 * 60))
-        #expect(!summary.changed)
+        #expect(summary.removedLogs == 0)
         #expect(try logCount(context) == 1)
         #expect(defaults.data(forKey: StoreMaintenance.orphanDefaultsKey) == nil)
 

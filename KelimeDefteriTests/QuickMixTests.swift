@@ -26,11 +26,11 @@ struct QuickMixTests {
     }
 
     @Test func allowedModesFollowGameRules() {
-        let small = QuickMix.allowedModes(english: "stale", example: "Stale data.", deckCount: 3)
+        let small = QuickMix.allowedModes(english: "stale", sentences: ["Fresh data.", "Stale data."], deckCount: 3)
         #expect(Set(small) == [.quickRound, .reverse, .letters])
-        let full = QuickMix.allowedModes(english: "stale", example: "Stale data.", deckCount: 8)
+        let full = QuickMix.allowedModes(english: "stale", sentences: ["Fresh data.", "Stale data."], deckCount: 8)
         #expect(Set(full) == Set(QuickMix.questionModes))
-        let long = QuickMix.allowedModes(english: "internationalization", example: "", deckCount: 8)
+        let long = QuickMix.allowedModes(english: "internationalization", sentences: [], deckCount: 8)
         #expect(Set(long) == [.quickRound, .reverse, .multipleChoice])
     }
 }

@@ -46,15 +46,7 @@ struct WordDetailView: View {
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 8, trailing: 4))
             }
 
-            if !word.example.isEmpty {
-                Section("Kitaptaki Cümle") {
-                    Text(AttributedString(quoting: word.example, highlighting: word.english))
-                        .font(.system(.body, design: .serif).italic())
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .padding(.vertical, 2)
-                }
-            }
+            sentenceSections
 
             let related = word.related(in: words)
             if !related.isEmpty {
@@ -85,6 +77,54 @@ struct WordDetailView: View {
             NavigationStack {
                 WordFormView(mode: .edit(word))
             }
+        }
+    }
+}
+
+// MARK: - Cümleler
+
+extension WordDetailView {
+    /// Kitaptaki cümleler. Kelimenin birden çok anlamı varsa ve bir cümle anlama bağlıysa anlamına göre gruplanır
+    /// (anlam sırasıyla, en sonda "Anlamı belirtilmemiş"); değilse tek bölüm.
+    @ViewBuilder
+    private var sentenceSections: some View {
+        let sentences = word.exampleSentences
+        let groups = Self.groups(sentences, meanings: ChoiceQuiz.displayMeanings(word.turkish)) { word.currentMeaning(of: $0) }
+        if groups.count > 1 || groups.first?.meaning.isEmpty == false {
+            ForEach(groups, id: \.meaning) { group in
+                Section {
+                    ForEach(group.sentences) { sentenceRow($0) }
+                } header: {
+                    if group.meaning.isEmpty {
+                        Text("Anlamı belirtilmemiş")
+                    } else {
+                        Text(group.meaning).foregroundStyle(.tint)
+                    }
+                }
+            }
+        } else if !sentences.isEmpty {
+            Section(sentences.count > 1 ? "Kitaptaki Cümleler" : "Kitaptaki Cümle") {
+                ForEach(sentences) { sentenceRow($0) }
+            }
+        }
+    }
+
+    private func sentenceRow(_ sentence: ExampleSentence) -> some View {
+        Text(AttributedString(quoting: sentence.text, highlighting: word.english))
+            .font(.system(.body, design: .serif).italic())
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .padding(.vertical, 2)
+    }
+
+    /// Cümleleri anlamına göre gruplar: anlamların sırasıyla, belirsizler (boş anlam) en sonda. Tek anlamlı kelimede
+    /// gruplama anlamsız olduğu için hepsi belirsiz grubunda döner.
+    static func groups(
+        _ sentences: [ExampleSentence], meanings: [String], current: (String) -> String
+    ) -> [(meaning: String, sentences: [ExampleSentence])] {
+        let byMeaning = Dictionary(grouping: sentences) { meanings.count > 1 ? current($0.meaning) : "" }
+        return (meanings + [""]).compactMap { meaning in
+            byMeaning[meaning].map { (meaning, $0) }
         }
     }
 }

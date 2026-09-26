@@ -70,6 +70,8 @@ struct StudyView: View {
                         Text("Oyunlar")
                             .font(.title3.bold())
                             .padding(.horizontal, 4)
+                        // Deste çizim başına bir kez (her kelimenin cümlelerine bakar), kart başına değil.
+                        let deck = self.deck
                         // Grid: bir satırdaki iki kart, açıklaması iki satıra inse de aynı boyda kalır.
                         Grid(horizontalSpacing: 12, verticalSpacing: 12) {
                             ForEach(Array(stride(from: 0, to: GameMode.hubGames.count, by: 2)), id: \.self) { start in
@@ -115,7 +117,7 @@ struct StudyView: View {
     private var dailyCount: (weak: Int, new: Int) { StudySession.dailyCount(words, now: now) }
 
     private var deck: GameDeck {
-        GameDeck(entries: words.map { ($0.english, $0.example, $0.turkish) })
+        GameDeck(entries: words.map { ($0.english, $0.sentenceTexts, $0.turkish) })
     }
 
     // MARK: - Günlük Tekrar

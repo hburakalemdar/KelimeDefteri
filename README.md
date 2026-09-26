@@ -7,7 +7,8 @@ iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).
 ## Özellikler
 
 - **Kelime ekle:** İngilizce kelime, Türkçe karşılıkları (virgülle ayrılmış), isteğe bağlı
-  kitaptaki cümle.
+  kitaptaki cümleler (her biri bir anlama bağlanabilir; sorularda sorulan anlamın cümlesi ipucu olur,
+  bkz. `docs/SPEC-CUMLE.md`).
   - *Türkçesini bul:* Apple'ın cihaz üstü çeviri motoruyla (Translation framework) öneri.
   - *Sözlük:* iOS'un yerleşik sözlüğünde İngilizce tanıma bakma.
 - **Çalış (oyun merkezi):** Üstte **Günlük Tekrar** (zayıflayan kelimeler, en fazla 20, en fazla 5 yeni),

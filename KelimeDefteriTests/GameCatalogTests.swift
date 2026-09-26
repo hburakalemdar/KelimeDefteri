@@ -5,10 +5,10 @@ import Testing
 struct GameCatalogTests {
     @Test func deckSummary() {
         let deck = GameDeck(entries: [
-            ("idempotent", "Retries are safe only if the operation is Idempotent.", "eşgüçlü"),
-            ("stale", "", "bayat, eskimiş"),
-            ("eventual consistency", "Reads rely on eventual consistency.", "nihai tutarlılık"),
-            ("internationalization", "i18n", "uluslararasılaştırma"),
+            ("idempotent", ["No match here.", "Retries are safe only if the operation is Idempotent."], "eşgüçlü"),
+            ("stale", [], "bayat, eskimiş"),
+            ("eventual consistency", ["Reads rely on eventual consistency."], "nihai tutarlılık"),
+            ("internationalization", ["i18n"], "uluslararasılaştırma"),
         ])
         #expect(deck.count == 4)
         #expect(deck.withSentence == 2)
@@ -30,10 +30,10 @@ struct GameCatalogTests {
     /// Ortak Türkçe anlamı olan kelimeler tek küme sayılır; 4 kelime ama 3 anlam → seçmeli oyunlar kapalı.
     @Test func distinctMeaningsGateChoiceGames() {
         let deck = GameDeck(entries: [
-            ("me", "", "ben"),
-            ("you", "", "sen"),
-            ("deneme", "", "deneme"),
-            ("denemw", "", "Deneme"),
+            ("me", [], "ben"),
+            ("you", [], "sen"),
+            ("deneme", [], "deneme"),
+            ("denemw", [], "Deneme"),
         ])
         #expect(deck.count == 4)
         #expect(deck.distinctMeaningCount == 3)

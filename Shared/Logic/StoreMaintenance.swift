@@ -1,7 +1,8 @@
 import Foundation
 import SwiftData
 
-/// Uygulama öne gelince çalışan depo bakımı: çift kayıtları birleştirir, sahipsiz cevap kayıtlarını siler.
+/// Uygulama öne gelince çalışan depo bakımı: eski cümleleri cümle kaydına alır, çift kayıtları ve kopya cümleleri
+/// birleştirir, sahipsiz cevap kayıtlarını siler. Yalnız ana uygulamalarda çalışır (eklenti ve widget'ta değil).
 ///
 /// Aynı İngilizce kelime iki cihazda eşitlenmeden eklenirse iCloud'dan iki kayıt gelir. Birleştirme
 /// deterministiktir: iki cihaz aynı kayıtları gördüğünde aynı sonucu üretir.
@@ -11,8 +12,10 @@ nonisolated enum StoreMaintenance {
         var mergedWords = 0
         /// Silinen sahipsiz cevap kaydı sayısı.
         var removedLogs = 0
+        /// Cümle değişiklikleri: kayda alınan eski cümle, silinen kopya cümle, güncellenen `example` aynası.
+        var sentenceChanges = 0
 
-        var changed: Bool { mergedWords > 0 || removedLogs > 0 }
+        var changed: Bool { mergedWords > 0 || removedLogs > 0 || sentenceChanges > 0 }
     }
 
     /// Sahipsiz cevap kaydı ancak bu kadar süre sonra hâlâ sahipsizse silinir: iCloud bir cevap
@@ -37,14 +40,26 @@ nonisolated enum StoreMaintenance {
     ///
     /// Sahipsiz cevap kayıtları iki aşamada silinir: ilk görüşte `defaults`'a not edilir; sonraki
     /// çalışmada en az `orphanGracePeriod` önce de sahipsiz görülmüş ve hâlâ sahipsizse silinir.
+    /// Sahipsiz cümle kayıtları hiç silinmez: gecikmiş ilişki gerçek silmeden ayırt edilemez, kullanıcının yazdığı
+    /// cümleyi kaybetmektense görünmez bir kayıt kalsın.
     @MainActor @discardableResult
     static func run(in context: ModelContext, defaults: UserDefaults = .standard, now: Date = .now) -> Summary {
         var summary = Summary()
         do {
             let words = try context.fetch(FetchDescriptor<Word>())
+            // Önce eski `example`'lar cümle kaydına (bir kez; bkz. docs/SPEC-CUMLE.md §2).
+            for word in words where word.importLegacyExample(now: now) {
+                summary.sentenceChanges += 1
+            }
+            summary.sentenceChanges += try adoptOrphanSentences(words, in: context)
             for group in duplicateGroups(words) {
                 merge(group, now: now)
                 summary.mergedWords += group.count - 1
+            }
+            // Kopya cümleler (iki cihazın aynı anda göç etmesi, birleştirmede taşınanlar) ve ayna.
+            for word in words where !word.isDeleted {
+                summary.sentenceChanges += word.removeDuplicateSentences()
+                if word.refreshExampleMirror() { summary.sentenceChanges += 1 }
             }
 
             // Kelimesi olmayan cevap kayıtları (birleştirmede taşınanlar artık sahipli).
@@ -71,6 +86,27 @@ nonisolated enum StoreMaintenance {
             SharedStore.logger.error("Depo bakımı yapılamadı: \(String(describing: error), privacy: .public)")
         }
         return summary
+    }
+
+    /// Kelimesi olmayan, kelime anahtarı dolu cümleleri aynı anahtarlı kelimeye bağlar (birleştirmede silinen kopyaya
+    /// başka cihazdan eklenmiş cümle sonsuza dek görünmez kalmasın). Birden çok aday varsa birleştirmede kalacak olan
+    /// seçilir; ötekiler zaten ona katılır. Anahtarı eşleşmeyen sahipsiz cümle silinmez, olduğu gibi bekler.
+    @MainActor
+    private static func adoptOrphanSentences(_ words: [Word], in context: ModelContext) throws -> Int {
+        let orphans = try context.fetch(FetchDescriptor<WordSentence>()).filter { $0.word == nil && !$0.wordKey.isEmpty }
+        guard !orphans.isEmpty else { return 0 }
+        var owners: [String: Word] = [:]
+        for word in words.sorted(by: comesFirst) where !word.isDeleted {
+            let key = AnswerChecker.fold(word.english)
+            if !key.isEmpty, owners[key] == nil { owners[key] = word }
+        }
+        var adopted = 0
+        for sentence in orphans {
+            guard let owner = owners[sentence.wordKey] else { continue }
+            sentence.word = owner
+            adopted += 1
+        }
+        return adopted
     }
 
     private static func loadSightings(_ defaults: UserDefaults) -> [OrphanSighting] {
@@ -111,6 +147,8 @@ nonisolated enum StoreMaintenance {
     private static func merge(_ group: [Word], now: Date) {
         guard let keeper = group.first else { return }
         let others = group.dropFirst()
+        // Kopya silinmeden önce her kaydın eski cümlesi kendi cümle kaydına alınır, sonra kayıtlar taşınır.
+        for word in group { word.importLegacyExample(now: now) }
 
         // Hafıza tabandan ve cevap kayıtlarından yeniden hesaplanır (SPEC-MOTOR2 §6). Taban: dolu tabanlar
         // (`baseAt` gerçek bir an) arasından `baseAt`i en eski olan (daha geniş bir cevap aralığını kapsar);
@@ -128,13 +166,18 @@ nonisolated enum StoreMaintenance {
 
         for other in others {
             keeper.turkish = WordMatcher.mergedMeanings(existing: keeper.turkish, adding: other.turkish)
-            keeper.example = WordMatcher.mergedExamples(keeper.example, other.example)
             keeper.reviewCount += other.reviewCount
             keeper.correctCount += other.correctCount
             // Kayıt silinince cevapları da silinir (cascade); önce kalan kayda taşı.
             for log in other.logs ?? [] { log.word = keeper }
+            for sentence in other.sentences ?? [] {
+                sentence.word = keeper
+                sentence.wordKey = AnswerChecker.fold(keeper.english)
+            }
             other.modelContext?.delete(other)
         }
+        keeper.removeDuplicateSentences()
+        keeper.refreshExampleMirror()
         MemoryCache.refresh(keeper, now: now)
     }
 

@@ -115,10 +115,10 @@ nonisolated struct GameDeck: Equatable {
         self.distinctMeaningCount = distinctMeaningCount ?? count
     }
 
-    /// (İngilizce, cümle, Türkçe) üçlülerinden.
-    init(entries: [(english: String, example: String, turkish: String)]) {
+    /// (İngilizce, cümleler, Türkçe) üçlülerinden; cümlelerinden birinde boşluk açılabilen kelime sayılır.
+    init(entries: [(english: String, sentences: [String], turkish: String)]) {
         count = entries.count
-        withSentence = entries.count { Self.sentence($0.example, contains: $0.english) }
+        withSentence = entries.count { entry in entry.sentences.contains { Self.sentence($0, contains: entry.english) } }
         shortWords = entries.count { (1...Self.maxLetters).contains(Self.letterCount($0.english)) }
         distinctMeaningCount = Self.distinctMeaningCount(entries.map(\.turkish))
     }

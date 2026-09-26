@@ -100,6 +100,9 @@ final class StudySession {
     /// Sorulan adım; `current` onun kelimesi.
     private(set) var currentStep: Step?
     var current: Word? { currentStep?.word }
+    /// Sorulan kelimenin sırası gelen anlamı, soru gösterilirken alınır (ipucu cümlesi bunun cümlesi); cevap
+    /// kaydedilince `askedMeaning` ilerler ama açık sorunun cümlesi değişmez.
+    private(set) var questionMeaning = ""
     /// Şu anki seçmeli/harf adımının cevabı kaydedildi mi: aynı adım ikinci kez kaydedilmez, ilerleme ancak bundan sonra.
     private(set) var stepAnswered = false
     private var stepCorrect = false
@@ -619,6 +622,11 @@ final class StudySession {
 
     private func advance(now: Date) {
         currentStep = queue.isEmpty ? nil : queue.removeFirst()
+        questionMeaning = currentStep.map { step in
+            // Seçmeli adımda doğru şık zaten sorulan anlam.
+            if case .choice(let options, let correctIndex) = step.kind { options[correctIndex] }
+            else if step.word.isDeleted { "" } else { step.word.askedMeaning }
+        } ?? ""
         stepAnswered = false
         stepCorrect = false
         phase = .asking
