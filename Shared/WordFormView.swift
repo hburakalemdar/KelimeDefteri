@@ -151,7 +151,7 @@ struct WordFormView: View {
                             Button(word) { tapWord(at: index) }
                                 .font(.system(.body, design: .serif))
                                 .buttonBorderShape(.capsule)
-                                .modifier(ChipStyle(isSelected: validSelection?.contains(index) == true))
+                                .modifier(ChipStyle(isSelected: isChipSelected(index)))
                         }
                     }
                     .padding(.vertical, 4)
@@ -786,8 +786,15 @@ struct WordFormView: View {
         }
     }
 
+    /// Seçili düğme; tek kelime seçiliyken cümledeki öbür geçişleri de seçili görünür (aynı kelime).
+    private func isChipSelected(_ index: Int) -> Bool {
+        guard let selection = validSelection else { return false }
+        if selection.contains(index) { return true }
+        return selection.count == 1 && SharedTextParser.isSameWord(index, selection.lowerBound, in: sentenceWords)
+    }
+
     private func tapWord(at index: Int) {
-        selection = SharedTextParser.select(index, current: validSelection)
+        selection = SharedTextParser.select(index, current: validSelection, tokens: sentenceWords)
         english = selection.map { SharedTextParser.phrase(sentenceWords, $0) } ?? ""
         // Seçilen kelime zaten defterdeyse klavye kapanır; açık kalsa uyarıyı örterdi.
         if selection != nil { focusedField = existingMatch == nil ? .turkish : nil }

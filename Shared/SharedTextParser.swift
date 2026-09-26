@@ -61,13 +61,21 @@ nonisolated enum SharedTextParser {
 
     /// Kelime düğmesine dokununca seçimi günceller. İlk dokunuş kelimeyi seçer; ikinci dokunuş
     /// aradaki kelimelerle birlikte ifadeyi seçer; seçili tek kelimeye yeniden dokunmak seçimi
-    /// kaldırır. İfade seçiliyken başka bir kelimeye dokunmak yeni seçime başlar.
-    static func select(_ index: Int, current: ClosedRange<Int>?) -> ClosedRange<Int>? {
+    /// kaldırır. İfade seçiliyken başka bir kelimeye dokunmak yeni seçime başlar. Cümlede aynı kelime birden çok
+    /// kez geçiyorsa (`tokens` verilince) hepsi aynı kelime sayılır: seçili kelimenin başka bir geçişine dokunmak da
+    /// seçimi kaldırır, ikisinin arasını ifade olarak seçmez.
+    static func select(_ index: Int, current: ClosedRange<Int>?, tokens: [String] = []) -> ClosedRange<Int>? {
         guard let current else { return index...index }
         guard current.count == 1 else { return index...index }
-        if current.lowerBound == index { return nil }
+        if current.lowerBound == index || isSameWord(index, current.lowerBound, in: tokens) { return nil }
         let range = min(index, current.lowerBound)...max(index, current.lowerBound)
         return range.count <= maxSelectionLength ? range : index...index
+    }
+
+    /// İki düğme cümlede aynı kelime mi (büyük/küçük harf gözetilmez).
+    static func isSameWord(_ a: Int, _ b: Int, in tokens: [String]) -> Bool {
+        tokens.indices.contains(a) && tokens.indices.contains(b)
+            && AnswerChecker.fold(tokens[a]) == AnswerChecker.fold(tokens[b])
     }
 
     /// Seçili kelimelerden kaydedilecek ifade.

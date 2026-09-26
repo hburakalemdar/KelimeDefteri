@@ -68,6 +68,14 @@ struct SharedTextParserTests {
         #expect(SharedTextParser.select(9, current: 0...0) == 9...9)
     }
 
+    /// Aynı kelimenin ikinci geçişine dokunmak arayı ifade yapmaz, seçimi kaldırır.
+    @Test func repeatedWordIsTheSameWord() {
+        let tokens = ["Such", "a", "thing", "is", "such", "a", "waste"]
+        #expect(SharedTextParser.select(4, current: 0...0, tokens: tokens) == nil)
+        #expect(SharedTextParser.select(3, current: 0...0, tokens: tokens) == 0...3)
+        #expect(SharedTextParser.isSameWord(0, 4, in: tokens))
+    }
+
     @Test func phraseJoinsSelectedWords() {
         let tokens = SharedTextParser.tokens(in: "We must Take Into Account the cost.")
         #expect(SharedTextParser.phrase(tokens, 2...4) == "take into account")
