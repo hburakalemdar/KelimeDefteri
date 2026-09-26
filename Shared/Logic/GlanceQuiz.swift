@@ -10,15 +10,9 @@ nonisolated struct GlanceQuestion: Codable, Equatable, Hashable, Sendable {
     var wordKey: String
     var options: [String]
     var correctIndex: Int
-    /// Kelimenin bütün anlamları, kayıttaki gibi; cevaptan sonra gösterilir (doğru şık yalnızca sırası gelen
-    /// anlamdır, bkz. `Word.meaningTurn`). Bu alan eklenmeden önce saklanan soruda yok (`nil`).
+    /// Kelimenin bütün anlamları, kayıttaki gibi. Artık gösterilmiyor (cevaptan sonra şıklar yeter); saklanan
+    /// soruların çözülebilmesi için duruyor. Bu alan eklenmeden önce saklanan soruda yok (`nil`).
     var meanings: [String]? = nil
-
-    /// Cevaptan sonra gösterilecek anlamlar; tek anlamlı kelimede (doğru şıkta zaten yazıyor) `nil`.
-    var otherMeaningsText: String? {
-        guard let meanings, meanings.count > 1 else { return nil }
-        return meanings.joined(separator: ", ")
-    }
 }
 
 /// Cevaplanan soru ve seçilen şık; widget kısa bir süre doğru/yanlış olarak gösterir.

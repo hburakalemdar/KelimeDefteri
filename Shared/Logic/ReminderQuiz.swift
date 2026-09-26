@@ -61,12 +61,12 @@ nonisolated enum ReminderQuiz {
         return GlanceFeedback(question: question, chosen: chosen, date: now)
     }
 
-    /// Sonuç bildirimi: "Doğru" / "Yanlış" ve kelimenin doğru anlamı (birden çok anlamlıysa hepsi).
+    /// Sonuç bildirimi: "Doğru" / "Yanlış" ve sorulan anlam (doğru şık).
     static func feedbackContent(_ feedback: GlanceFeedback) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
         let question = feedback.question
         content.title = feedback.isCorrect ? "Doğru" : "Yanlış"
-        content.body = "\(question.english): \(question.otherMeaningsText ?? question.options[question.correctIndex])"
+        content.body = "\(question.english): \(question.options[question.correctIndex])"
         return content
     }
 }

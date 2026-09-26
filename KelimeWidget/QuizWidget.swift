@@ -120,14 +120,6 @@ struct QuizWidgetView: View {
                 .minimumScaleFactor(0.6)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityValue(feedback.map { $0.isCorrect ? "Doğru" : "Yanlış" } ?? "")
-            // Cevaptan sonra birden çok anlamlı kelimenin bütün anlamları (şıkta yalnızca biri soruldu).
-            if feedback != nil, let meanings = question.otherMeaningsText {
-                Text(meanings)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
             if isSmall {
                 VStack(spacing: 4) {
                     ForEach(question.options.indices, id: \.self) { index in

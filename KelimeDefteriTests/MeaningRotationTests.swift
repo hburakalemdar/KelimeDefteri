@@ -75,16 +75,6 @@ struct MeaningRotationTests {
         #expect(word.askedMeaning == "bayat")
     }
 
-    @Test func otherMeaningsTextOnlyForSeveralMeanings() {
-        var question = GlanceQuestion(id: "q", english: "such", wordKey: "such",
-                                      options: ["bu tür", "bayat"], correctIndex: 0)
-        #expect(question.otherMeaningsText == nil)
-        question.meanings = ["o kadar"]
-        #expect(question.otherMeaningsText == nil)
-        question.meanings = ["o kadar", "bu tür", "öyle"]
-        #expect(question.otherMeaningsText == "o kadar, bu tür, öyle")
-    }
-
     /// `meanings` alanı eklenmeden önce saklanan widget durumu hâlâ çözülür.
     @Test func legacyGlanceStateDecodes() throws {
         let json = """
