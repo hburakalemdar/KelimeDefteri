@@ -128,7 +128,7 @@ nonisolated enum StoreMaintenance {
 
         for other in others {
             keeper.turkish = WordMatcher.mergedMeanings(existing: keeper.turkish, adding: other.turkish)
-            if keeper.example.isEmpty { keeper.example = other.example }
+            keeper.example = WordMatcher.mergedExamples(keeper.example, other.example)
             keeper.reviewCount += other.reviewCount
             keeper.correctCount += other.correctCount
             // Kayıt silinince cevapları da silinir (cascade); önce kalan kayda taşı.

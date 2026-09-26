@@ -34,6 +34,17 @@ nonisolated enum WordMatcher {
         return ([base].filter { !$0.isEmpty } + new).joined(separator: ", ")
     }
 
+    /// Kopya kayıtlar birleşirken iki cümleyi de korur: aynıysa (ya da biri boşsa) tek cümle, farklıysa
+    /// kalan kaydınki önce olmak üzere alt alta. Şemada tek cümle alanı olduğu için ikisi de burada durur;
+    /// kullanıcı düzenlerken istemediğini siler. Zaten içinde geçen cümle yeniden eklenmez.
+    static func mergedExamples(_ kept: String, _ other: String) -> String {
+        let first = kept.trimmingCharacters(in: .whitespacesAndNewlines)
+        let second = other.trimmingCharacters(in: .whitespacesAndNewlines)
+        if second.isEmpty || first.contains(second) { return first }
+        if first.isEmpty { return second }
+        return first + "\n" + second
+    }
+
     private static func tokens(_ text: String) -> [String] {
         AnswerChecker.fold(text).split(separator: " ").map(String.init)
     }
@@ -46,16 +57,38 @@ extension Word {
             .sorted { $0.english.count < $1.english.count }
     }
 
-    /// Aynı kelime yeniden eklenirken yeni bilgileri bu kayda katar: yeni anlamlar eklenir,
-    /// boş alanlar doldurulur. İlerleme (hafıza, sıradaki tekrar) değişmez.
-    func absorb(turkish: String, example: String) {
+    /// Aynı kelime yeniden eklenirken yeni bilgileri bu kayda katar: yeni anlamlar eklenir, boş cümle
+    /// doldurulur; kayıtta başka bir cümle varsa yenisi yalnızca `replacingExample` ile yazılır.
+    /// İlerleme (hafıza, sıradaki tekrar) değişmez.
+    func absorb(turkish: String, example: String, replacingExample: Bool = false) {
         self.turkish = WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish)
-        if self.example.isEmpty { self.example = example }
+        if takesExample(example, replacing: replacingExample) {
+            self.example = example.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
     }
 
     /// `absorb` bu kayıtta bir şey değiştirir mi.
-    func wouldAbsorb(turkish: String, example: String) -> Bool {
+    func wouldAbsorb(turkish: String, example: String, replacingExample: Bool = false) -> Bool {
+        addsMeanings(turkish) || takesExample(example, replacing: replacingExample)
+    }
+
+    /// `absorb` bu kayda yeni bir anlam ekler mi.
+    func addsMeanings(_ turkish: String) -> Bool {
         WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish) != self.turkish.trimmingCharacters(in: .whitespaces)
-            || (self.example.isEmpty && !example.isEmpty)
+    }
+
+    /// Kayıtta dolu bir cümle var ve gelen cümle ondan farklı: hangisinin kalacağı seçilmeli.
+    func hasDifferentExample(_ example: String) -> Bool {
+        let current = self.example.trimmingCharacters(in: .whitespacesAndNewlines)
+        let incoming = example.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !current.isEmpty && !incoming.isEmpty && current != incoming
+    }
+
+    /// `absorb` gelen cümleyi bu kayda yazar mı: kayıt boşsa ya da farklı cümlenin yerine geçmesi seçildiyse.
+    func takesExample(_ example: String, replacing: Bool) -> Bool {
+        let incoming = example.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !incoming.isEmpty else { return false }
+        return self.example.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || (replacing && hasDifferentExample(incoming))
     }
 }

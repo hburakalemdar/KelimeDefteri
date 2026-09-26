@@ -62,7 +62,8 @@ final class StoreMaintenanceTests {
         #expect(kept.correctCount == 3)
     }
 
-    @Test func existingExampleIsNotOverwritten() throws {
+    /// Farklı iki cümle de korunur: kalan kaydınki önce, öbürü alt satırda.
+    @Test func differentExamplesAreBothKept() throws {
         let context = try makeContext()
         let older = Word(english: "stale", turkish: "eskimiş", example: "A stale cache.", createdAt: base)
         let newer = Word(english: "stale", turkish: "bayat", example: "Stale bread.", createdAt: base.addingTimeInterval(1))
@@ -71,7 +72,7 @@ final class StoreMaintenanceTests {
 
         StoreMaintenance.run(in: context, defaults: defaults, now: base)
         let kept = try #require(try words(context).first)
-        #expect(kept.example == "A stale cache.")
+        #expect(kept.example == "A stale cache.\nStale bread.")
         #expect(kept.turkish == "eskimiş, bayat")
     }
 

@@ -42,4 +42,43 @@ struct WordMatcherTests {
         #expect(word.box == 3)
         #expect(word.dueDate == due)
     }
+
+    @Test func differentSentenceCanReplaceOnlyWhenChosen() {
+        let word = Word(english: "such", turkish: "böyle", example: "Such a case.")
+        #expect(word.hasDifferentExample("  Such is life. "))
+        #expect(!word.hasDifferentExample("Such a case."))
+        #expect(!word.hasDifferentExample(""))
+
+        // Yalnızca cümle farklı: seçilince ekleme eylemi açılır.
+        #expect(word.wouldAbsorb(turkish: "böyle", example: "Such is life.", replacingExample: true))
+        #expect(!word.wouldAbsorb(turkish: "böyle", example: "Such is life.", replacingExample: false))
+        #expect(!word.wouldAbsorb(turkish: "böyle", example: "Such a case.", replacingExample: true))
+
+        word.absorb(turkish: "böyle", example: "Such is life. ", replacingExample: false)
+        #expect(word.example == "Such a case.")
+        word.absorb(turkish: "öyle", example: " Such is life.", replacingExample: true)
+        #expect(word.example == "Such is life.")
+        #expect(word.turkish == "böyle, öyle")
+    }
+
+    @Test func emptySentenceIsFilledAndEmptyIncomingKeepsOld() {
+        let empty = Word(english: "such", turkish: "böyle")
+        #expect(!empty.hasDifferentExample("Such is life."))
+        #expect(empty.takesExample("Such is life.", replacing: false))
+        empty.absorb(turkish: "böyle", example: "Such is life.")
+        #expect(empty.example == "Such is life.")
+
+        // Boş gelen cümle, "yeni" seçili olsa da kayıttakini silmez.
+        #expect(!empty.wouldAbsorb(turkish: "böyle", example: "", replacingExample: true))
+        empty.absorb(turkish: "böyle", example: "", replacingExample: true)
+        #expect(empty.example == "Such is life.")
+    }
+
+    @Test func mergedExamplesKeepsBoth() {
+        #expect(WordMatcher.mergedExamples("A.", "B.") == "A.\nB.")
+        #expect(WordMatcher.mergedExamples("A.", " A. ") == "A.")
+        #expect(WordMatcher.mergedExamples("", "B.") == "B.")
+        #expect(WordMatcher.mergedExamples("A.", "") == "A.")
+        #expect(WordMatcher.mergedExamples("A.\nB.", "B.") == "A.\nB.")
+    }
 }
