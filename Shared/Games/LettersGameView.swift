@@ -120,7 +120,7 @@ struct LettersQuestionView: View {
                     Button {
                         reveal()
                     } label: {
-                        Label("Göster", systemImage: "eye")
+                        Text("Göster")
                             .font(.body.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
