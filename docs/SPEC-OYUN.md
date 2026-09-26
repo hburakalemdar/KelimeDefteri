@@ -220,6 +220,10 @@ Desenin kuralları:
 ### 5.6 Boşluğu Doldur (C4)
 
 - Yalnızca cümlesinde kelimenin kendisi geçen kelimeler (büyük/küçük harf ve aksan farkı yok). 10 soru.
+  Kelime bilinen bir İngilizce ekle de geçebilir (s, es, d, ed, ing, er, ers, ly; son harf ikilenebilir).
+  Kalıpta her 3+ harfli kelime ek alabilir ("depend on" ↔ "depends on", "raise an issue" ↔ "raised an issue");
+  1–2 harfli kelimeler (in, on, an…) olduğu gibi aranır, kelimeler arası boşluk esnek. Bilinen sınır:
+  düzensiz fiiller (took, made, rose) ve e düşmesi (raising) bulunmaz.
 - Cümle serif gösterilir, kelimenin yeri `_____` ile boş. Altında Türkçe ilk anlamı ipucu olarak (ikincil renk).
 - 4 İngilizce seçenek (cam düğme); yanlışlar diğer kelimelerden. Doğru/yanlış davranışı Çoktan Seçmeli ile aynı.
   Doğru seçilince boşluk kelimeyle dolar (vurgu rengi, kalın).
