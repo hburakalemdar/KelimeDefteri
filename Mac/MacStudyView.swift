@@ -2,8 +2,9 @@ import SwiftData
 import SwiftUI
 
 /// Menü çubuğu penceresindeki Günlük Tekrar; oyun merkezinden (`MacGamesView`) açılır.
-/// Kart ve cevap çubuğu iOS ile ortak (`RecallQuestionView`); klavyeyle oynanır: Return kontrol eder
-/// (boşken gösterir) ve sonra devam eder; ← Bilemedim, → Bildim, Esc oyunlara döner.
+/// Sorular iOS ile ortak (`DailyStepView`); klavyeyle oynanır: yazarak cevapta Return kontrol eder
+/// (boşken gösterir) ve sonra devam eder; ← Bilemedim, → Bildim. Çoktan Seçmeli 1–4, Harfleri Diz klavyeden
+/// yazılır. Esc oyunlara döner.
 /// Tur bitince iPhone'daki tur özeti (`RoundSummaryView`) gösterilir; yeni tur yalnızca "Bir Tur Daha" ile başlar.
 struct MacStudyView: View {
     /// Tur `MenuBarView`'de yaşar; sayfa değişince ya da oyunlara dönünce kaybolmaz.
@@ -27,7 +28,7 @@ struct MacStudyView: View {
                     if word.isGone(from: words.aliveIDs) {
                         Color.clear
                     } else {
-                        RecallQuestionView(session: session, words: words)
+                        DailyStepView(session: session, words: words)
                     }
                 } else if session.hasRound {
                     summary
@@ -44,6 +45,8 @@ struct MacStudyView: View {
                 session.gradePendingAnswer()
                 session.start(with: words, plan: .daily)
             }
+            // Cevabı kaydedilmiş seçmeli/harf sorusu (pencere cevaptan hemen sonra kapandıysa) yeniden sorulmaz.
+            session.skipAnsweredStep()
             session.resumeClock()
             syncRound()
         }

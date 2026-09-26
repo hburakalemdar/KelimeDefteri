@@ -33,7 +33,11 @@ enum ReminderScheduler {
     static func refresh(context: ModelContext, now: Date = .now) async {
         let words = (try? context.fetch(FetchDescriptor<Word>())) ?? []
         // Rozet ve bildirim Günlük Tekrar'ın soracağı sayıyı gösterir (20 sınırı, en fazla 5 yeni).
-        let studiedDueDates = words.filter { !$0.isNew }.map(\.dueDate)
+        // Üretimi bekleyen kelime vadesi gelmemiş olsa da bugün sorulur (bkz. `DailyMix`).
+        let studied = words.filter { !$0.isNew }
+        let pendingIDs = Set(studied.filter { $0.isPendingProduction(now: now) }.map(ObjectIdentifier.init))
+        let studiedDueDates = studied.filter { !pendingIDs.contains(ObjectIdentifier($0)) }.map(\.dueDate)
+        let pendingDueDates = studied.filter { pendingIDs.contains(ObjectIdentifier($0)) }.map(\.dueDate)
         let newCount = words.count(where: \.isNew)
         let introducedToday = StudySession.introducedToday(words, now: now)
         let center = UNUserNotificationCenter.current()
@@ -53,8 +57,8 @@ enum ReminderScheduler {
         let hour = defaults.object(forKey: ReminderSettings.hourKey) as? Int ?? ReminderSettings.defaultHour
         let minute = defaults.object(forKey: ReminderSettings.minuteKey) as? Int ?? ReminderSettings.defaultMinute
         let reminders = ReminderPlanner.plan(
-            studiedDueDates: studiedDueDates, newCount: newCount, introducedToday: introducedToday,
-            hour: hour, minute: minute, now: now
+            studiedDueDates: studiedDueDates, pendingDueDates: pendingDueDates, newCount: newCount,
+            introducedToday: introducedToday, hour: hour, minute: minute, now: now
         )
 
         #if os(iOS)

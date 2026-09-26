@@ -46,7 +46,7 @@ struct StudySessionTests {
             var result: [String] = []
             while let current = session.current {
                 result.append(current.english)
-                session.grade(known: true)
+                session.play(known: true)
             }
             return result
         }
@@ -71,12 +71,12 @@ struct StudySessionTests {
         let words = (0..<5).map { word("w\($0)", dueIn: -1) }
         session.start(with: words, practiceAll: false)
         let missed = session.current
-        session.grade(known: false)
+        session.play(known: false)
 
         var seen: [Word?] = []
         while let current = session.current, seen.count < 10 {
             seen.append(current)
-            session.grade(known: true)
+            session.play(known: true)
         }
         #expect(seen.firstIndex { $0 === missed } == 2)
         #expect(seen.count == 5)
@@ -99,7 +99,7 @@ struct StudySessionTests {
         session.reveal(answer: "eskimis")
         #expect(session.phase == .revealed(.correct))
 
-        session.grade(known: true)
+        session.play(known: true)
         #expect(target.stability > 1)
         #expect(target.correctAnswerCount == 1)
         #expect(target.logs?.count == 1)
@@ -131,7 +131,7 @@ struct StudySessionTests {
 
         #expect(session.current?.english == "first")
         #expect(session.remaining == 1)
-        session.grade(known: true)
+        session.play(known: true)
         #expect(session.current?.english == "added")
     }
 
@@ -142,7 +142,7 @@ struct StudySessionTests {
         let context = try insert(first, later)
         let session = makeSession()
         session.start(with: [first, later], practiceAll: false)
-        session.grade(known: true)
+        session.play(known: true)
         #expect(session.current == nil)
 
         context.insert(added)
@@ -178,11 +178,11 @@ struct StudySessionTests {
 
         session.reveal(answer: nil)
         #expect(session.phase == .revealed(.peeked))
-        session.grade(known: false)
+        session.play(known: false)
         // Arada 2 kart kalmadığı için yeniden sorulmaz; kelime biten sayılır, sayaç erken dolmaz.
         #expect(session.finishedWordCount == 1)
         #expect(session.current !== missed)
-        session.grade(known: true)
+        session.play(known: true)
         #expect(session.current == nil)
         #expect(session.finishedWordCount == 2)
         #expect(session.wordCount == 2)
@@ -203,7 +203,7 @@ struct StudySessionTests {
         var asked: [String] = []
         while let current = session.current {
             asked.append(current.english)
-            session.grade(known: true)
+            session.play(known: true)
         }
         #expect(asked.count == 10)
         #expect(asked.contains("weak"))
@@ -218,7 +218,7 @@ struct StudySessionTests {
         let start = Date.now
         session.start(with: [target], practiceAll: false, now: start)
         session.reveal(answer: "eskimis", now: start.addingTimeInterval(6))
-        session.grade(known: true, now: start.addingTimeInterval(8))
+        session.play(known: true, now: start.addingTimeInterval(8))
 
         let logs = try context.fetch(FetchDescriptor<ReviewLog>())
         #expect(logs.count == 1)
@@ -249,7 +249,7 @@ struct StudyPlanTests {
         var asked: [Word] = []
         while let current = session.current, asked.count < 100 {
             asked.append(current)
-            session.grade(known: known)
+            session.play(known: known)
         }
         return asked
     }
@@ -286,7 +286,7 @@ struct StudyPlanTests {
         let session = makeSession()
         session.start(with: [first, second, fresh], plan: .daily)
         let opening = session.current!
-        session.grade(known: false)
+        session.play(known: false)
         _ = drain(session)
         #expect(session.roundEntries.count == 3)
         let entry = session.roundEntries.first { $0.word === opening }!
@@ -334,14 +334,14 @@ struct ReverseSessionTests {
             if current === quorum {
                 session.reveal(answer: "stale")
                 #expect(session.phase == .revealed(.incorrect))
-                session.grade(known: false)
+                session.play(known: false)
                 continue
             }
             let synonym = current === stale ? outdated : stale
             session.reveal(answer: synonym.english.uppercased())
             #expect(session.phase == .revealed(.synonymOf(synonym.english)))
             #expect(StudySession.Verdict.synonymOf(synonym.english).gradeOptions.map(\.title) == ["Devam"])
-            session.grade(known: true)
+            session.play(known: true)
             #expect(current.logs?.last?.grade == AnswerGrade.hard.rawValue)
             #expect(current.logs?.last?.correct == true)
             checked += 1

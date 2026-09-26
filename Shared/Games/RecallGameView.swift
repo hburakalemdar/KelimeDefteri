@@ -1,8 +1,9 @@
 import SwiftData
 import SwiftUI
 
-/// Hatırlama oyunu: Günlük Tekrar, Yeni Eklenenler ve Hızlı Tur. Kart ve cevap çubuğu eski Çalış ekranıyla aynı;
-/// tur bitince özet gösterilir. Oyun merkezinden tam ekran açılır.
+/// Hatırlama oyunu: Günlük Tekrar, Yeni Eklenenler ve Ters Yön. Kart ve cevap çubuğu eski Çalış ekranıyla aynı;
+/// Günlük Tekrar'da yeni ve zayıf kelimeler önce Çoktan Seçmeli, sonra Harfleri Diz ile de sorulur (`DailyMix`).
+/// Tur bitince özet gösterilir. Oyun merkezinden tam ekran açılır.
 struct RecallGameView: View {
     let plan: StudySession.Plan
     let mode: GameMode
@@ -45,7 +46,7 @@ struct RecallGameView: View {
     @ViewBuilder
     private var content: some View {
         if session.current != nil {
-            RecallQuestionView(session: session, words: words)
+            DailyStepView(session: session, words: words)
         } else if didStart {
             let next = nextPlan
             RoundSummaryView(
@@ -141,7 +142,7 @@ struct RecallQuestionView: View {
             // Yazarak cevaplamak asıl yol: klavye her kartta açık gelir. Bakmak isteyen "Göster"e basar.
             .onAppear { answerFocused = true }
             // Kelime silinip sıra kendiliğinden ilerlerse önceki kelimeye yazılan cevap yeni kartta kalmasın.
-            .onChange(of: session.current.map(ObjectIdentifier.init)) { answer = "" }
+            .onChange(of: session.currentStep?.id) { answer = "" }
             #if os(iOS)
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
                 keyboardHiddenAt = .now

@@ -129,7 +129,7 @@ struct RoundSummaryTests {
         while session.current != nil {
             time += 5
             session.reveal(answer: session.current!.turkish, now: time)
-            session.grade(known: true, now: time)
+            session.play(known: true, now: time)
         }
         // Özet ekranı: tur bitti ama başlamıştı; yeni gelen kelime ya da eşitleme turu yeniden açmaz.
         #expect(session.hasRound)

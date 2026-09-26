@@ -16,8 +16,11 @@ nonisolated enum ReminderPlanner {
     /// `newCount`: hiç çalışılmamış kelime sayısı. `introducedToday`: ilk cevabı bugün verilen kelime
     /// sayısı; yalnızca bugünün bildirimini kısar. İleri günlerde o günün henüz kelime tanıtmadığı
     /// varsayılır (`min(günlük sınır, newCount)` tahmini); plan her arka plana geçişte yeniden kurulur.
+    /// `pendingDueDates`: bugün üretimi bekleyen kelimelerin tekrar zamanları (`Word.isPendingProduction`);
+    /// bugünün (04:00 sınırıyla) bildiriminde vadesine bakılmadan sayılır, sonraki günlerde vadesiyle.
     static func plan(
         studiedDueDates: [Date],
+        pendingDueDates: [Date] = [],
         newCount: Int,
         introducedToday: Int,
         hour: Int,
@@ -32,18 +35,22 @@ nonisolated enum ReminderPlanner {
         let firstDay = todayAtTime > now ? 0 : 1
         return (firstDay..<(firstDay + days)).compactMap { offset in
             guard let fireDate = calendar.date(byAdding: .day, value: offset, to: todayAtTime) else { return nil }
+            let pendingToday = DayBoundary.isSameDay(fireDate, now, calendar: calendar)
             let count = dailyCount(
-                studiedDueDates: studiedDueDates, newCount: newCount, introducedToday: introducedToday,
-                at: fireDate, offset: offset
+                studiedDueDates: studiedDueDates + (pendingToday ? [] : pendingDueDates), newCount: newCount,
+                introducedToday: introducedToday, at: fireDate, offset: offset,
+                pending: pendingToday ? pendingDueDates.count : 0
             )
             return count > 0 ? Reminder(fireDate: fireDate, dueCount: count) : nil
         }
     }
 
     /// Günlük Tekrar'ın `date` anında soracağı kelime sayısı; `offset` bugünden kaç gün sonra olduğu.
-    static func dailyCount(studiedDueDates: [Date], newCount: Int, introducedToday: Int, at date: Date, offset: Int) -> Int {
+    static func dailyCount(
+        studiedDueDates: [Date], newCount: Int, introducedToday: Int, at date: Date, offset: Int, pending: Int = 0
+    ) -> Int {
         let count = StudySession.dailyCount(
-            weak: studiedDueDates.count { $0 <= date }, new: newCount,
+            weak: studiedDueDates.count { $0 <= date } + pending, new: newCount,
             introducedToday: offset == 0 ? introducedToday : 0
         )
         return count.weak + count.new

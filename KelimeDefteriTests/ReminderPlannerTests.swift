@@ -45,6 +45,17 @@ struct ReminderPlannerTests {
         #expect(plan.count == 4) // 7 günlük pencere 22–28 Eylül; kelime 25'inden itibaren sırada.
     }
 
+    /// Isınıp üretimi yarıda kalan kelime vadesi gelmemiş olsa da bugünün bildiriminde sayılır; ertesi gün vadesiyle.
+    @Test func pendingProductionCountsToday() {
+        let plan = ReminderPlanner.plan(
+            studiedDueDates: [], pendingDueDates: [date(day: 24, hour: 4)], newCount: 0, introducedToday: 1,
+            hour: 20, minute: 0, now: date(hour: 10), calendar: calendar
+        )
+        #expect(plan.first?.fireDate == date(hour: 20))
+        #expect(plan.first?.dueCount == 1)
+        #expect(plan.dropFirst().first?.fireDate == date(day: 24, hour: 20))
+    }
+
     @Test func emptyDeckHasNoReminders() {
         #expect(ReminderPlanner.plan(studiedDueDates: [], newCount: 0, introducedToday: 0, hour: 20, minute: 0, now: date(hour: 10), calendar: calendar).isEmpty)
     }

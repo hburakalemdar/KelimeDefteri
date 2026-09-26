@@ -131,7 +131,10 @@ struct MacGamesView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Günlük Tekrar")
                         .font(.title3.bold())
-                    Text(hasWork ? RoundText.daily(weak: count.weak, new: count.new) : allStrongText)
+                    Text(hasWork ? RoundText.daily(
+                        weak: count.weak, new: count.new, pending: StudySession.pendingProductionCount(words, now: now),
+                        seconds: StudySession.dailySeconds(words, now: now, count: count)
+                    ) : allStrongText)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

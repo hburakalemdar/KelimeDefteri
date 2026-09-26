@@ -62,6 +62,32 @@ final class StudySession {
         }
     }
 
+    /// Turdaki tek soru: yazarak hatırlama, ısınma için Çoktan Seçmeli ya da Harfleri Diz (bkz. `DailyMix`).
+    /// Soru içeriği (şıklar, harf taşları) adım kurulurken sabitlenir; Mac'te pencere kapanıp açılınca aynı soru gelir.
+    struct Step: Identifiable {
+        enum Kind {
+            /// Yazarak cevap (`RecallQuestionView`); tur kendi türüyle (`mode`) kaydeder.
+            case recall
+            /// Isınma: Çoktan Seçmeli.
+            case choice(options: [String], correctIndex: Int)
+            /// Üretim: Harfleri Diz (Türkçeden İngilizceye).
+            case letters(LetterPuzzle)
+        }
+
+        /// Turda benzersiz; gecikmiş geri çağrılar (ör. 0,8 sn sonraki otomatik geçiş) eski adımı ilerletemesin diye.
+        let id: Int
+        let word: Word
+        let kind: Kind
+
+        var isWarmup: Bool {
+            if case .choice = kind { true } else { false }
+        }
+
+        var isRecall: Bool {
+            if case .recall = kind { true } else { false }
+        }
+    }
+
     nonisolated static let dailyLimit = 20
     nonisolated static let dailyNewLimit = 5
     nonisolated static let recentLimit = 10
@@ -71,7 +97,12 @@ final class StudySession {
     /// Kelimeler güçlüyken "Yine de Çalış" ile açılan turdaki kelime sayısı.
     static let extraPracticeCount = 10
 
-    private(set) var current: Word?
+    /// Sorulan adım; `current` onun kelimesi.
+    private(set) var currentStep: Step?
+    var current: Word? { currentStep?.word }
+    /// Şu anki seçmeli/harf adımının cevabı kaydedildi mi: aynı adım ikinci kez kaydedilmez, ilerleme ancak bundan sonra.
+    private(set) var stepAnswered = false
+    private var stepCorrect = false
     private(set) var phase: Phase = .asking
     private(set) var plan: Plan = .weak
     private(set) var reviewedCount = 0
@@ -89,7 +120,11 @@ final class StudySession {
     var isReverse: Bool { plan == .reverse }
     /// Cevaplar hangi oyun adına kaydedilir.
     var mode: GameMode = .dailyReview
-    private var queue: [Word] = []
+    private var queue: [Step] = []
+    private var nextStepID = 0
+    /// Isınması cevaplanmış kelimelerin ısınmadan önceki durumu ve ısınmanın doğruluğu; tur özeti kaydı
+    /// üretim cevabıyla birlikte yazılır.
+    private var warmupEntries: [ObjectIdentifier: RoundEntry] = [:]
     private var generator: SeededGenerator
     private let defaults: UserDefaults
     /// Kartın gösterildiği an ve cevabın açılmasına kadar geçen süre.
@@ -117,6 +152,17 @@ final class StudySession {
 
     var remaining: Int { queue.count }
 
+    /// Karışık soru türleri (ısınma + üretim) açık mı: Günlük Tekrar, Tanış ve Yine de Çalış.
+    /// Hızlı Tur ve Ters Yön yalnız yazarak sorar.
+    var usesMix: Bool { Self.usesMix(plan) }
+
+    static func usesMix(_ plan: Plan) -> Bool {
+        switch plan {
+        case .daily, .recent, .extraPractice: true
+        case .weak, .quick, .reverse: false
+        }
+    }
+
     /// `seed` testte sırayı sabitlemek için; verilmezse her açılışta farklı sıra çıkar.
     init(seed: UInt64 = .random(in: .min ... .max), defaults: UserDefaults = .standard) {
         generator = SeededGenerator(seed: seed)
@@ -135,12 +181,13 @@ final class StudySession {
         self.plan = plan
         reviewedCount = 0
         roundEntries = []
+        warmupEntries = [:]
         self.words = words
         startedAt = now
         roundBeganAt = now
         finishedAt = now
         let previousFirst = defaults.string(forKey: Self.lastFirstWordKey)
-        queue = switch plan {
+        let picked: [Word] = switch plan {
         case .weak:
             ordered(words.filter { $0.isDue(at: now) }, now: now, avoidingFirst: previousFirst)
         case .daily:
@@ -155,10 +202,11 @@ final class StudySession {
         case .reverse:
             ordered(words, now: now, avoidingFirst: previousFirst, limit: Self.reverseCount)
         }
+        queue = steps(for: picked, now: now)
         if let first = queue.first {
-            defaults.set(Self.key(for: first), forKey: Self.lastFirstWordKey)
+            defaults.set(Self.key(for: first.word), forKey: Self.lastFirstWordKey)
         }
-        wordCount = queue.count
+        wordCount = picked.count
         finishedWordCount = 0
         hasRound = !queue.isEmpty
         advance(now: now)
@@ -190,8 +238,77 @@ final class StudySession {
 
     private func dailyWords(_ words: [Word], now: Date, avoidingFirst previousFirst: String?) -> [Word] {
         let count = Self.dailyCount(words, now: now)
-        let weak = ordered(words.filter { !$0.isNew && $0.isDue(at: now) }, now: now, limit: count.weak)
-        return ordered(weak + Self.dailyNewWords(words, now: now), now: now, avoidingFirst: previousFirst)
+        // Yarıda bırakılan turdan üretimi kalan kelimeler önce alınır; sınır dolsa da dışarıda kalmasın.
+        let pending = ordered(words.filter { !$0.isNew && $0.isPendingProduction(now: now) }, now: now, limit: count.weak)
+        let taken = Set(pending.map(ObjectIdentifier.init))
+        let due = ordered(
+            words.filter { !$0.isNew && $0.isDue(at: now) && !taken.contains(ObjectIdentifier($0)) },
+            now: now, limit: max(0, count.weak - pending.count)
+        )
+        return ordered(pending + due + Self.dailyNewWords(words, now: now), now: now, avoidingFirst: previousFirst)
+    }
+
+    /// Seçilen kelimelerin ilk adımları. Karışık turda ısınmaya uygun kelime Çoktan Seçmeli ile başlar (üretim adımı
+    /// ısınma cevaplanınca eklenir), bugün ısınması yapılmış kelime doğrudan üretimle, diğerleri yazarak.
+    private func steps(for picked: [Word], now: Date) -> [Step] {
+        guard usesMix else { return picked.map { makeStep($0, .recall) } }
+        let deckMeanings = GameDeck.distinctMeaningCount(words.map(\.turkish))
+        let first = picked.map { word -> Step in
+            let pending = !word.isNew && word.isPendingProduction(now: now)
+            if DailyMix.needsWarmup(
+                isNew: word.isNew, isLapsed: word.isLapsed, pendingProduction: pending, deckMeanings: deckMeanings
+            ), let choice = choiceKind(for: word) {
+                return makeStep(word, choice)
+            }
+            return makeStep(word, pending ? productionKind(for: word) : .recall)
+        }
+        return DailyMix.order(warmups: first.map(\.isWarmup)).map { first[$0] }
+    }
+
+    private func makeStep(_ word: Word, _ kind: Step.Kind) -> Step {
+        nextStepID += 1
+        return Step(id: nextStepID, word: word, kind: kind)
+    }
+
+    /// Çoktan Seçmeli şıkları (doğru şık sırası gelen anlam); 3 çeldirici bulunamazsa `nil` (ısınma atlanır).
+    private func choiceKind(for word: Word) -> Step.Kind? {
+        let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(turkish: $0.turkish) }
+        let result = ChoiceQuiz.options(answer: word.askedCandidate, others: others, using: &generator)
+        guard result.options.count == DailyMix.minimumMeanings else { return nil }
+        return .choice(options: result.options, correctIndex: result.correctIndex)
+    }
+
+    /// Üretim sorusu: harfleri sığıyorsa Harfleri Diz, uzun ifadede yazarak.
+    private func productionKind(for word: Word) -> Step.Kind {
+        DailyMix.productionUsesLetters(english: word.english)
+            ? .letters(LetterPuzzle(word: word.english, using: &generator))
+            : .recall
+    }
+
+    /// Günlük Tekrar'ın soru türlerine göre tahmini süresi (saniye; kartın "yaklaşık 3 dk" metni için).
+    /// Çalışılmış kelimeler 20'yi aşarsa hangilerinin seçileceği rastgele olduğu için ortalamaları alınır.
+    /// `count`: çağıranda hazırsa `dailyCount(words, now:)` (defter bir kez daha taranmasın).
+    static func dailySeconds(_ words: [Word], now: Date = .now, count: (weak: Int, new: Int)? = nil) -> Double {
+        let count = count ?? dailyCount(words, now: now)
+        let deckMeanings = GameDeck.distinctMeaningCount(words.map(\.turkish))
+        func seconds(_ word: Word) -> Double {
+            let pending = !word.isNew && word.isPendingProduction(now: now)
+            let warmup = DailyMix.needsWarmup(
+                isNew: word.isNew, isLapsed: word.isLapsed, pendingProduction: pending, deckMeanings: deckMeanings
+            )
+            return DailyMix.seconds(
+                warmup: warmup, pendingProduction: pending, letters: DailyMix.productionUsesLetters(english: word.english)
+            )
+        }
+        let studied = words.filter { !$0.isNew && ($0.isDue(at: now) || $0.isPendingProduction(now: now)) }.map(seconds)
+        let studiedSeconds = studied.isEmpty ? 0 : studied.reduce(0, +) / Double(studied.count) * Double(count.weak)
+        let newWords = Array(newWordsOldestFirst(words).prefix(count.new))
+        return studiedSeconds + newWords.map(seconds).reduce(0, +)
+    }
+
+    /// Üretimi bekleyen (yarıda bırakılan ısınmadan kalan) kelime sayısı; kartta "zayıfladı"dan ayrı yazılır.
+    static func pendingProductionCount(_ words: [Word], now: Date = .now) -> Int {
+        words.count { !$0.isNew && $0.isPendingProduction(now: now) }
     }
 
     // MARK: Yeni kelimelerin paylaşımı
@@ -256,9 +373,11 @@ final class StudySession {
 
     /// Günlük Tekrar turuna girecek kelime sayısı: vadesi gelmiş çalışılmış kelimeler ve yeniler; günde en
     /// fazla 5 yeni kelime (bugün tanıtılanlar düşülür), toplam en fazla 20.
+    /// Yarıda bırakılan turdan üretimi kalan kelimeler (`isPendingProduction`) de çalışılmış sayılır.
     static func dailyCount(_ words: [Word], now: Date = .now) -> (weak: Int, new: Int) {
         dailyCount(
-            weak: words.count { !$0.isNew && $0.isDue(at: now) }, new: words.count(where: \.isNew),
+            weak: words.count { !$0.isNew && ($0.isDue(at: now) || $0.isPendingProduction(now: now)) },
+            new: words.count(where: \.isNew),
             introducedToday: introducedToday(words, now: now)
         )
     }
@@ -279,7 +398,8 @@ final class StudySession {
     }
 
     func reveal(answer: String?, now: Date = .now) {
-        guard let word = current, phase == .asking else { return }
+        guard let step = currentStep, step.isRecall, phase == .asking else { return }
+        let word = step.word
         responseTime = now.timeIntervalSince(shownAt)
         let trimmed = answer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if trimmed.isEmpty {
@@ -308,10 +428,11 @@ final class StudySession {
     /// ilerlemez; kullanıcı döndüğünde aynı ekranı görür. Sonra aynı düğmeye basarsa yalnızca ilerlenir,
     /// başka düğmeye basarsa (ör. "Doğru Say") bu kayıt geri alınıp yenisi yazılır.
     func commitPendingAnswer(now: Date = .now) {
-        guard committed == nil, let word = current, !word.isDeleted, let known = pendingKnown else { return }
+        guard committed == nil, let step = currentStep, step.isRecall, !step.word.isDeleted,
+              let known = pendingKnown else { return }
         let entryCount = roundEntries.count
         let finishedBefore = finishedAt
-        let log = record(word, known: known, now: now)
+        let log = record(step, grade: recallGrade(step.word, known: known), now: now)
         // Geri alma: kayıt silinir, hafıza kalan cevaplardan yeniden hesaplanır.
         committed = Committed(known: known) { [weak self] in
             if let log { ReviewRecorder.undo(log, now: now) }
@@ -345,8 +466,10 @@ final class StudySession {
         !calendar.isDate(roundBeganAt, inSameDayAs: now)
     }
 
+    /// Yazarak cevap adımının notu (Bilemedim / Bildim ya da öne çıkan düğme).
     func grade(known: Bool, now: Date = .now) {
-        guard let word = current else { return }
+        guard let step = currentStep, step.isRecall else { return }
+        let word = step.word
         // Kelime başka yerde silinmişse kaydetmeden geç.
         guard !word.isDeleted else {
             wordCount -= 1
@@ -357,35 +480,95 @@ final class StudySession {
             self.committed = nil
             if committed.known != known {
                 committed.undo()
-                record(word, known: known, now: now)
+                record(step, grade: recallGrade(word, known: known), now: now)
             }
         } else {
-            record(word, known: known, now: now)
+            record(step, grade: recallGrade(word, known: known), now: now)
         }
-        // Bilinmeyen kelime bilinene kadar yeniden sorulur; hemen arkasından değil, arada en az iki
-        // kelime olacak şekilde. O kadar kelime kalmadıysa yeniden sorulmaz, turdan çıkar.
-        if !known, let index = WordPicker.reinsertionIndex(queueCount: queue.count) {
-            queue.insert(word, at: index)
+        reviewedCount += 1
+        complete(step, correct: known, now: now)
+    }
+
+    /// Seçmeli ya da harf adımının cevabı: yalnız sorulan adımsa (`stepID`) ve daha önce kaydedilmediyse kaydedilir.
+    func answer(_ grade: AnswerGrade, step stepID: Int, now: Date = .now) {
+        guard let step = currentStep, step.id == stepID, !step.isRecall, !stepAnswered, !step.word.isDeleted else { return }
+        responseTime = now.timeIntervalSince(shownAt)
+        stepAnswered = true
+        stepCorrect = grade.isCorrect
+        record(step, grade: grade, now: now)
+    }
+
+    /// Seçmeli ya da harf adımından sonrakine geçer. Soru bu arada değiştiyse (gecikmiş otomatik geçiş, pencere
+    /// kapanıp açılınca atlanan adım) ya da cevap kaydedilmediyse bir şey yapmaz.
+    func next(from stepID: Int, now: Date = .now) {
+        guard let step = currentStep, step.id == stepID, stepAnswered else { return }
+        complete(step, correct: stepCorrect, now: now)
+    }
+
+    /// Mac'te pencere yeniden açılınca: cevabı kaydedilmiş seçmeli/harf sorusu yeniden gösterilmez (görünümün
+    /// seçimi sıfırlanır, aynı soru ikinci kez cevaplanabilirdi); sıradaki adıma geçilir.
+    func skipAnsweredStep(now: Date = .now) {
+        guard let step = currentStep, stepAnswered else { return }
+        next(from: step.id, now: now)
+    }
+
+    /// Cevaplanan adımdan sonra sıra: ısınmadan sonra üretim adımı araya en az iki kelime girecek yere eklenir
+    /// (o kadar kelime yoksa sona; üretim hiç atlanmaz). Üretim yanlışsa aynı tür yeniden sorulur; hemen arkasından
+    /// değil, arada en az iki kelime olacak şekilde. O kadar kelime kalmadıysa yeniden sorulmaz, turdan çıkar.
+    /// Kuyrukta bir kelimenin en fazla bir adımı bulunur; bu yüzden "iki adım" iki farklı kelime demektir.
+    private func complete(_ step: Step, correct: Bool, now: Date) {
+        if step.isWarmup {
+            let production = makeStep(step.word, productionKind(for: step.word))
+            queue.insert(production, at: WordPicker.reinsertionIndex(queueCount: queue.count) ?? queue.count)
+        } else if !correct, let index = WordPicker.reinsertionIndex(queueCount: queue.count) {
+            let retry: Step.Kind = step.isRecall ? .recall : productionKind(for: step.word)
+            queue.insert(makeStep(step.word, retry), at: index)
         } else {
             finishedWordCount += 1
         }
-        reviewedCount += 1
         advance(now: now)
     }
 
-    @discardableResult
-    private func record(_ word: Word, known: Bool, now: Date) -> ReviewLog? {
+    private func recallGrade(_ word: Word, known: Bool) -> AnswerGrade {
         let verdict: Verdict = if case .revealed(let verdict) = phase { verdict } else { .peeked }
         let letters = (isReverse ? word.english : word.turkish).count(where: \.isLetter)
-        let grade = AnswerGrade.recall(verdict: verdict, known: known, responseTime: responseTime, letters: letters)
+        return AnswerGrade.recall(verdict: verdict, known: known, responseTime: responseTime, letters: letters)
+    }
+
+    /// Adımın kaydedildiği oyun türü: yazarak cevap turun türüyle, diğerleri kendi oyunlarıyla.
+    private func mode(of step: Step) -> GameMode {
+        switch step.kind {
+        case .recall: mode
+        case .choice: DailyMix.warmupMode
+        case .letters: .letters
+        }
+    }
+
+    @discardableResult
+    private func record(_ step: Step, grade: AnswerGrade, now: Date) -> ReviewLog? {
+        let word = step.word
         // Eski biçimli kelimenin önceki durumu "Yeni" görünmesin.
         MemoryMigration.migrate(word)
         // Tur özeti turdaki ilk cevaba bakar; aynı gündeki bütün cevaplar motorda birlikte değerlendirilir.
+        // Isınan kelime özete ilk üretim cevabıyla girer: önceki durum ısınmadan önceki, doğru sayılması için
+        // ısınma da ilk üretim de doğru olmalı. Üretimi yapılmadan bırakılan kelime özete girmez.
+        let key = ObjectIdentifier(word)
         if !roundEntries.contains(where: { $0.word === word }) {
-            roundEntries.append(RoundEntry(before: word, firstCorrect: grade.isCorrect))
+            if step.isWarmup {
+                if warmupEntries[key] == nil {
+                    warmupEntries[key] = RoundEntry(before: word, firstCorrect: grade.isCorrect)
+                }
+            } else if let warmup = warmupEntries[key] {
+                roundEntries.append(RoundEntry(
+                    word: word, dueBefore: warmup.dueBefore, lapsedBefore: warmup.lapsedBefore,
+                    firstCorrect: warmup.firstCorrect && grade.isCorrect
+                ))
+            } else {
+                roundEntries.append(RoundEntry(before: word, firstCorrect: grade.isCorrect))
+            }
         }
         finishedAt = now
-        return ReviewRecorder.record(word, grade: grade, mode: mode, responseTime: responseTime, now: now)
+        return ReviewRecorder.record(word, grade: grade, mode: mode(of: step), responseTime: responseTime, now: now)
     }
 
     /// Kelime listesi dışarıda değiştiğinde (silme, yeni kelime, iCloud'dan gelen değişiklik)
@@ -397,20 +580,21 @@ final class StudySession {
         for word in words { MemoryMigration.migrate(word) }
         self.words = words
         let alive = Set(words.map(\.persistentModelID))
-        let queuedBefore = queue.count
-        queue.removeAll { !alive.contains($0.persistentModelID) }
-        wordCount -= queuedBefore - queue.count
+        // İlerleme benzersiz kelimeyle sayılır: silinen kelimenin kaç adımı olursa olsun sayaçtan bir düşer.
+        var gone = Set(queue.filter { !alive.contains($0.word.persistentModelID) }.map { ObjectIdentifier($0.word) })
+        queue.removeAll { !alive.contains($0.word.persistentModelID) }
         let currentDeleted = current.map { !alive.contains($0.persistentModelID) } ?? false
-        if currentDeleted { wordCount -= 1 }
+        if currentDeleted, let current { gone.insert(ObjectIdentifier(current)) }
+        wordCount -= gone.count
         guard plan == .weak else {
             if currentDeleted { advance(now: now) }
             return
         }
 
         // Bu turda bilinenlerin hafızası güçlendiği için tekrar eklenmezler.
-        let queued = Set(queue.map(\.persistentModelID) + [current?.persistentModelID].compactMap { $0 })
+        let queued = Set(queue.map(\.word.persistentModelID) + [current?.persistentModelID].compactMap { $0 })
         let added = ordered(words.filter { $0.isDue(at: now) && !queued.contains($0.persistentModelID) }, now: now)
-        queue += added
+        queue += added.map { makeStep($0, .recall) }
         wordCount += added.count
 
         if let current, alive.contains(current.persistentModelID) { return }
@@ -434,12 +618,27 @@ final class StudySession {
     private static func key(for word: Word) -> String { AnswerChecker.fold(word.english) }
 
     private func advance(now: Date) {
-        current = queue.isEmpty ? nil : queue.removeFirst()
+        currentStep = queue.isEmpty ? nil : queue.removeFirst()
+        stepAnswered = false
+        stepCorrect = false
         phase = .asking
         shownAt = now
         // Duraklatılmışken (pencere kapalı) ilerlenirse saat duraklatılmış kalır; yeni kart şimdiden sayılır.
         if pausedAt != nil { pausedAt = now }
         committed = nil
         responseTime = 0
+    }
+}
+
+extension Word {
+    /// Bugün ısınması yapılıp üretimi yapılmamış mı (bkz. `DailyMix.isPendingProduction`).
+    ///
+    /// Ucuz ön eleme (kayıtlara bakmadan): bekleyen kelime ya zayıftır ya da ilk cevabı bugündür; ilk günün
+    /// cevabı çıpayı (`lastReviewedAt`) o günün başına koyar ve tanıma cevabı çıpayı sonra ilerletmez. Çıpası
+    /// bugün olmayan, zayıf olmayan kelimenin ilk cevabı bugün olamaz.
+    func isPendingProduction(now: Date = .now) -> Bool {
+        guard isLapsed || lastReviewedAt.map({ DayBoundary.isSameDay($0, now) }) == true else { return false }
+        guard let logs, !logs.isEmpty else { return false }
+        return DailyMix.isPendingProduction(logs: logs.map { ($0.date, $0.mode) }, isLapsed: isLapsed, now: now)
     }
 }

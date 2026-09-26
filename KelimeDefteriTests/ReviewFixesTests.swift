@@ -79,7 +79,7 @@ struct ReviewFixesTests {
             var asked: [Word] = []
             while let current = session.current, asked.count < 100 {
                 asked.append(current)
-                session.grade(known: true)
+                session.play(known: true)
             }
             #expect(asked.count == 20)
             #expect(asked.count { $0.english.hasPrefix("w") } == 18)
@@ -132,7 +132,7 @@ struct ReviewFixesTests {
         session.pauseClock(now: start.addingTimeInterval(2))
         session.resumeClock(now: start.addingTimeInterval(302))
         session.reveal(answer: "eskimiş", now: start.addingTimeInterval(303))
-        session.grade(known: true, now: start.addingTimeInterval(304))
+        session.play(known: true, now: start.addingTimeInterval(304))
         let logs = try context.fetch(FetchDescriptor<ReviewLog>())
         #expect(logs.first?.responseTime == 3)
         #expect(logs.first?.grade == AnswerGrade.easy.rawValue)
@@ -260,7 +260,7 @@ struct CommitPendingAnswerTests {
         #expect(try context.fetch(FetchDescriptor<ReviewLog>()).count == 1)
 
         // Döndüğünde "Devam": yeniden kaydetmeden ilerler.
-        session.grade(known: true)
+        session.play(known: true)
         #expect(session.current == nil)
         #expect(word.answerCount == 1)
         #expect(session.reviewedCount == 1)
@@ -280,7 +280,7 @@ struct CommitPendingAnswerTests {
         #expect(word.correctAnswerCount == 0)
         #expect(word.isLapsed)
         // Döndüğünde "Doğru Say": yanlış kaydı geri alınır, hafıza yeniden hesaplanır, doğru olarak yazılır.
-        session.grade(known: true)
+        session.play(known: true)
         try context.save()
         #expect(word.logs?.map(\.correct) == [true])
         #expect(word.answerCount == 1)
@@ -388,10 +388,10 @@ struct RoundProgressTests {
         let session = StudySession(seed: 1, defaults: UserDefaults(suiteName: "test-\(UUID().uuidString)")!)
         session.start(with: words, plan: .daily)
         #expect(session.wordCount == 4)
-        session.grade(known: false)
+        session.play(known: false)
         #expect(session.wordCount == 4)
         #expect(session.finishedWordCount == 0)
-        while session.current != nil { session.grade(known: true) }
+        while session.current != nil { session.play(known: true) }
         #expect(session.finishedWordCount == 4)
         #expect(session.reviewedCount == 5)
     }

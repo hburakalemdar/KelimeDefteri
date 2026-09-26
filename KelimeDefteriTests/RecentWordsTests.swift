@@ -85,11 +85,11 @@ struct RecentWordsTests {
             var recentAsked: Set<ObjectIdentifier> = []
             while let current = recent.current {
                 recentAsked.insert(ObjectIdentifier(current))
-                recent.grade(known: true, now: now)
+                recent.play(known: true, now: now)
             }
             while let current = daily.current {
                 dailyAsked.insert(ObjectIdentifier(current))
-                daily.grade(known: true, now: now)
+                daily.play(known: true, now: now)
             }
             #expect(recentAsked.count == 7)
             #expect(dailyAsked.count == 8)
@@ -104,7 +104,7 @@ struct RecentWordsTests {
         let first = StudySession(seed: 1, defaults: defaults())
         first.start(with: words, plan: .daily, now: now)
         #expect(first.wordCount == 5)
-        while first.current != nil { first.grade(known: true, now: now) }
+        while first.current != nil { first.play(known: true, now: now) }
         #expect(StudySession.introducedToday(words, now: now) == 5)
 
         let later = now.addingTimeInterval(3_600)
@@ -128,14 +128,15 @@ struct RecentWordsTests {
         #expect(session.wordCount == 3)
         let first = try #require(session.current)
         #expect(first.memory(at: now) == nil)
-        session.reveal(answer: first.turkish, now: now)
-        session.grade(known: true, now: now)
+        // Tanış da Günlük Tekrar karışımını kullanır: yeni kelimenin ilk sorusu Çoktan Seçmeli ısınma.
+        #expect(session.currentStep?.isWarmup == true)
+        session.play(known: true, now: now)
         #expect(!first.isNew)
         #expect(first.memory(at: now) != nil)
         #expect(first.answerCount == 1)
         let logs = try context.fetch(FetchDescriptor<ReviewLog>())
         #expect(logs.count == 1)
-        #expect(logs.first?.mode == GameMode.dailyReview.rawValue)
+        #expect(logs.first?.mode == GameMode.multipleChoice.rawValue)
         // Tanışılan kelime artık bekleyenlerden sayılmaz; günlük 5 yeni kelime sınırından da düşer:
         // Günlük Tekrar bugün 4 yeni alır, 7 yeniden 3'ü bekler.
         #expect(StudySession.introducedToday(words, now: now) == 1)

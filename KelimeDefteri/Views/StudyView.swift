@@ -128,7 +128,10 @@ struct StudyView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Günlük Tekrar")
                         .font(.title2.bold())
-                    Text(Self.keepingPartsTogether(hasWork ? RoundText.daily(weak: count.weak, new: count.new) : allStrongText))
+                    Text(Self.keepingPartsTogether(hasWork ? RoundText.daily(
+                        weak: count.weak, new: count.new, pending: StudySession.pendingProductionCount(words, now: now),
+                        seconds: StudySession.dailySeconds(words, now: now, count: count)
+                    ) : allStrongText))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

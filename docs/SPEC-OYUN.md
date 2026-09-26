@@ -246,6 +246,37 @@ Desenin kuralları:
 
 Hızlı Tur'un 5 sorusu oynanabilir oyun türlerinden rastgele seçilir; art arda aynı tür en fazla iki kez gelir.
 
+### 5.11 Günlük Tekrar'da oyunlar (İŞ 5, 2026-09-26)
+
+Günlük Tekrar, Tanış ve Yine de Çalış aynı karışımı kullanır (`Shared/Logic/DailyMix.swift`, `StudySession`);
+Hızlı Tur ve Ters Yön değişmez. Kelime seçimi aynı: toplam 20, bunun en fazla 5'i yeni.
+
+- **Yeni ya da zayıf (`isLapsed`) kelime:** önce Çoktan Seçmeli (ısınma). Cevaplanınca üretim sorusu sıraya
+  araya en az iki başka kelime girecek yere eklenir (o kadar kelime yoksa sona): en fazla 14 harfliyse
+  Harfleri Diz (Türkçeden İngilizceye), uzun ifadede yazarak cevap. Başlangıç sırasında ısınmalar mümkünse
+  son iki sıraya düşmez.
+- **Diğer vadeli kelimeler:** bugünkü gibi yalnız yazarak.
+- Defterde 4'ten az farklı anlam varsa ya da kelimeye 3 çeldirici bulunamazsa ısınma yok, yazarak sorulur.
+- Her cevap kendi türüyle kaydedilir (`choice`, `letters`, `daily`). Kelime turdan ancak üretimle çıkar;
+  ilerleme ("3/5") ve silme benzersiz kelimeyle sayılır.
+- **Yarıda bırakma:** bugün (04:00 sınırıyla) Çoktan Seçmeli cevabı olup hiç üretim cevabı olmayan, ilk cevabı
+  bugün olan ya da zayıf kelime "üretim bekliyor" sayılır; sonraki Günlük Tekrar'a (20 sınırı içinde, önce)
+  girer ve doğrudan üretimle sorulur. Kart sayısı ve rozet de onu sayar. Çoktan Seçmeli oyunu ve widget aynı
+  türle yazdığı için orada tanınan yeni/zayıf kelime de böyle gelir. Kartta "1 kelime tekrar bekliyor" diye
+  zayıflayanlardan ayrı yazılır; bugünün hatırlatması da onu sayar.
+  Sınırlar: kural yalnız bugüne bakar; 04:00'ten hemen önce ısınıp bırakılan yeni kelime ertesi gün bekleyen
+  sayılmaz, vadesi gelince (ısınma doğruysa ~2 gün, yanlışsa ertesi gün) normal yoldan sorulur. Sonraki turda
+  bekleyen kelimenin özet satırı ısınmadan sonraki durumla başlar (yeni kelime "Yeni" yerine yüzdeyle görünür).
+- Seçmeli ve harf sorularında kayıt ve ilerleme adım kimliğiyle yapılır: gecikmiş otomatik geçiş eski adımı
+  ilerletemez, aynı adım iki kez kaydedilmez. Mac'te cevaptan sonra pencere kapanırsa açılınca sıradaki adıma geçilir.
+- Tur özeti: kelime ilk üretim cevabıyla girer; önceki durum ısınmadan önceki, "doğru" için ısınma ve ilk
+  üretim ikisi de doğru olmalı.
+- **SPEC-MOTOR2 §9 karar 1'den sapma:** orada tur içinde yalnız hatırlama/Ters Yön yeniden sorar. Bu karışımda
+  Harfleri Diz üretim sorusu olduğu için yanlışta yazarak cevap gibi yeniden sorulur (arada en az iki kelime; yeni
+  karışık taşlarla). Isınma (Çoktan Seçmeli) yeniden sorulmaz. Harfleri Diz Türkçeden İngilizceye sorar,
+  yazarak cevap İngilizceden Türkçeye; motor ikisini de üretim sayar.
+- Tahmini süre: seçmeli 8 sn, Harfleri Diz 18 sn, yazarak 25 sn (`StudySession.dailySeconds`).
+
 ### 5.10 Diğer ekranlar (B3, B4)
 
 - **Kelimelerim satırı:** sağda `MemoryRing` ve yüzde (ya da "Yeni").

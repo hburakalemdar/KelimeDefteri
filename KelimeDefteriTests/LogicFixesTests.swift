@@ -50,7 +50,7 @@ struct LogicFixesTests {
         context.insert(first)
         let session = StudySession(seed: 1, defaults: defaults())
         session.start(with: [first], plan: .daily, now: now)
-        session.grade(known: true, now: now.addingTimeInterval(3))
+        session.play(known: true, now: now.addingTimeInterval(3))
         #expect(session.current == nil)
         // Pencere kapandı; saatler sonra ⇧⌘E ile kelime eklendi ve yeni tur başladı.
         session.pauseClock(now: now.addingTimeInterval(5))
@@ -61,7 +61,7 @@ struct LogicFixesTests {
         // Pencere bir saat sonra açılıyor.
         session.resumeClock(now: later.addingTimeInterval(3_600))
         session.reveal(answer: "yeter sayı", now: later.addingTimeInterval(3_602))
-        session.grade(known: true, now: later.addingTimeInterval(3_603))
+        session.play(known: true, now: later.addingTimeInterval(3_603))
         let log = try context.fetch(FetchDescriptor<ReviewLog>()).first { $0.word === added }
         #expect(log?.responseTime == 2)
         #expect(log?.grade == AnswerGrade.easy.rawValue)
@@ -89,11 +89,11 @@ struct LogicFixesTests {
         let words = [weakWord("a"), weakWord("b")]
         let session = StudySession(seed: 1, defaults: defaults())
         session.start(with: words, plan: .daily, now: now)
-        session.grade(known: true, now: now.addingTimeInterval(10))
+        session.play(known: true, now: now.addingTimeInterval(10))
         session.pauseClock(now: now.addingTimeInterval(20))
         session.resumeClock(now: now.addingTimeInterval(3_620))
         #expect(session.startedAt == now.addingTimeInterval(3_600))
-        session.grade(known: true, now: now.addingTimeInterval(3_630))
+        session.play(known: true, now: now.addingTimeInterval(3_630))
         #expect(session.finishedAt.timeIntervalSince(session.startedAt) == 30)
 
         // Bitmiş turda kaymaz: süre eksiye düşmesin.
@@ -128,13 +128,13 @@ struct LogicFixesTests {
         #expect(session.began(onAnotherDayThan: dayTwo))
 
         let missed = session.current!
-        session.grade(known: false, now: dayOne.addingTimeInterval(60))
+        session.play(known: false, now: dayOne.addingTimeInterval(60))
         #expect(missed.isLapsed)
         let lapsedStability = missed.stability
-        session.grade(known: true, now: dayTwo)
-        session.grade(known: true, now: dayTwo.addingTimeInterval(10))
+        session.play(known: true, now: dayTwo)
+        session.play(known: true, now: dayTwo.addingTimeInterval(10))
         #expect(session.current === missed)
-        session.grade(known: true, now: dayTwo.addingTimeInterval(30))
+        session.play(known: true, now: dayTwo.addingTimeInterval(30))
         // Ertesi günkü cevap hafızayı değiştirdi: kelime zayıflıktan çıktı, dayanıklılık büyüdü.
         #expect(missed.lastReviewedAt == DayBoundary.start(of: dayTwo))
         #expect(missed.stability > lapsedStability)
@@ -173,7 +173,7 @@ struct LogicFixesTests {
         context.insert(word)
         let session = StudySession(seed: 1, defaults: defaults())
         session.start(with: [word], plan: .extraPractice, now: now)
-        session.grade(known: false, now: now.addingTimeInterval(5))
+        session.play(known: false, now: now.addingTimeInterval(5))
         // Arada 2 kart kalmadığı için yeniden sorulmaz, kelime biten sayılır.
         #expect(session.current == nil)
         #expect(session.finishedWordCount == 1)
@@ -187,13 +187,13 @@ struct LogicFixesTests {
         let session = StudySession(seed: 1, defaults: defaults())
         session.start(with: words, plan: .extraPractice, now: now)
         let missed = session.current!
-        session.grade(known: false, now: now.addingTimeInterval(5))
+        session.play(known: false, now: now.addingTimeInterval(5))
         #expect(session.current !== missed)
-        session.grade(known: true, now: now.addingTimeInterval(10))
-        session.grade(known: true, now: now.addingTimeInterval(15))
+        session.play(known: true, now: now.addingTimeInterval(10))
+        session.play(known: true, now: now.addingTimeInterval(15))
         #expect(session.current === missed)
         // Yanlıştan 30 dakika içindeki doğru günün notuna sayılmaz: kelime zayıf kalır, yarın sorulur.
-        session.grade(known: true, now: now.addingTimeInterval(20))
+        session.play(known: true, now: now.addingTimeInterval(20))
         #expect(session.current == nil)
         #expect(session.finishedWordCount == 3)
         #expect(missed.isLapsed)
@@ -219,7 +219,7 @@ struct LogicFixesTests {
         #expect(!word.isNew)
         #expect(session.current === word)
         #expect(StudySession.dailyCount([word], now: now) == (weak: 1, new: 0))
-        session.grade(known: true, now: now)
+        session.play(known: true, now: now)
         #expect(session.roundEntries.first?.dueBefore == now.addingTimeInterval(-2 * Memory.dayLength))
         #expect(session.roundEntries.first?.lapsedBefore == false)
 
@@ -276,7 +276,7 @@ struct LogicFixesTests {
         session.reveal(answer: "yanlış", now: now)
         context.delete(deleted)
         session.commitPendingAnswer(now: now)
-        session.grade(known: true, now: now)
+        session.play(known: true, now: now)
         #expect(session.current != nil)
         #expect(session.current !== deleted)
         #expect(session.wordCount == 1)

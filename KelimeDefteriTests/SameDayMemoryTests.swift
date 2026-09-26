@@ -57,7 +57,7 @@ struct SameDayMemoryTests {
         var asked: [String] = []
         while let word = session.current {
             asked.append(word.english)
-            session.grade(known: true, now: now)
+            session.play(known: true, now: now)
         }
         return asked
     }
