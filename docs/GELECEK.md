@@ -238,3 +238,21 @@ Uygulama:
   plan ister, Udio dışa aktarmayı kısıtladı. Tahmini toplam: mağaza videosu ~$100–150, yapay zekâ klipleri ~$5–20.
 - Kaynaklar: developer.apple.com screenshot/app-preview specifications ve App Review Guidelines; avanderlee.com
   (simülatör kaydı); modelslab.com (video model fiyatları); matte.app (araç karşılaştırması).
+
+## Şimdi: günlük yük ve yeni hakkı (26 Eylül 2026, yapılıyor)
+
+Neden: Günlük Tekrar'ın toplam 20 tavanı yenileri de kapsıyordu. Günde 10 yeniyle tekrarlar 3. haftada 20'yi geçiyor,
+yeni hakkı fiilen sıfıra iniyor, tekrarlar birikiyordu (simülasyon: günde 10 yeniyle 6. haftada ~34 tekrar/gün, 15 yeniyle ~51).
+
+Kullanıcı kararları (Burak, 2026-09-26):
+1. **Tekrarlarda tavan yok:** vadesi gelen her kelime o gün Günlük Tekrar'a girer. Güvenlik tavanı 100 (gün atlanırsa),
+   aşılınca en zayıflar önce gelir ve o gün yeni verilmez.
+2. **Yeni hakkı ayrı:** yeni kelime + yeni anlam, tekrarların üstüne. Varsayılan 10; Ayarlar'dan 5 / 10 / 15 / 20.
+   iCloud anahtar-değer deposunda asıl değer + App Group aynası (günlük hedefteki `GoalSync` deseni); rozet, bildirim,
+   widget, Mac aynı sayıyı okur.
+3. **Parça parça:** bir tur en fazla 20 kelime; tur sonunda kalan varsa "Devam Et". Kart, rozet ve bildirim günün toplam
+   kalanını gösterir (kalanları geri getirme ve sayma zaten vardı).
+4. **Boşluğu Doldur:** kalıbın ortasındaki kelime de ek alabilir ("depends on", "raised an issue"); ek yalnız 3+ harfli
+   kelimelere (in/on/an/of/up/to olduğu gibi aranır; "depend only", "raise and issue" eşleşmez). Düzensiz fiiller
+   (took, made) bilinen sınır.
+Beklenen yük: günde 10 yeniyle 6. haftada ~18–20 dk/gün; karttaki tahmini süre bunu göstermeli.
