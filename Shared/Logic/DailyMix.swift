@@ -23,17 +23,20 @@ nonisolated enum DailyMix {
 
     /// Bugün (04:00 sınırıyla) ısınması yapılmış ama üretimi yapılmamış kelime: yarıda bırakılan turdan kalır,
     /// sonraki Günlük Tekrar'a girer ve doğrudan üretimle sorulur. Bugün Çoktan Seçmeli cevabı olup hiç üretim
-    /// cevabı olmayan, ısınmaya uygun kelime: ilk cevabı bugün (yeniydi) ya da zayıf. (Çoktan Seçmeli oyunu ve
-    /// widget da aynı türle yazdığı için onlarda tanınan yeni/zayıf kelime de üretim için Günlük Tekrar'a gelir.)
+    /// cevabı olmayan, ısınmaya uygun kelime: bugün yeniydi ya da zayıf. (Çoktan Seçmeli oyunu ve widget da aynı
+    /// türle yazdığı için onlarda tanınan yeni/zayıf kelime de üretim için Günlük Tekrar'a gelir.)
+    ///
+    /// `anchoredToday`: kelimenin çıpası (`Word.lastReviewedAt`) bugün mü. "Bugün yeniydi" bundan okunur, ilk
+    /// kaydın tarihinden değil: ilk günün cevabı çıpayı o günün başına koyar, tanıma cevabı çıpayı sonra
+    /// ilerletmez; çıpayı bugüne getiren tek şey bugünkü üretim cevabıdır, o da bekleyeni zaten kapatır. Göç etmiş
+    /// (tabanı olan, kaydı olmayan) eski kelimenin bugünkü ilk kaydı onu yeni yapmaz; çıpası eski kalır.
     static func isPendingProduction(
-        logs: [(date: Date, mode: String)], isLapsed: Bool, now: Date, calendar: Calendar = .current
+        logs: [(date: Date, mode: String)], isLapsed: Bool, anchoredToday: Bool, now: Date, calendar: Calendar = .current
     ) -> Bool {
-        guard let first = logs.map(\.date).min() else { return false }
+        guard isLapsed || anchoredToday else { return false }
         let today = logs.filter { DayBoundary.isSameDay($0.date, now, calendar: calendar) }
-        guard today.contains(where: { $0.mode == warmupMode.rawValue }),
-              !today.contains(where: { GameMode(rawValue: $0.mode)?.isProduction == true })
-        else { return false }
-        return isLapsed || DayBoundary.isSameDay(first, now, calendar: calendar)
+        return today.contains(where: { $0.mode == warmupMode.rawValue })
+            && !today.contains(where: { GameMode(rawValue: $0.mode)?.isProduction == true })
     }
 
     /// Adımların başlangıç sırası: ısınma adımları mümkünse son iki sıraya düşmez (üretimle arası açılabilsin).

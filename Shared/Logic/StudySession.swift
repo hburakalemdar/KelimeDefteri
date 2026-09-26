@@ -288,14 +288,16 @@ final class StudySession {
             : .recall
     }
 
-    /// Günlük Tekrar'ın soru türlerine göre tahmini süresi (saniye; kartın "yaklaşık 3 dk" metni için).
-    /// Çalışılmış kelimeler 20'yi aşarsa hangilerinin seçileceği rastgele olduğu için ortalamaları alınır.
-    /// `count`: çağıranda hazırsa `dailyCount(words, now:)` (defter bir kez daha taranmasın).
-    static func dailySeconds(_ words: [Word], now: Date = .now, count: (weak: Int, new: Int)? = nil) -> Double {
-        let count = count ?? dailyCount(words, now: now)
+    /// Günlük Tekrar kartının ikinci satırı için: üretimi bekleyen kelime sayısı ve soru türlerine göre tahmini
+    /// süre (saniye; "yaklaşık 3 dk"). Bekleyen kelimeler tek geçişte bulunur. Çalışılmış kelimeler 20'yi aşarsa
+    /// hangilerinin seçileceği rastgele olduğu için ortalamaları alınır. `count`: `dailyCount(words, now:)`.
+    static func dailyEstimate(
+        _ words: [Word], now: Date = .now, count: (weak: Int, new: Int)
+    ) -> (pending: Int, seconds: Double) {
+        let pendingIDs = Set(words.filter { !$0.isNew && $0.isPendingProduction(now: now) }.map(ObjectIdentifier.init))
         let deckMeanings = GameDeck.distinctMeaningCount(words.map(\.turkish))
         func seconds(_ word: Word) -> Double {
-            let pending = !word.isNew && word.isPendingProduction(now: now)
+            let pending = pendingIDs.contains(ObjectIdentifier(word))
             let warmup = DailyMix.needsWarmup(
                 isNew: word.isNew, isLapsed: word.isLapsed, pendingProduction: pending, deckMeanings: deckMeanings
             )
@@ -303,10 +305,11 @@ final class StudySession {
                 warmup: warmup, pendingProduction: pending, letters: DailyMix.productionUsesLetters(english: word.english)
             )
         }
-        let studied = words.filter { !$0.isNew && ($0.isDue(at: now) || $0.isPendingProduction(now: now)) }.map(seconds)
+        let studied = words.filter { !$0.isNew && ($0.isDue(at: now) || pendingIDs.contains(ObjectIdentifier($0))) }
+            .map(seconds)
         let studiedSeconds = studied.isEmpty ? 0 : studied.reduce(0, +) / Double(studied.count) * Double(count.weak)
         let newWords = Array(newWordsOldestFirst(words).prefix(count.new))
-        return studiedSeconds + newWords.map(seconds).reduce(0, +)
+        return (pendingIDs.count, studiedSeconds + newWords.map(seconds).reduce(0, +))
     }
 
     /// Üretimi bekleyen (yarıda bırakılan ısınmadan kalan) kelime sayısı; kartta "zayıfladı"dan ayrı yazılır.
@@ -632,7 +635,12 @@ final class StudySession {
         phase = .asking
         shownAt = now
         // Duraklatılmışken (pencere kapalı) ilerlenirse saat duraklatılmış kalır; yeni kart şimdiden sayılır.
-        if pausedAt != nil { pausedAt = now }
+        // O ana kadarki duraklama tur süresinden düşülür (Mac'te cevaplanmış soru pencere açılınca atlanır);
+        // tur bittiyse düşülmez: süre son cevaba (`finishedAt`) kadar sayılır, duraklama zaten dışında kalır.
+        if let pausedAt {
+            if currentStep != nil { startedAt += now.timeIntervalSince(pausedAt) }
+            self.pausedAt = now
+        }
         committed = nil
         responseTime = 0
     }
@@ -641,12 +649,13 @@ final class StudySession {
 extension Word {
     /// Bugün ısınması yapılıp üretimi yapılmamış mı (bkz. `DailyMix.isPendingProduction`).
     ///
-    /// Ucuz ön eleme (kayıtlara bakmadan): bekleyen kelime ya zayıftır ya da ilk cevabı bugündür; ilk günün
-    /// cevabı çıpayı (`lastReviewedAt`) o günün başına koyar ve tanıma cevabı çıpayı sonra ilerletmez. Çıpası
-    /// bugün olmayan, zayıf olmayan kelimenin ilk cevabı bugün olamaz.
+    /// "Bugün yeniydi" çıpadan (`lastReviewedAt`) okunur (gerekçe `DailyMix.isPendingProduction`'da).
     func isPendingProduction(now: Date = .now) -> Bool {
-        guard isLapsed || lastReviewedAt.map({ DayBoundary.isSameDay($0, now) }) == true else { return false }
-        guard let logs, !logs.isEmpty else { return false }
-        return DailyMix.isPendingProduction(logs: logs.map { ($0.date, $0.mode) }, isLapsed: isLapsed, now: now)
+        let anchoredToday = lastReviewedAt.map { DayBoundary.isSameDay($0, now) } ?? false
+        // Kayıtlara bakmadan eleme: zayıf değilse ve çıpası bugün değilse bekleyemez.
+        guard isLapsed || anchoredToday, let logs, !logs.isEmpty else { return false }
+        return DailyMix.isPendingProduction(
+            logs: logs.map { ($0.date, $0.mode) }, isLapsed: isLapsed, anchoredToday: anchoredToday, now: now
+        )
     }
 }

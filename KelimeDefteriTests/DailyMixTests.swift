@@ -48,18 +48,21 @@ struct DailyMixTests {
         let choice = GameMode.multipleChoice.rawValue
         // Yeni kelime 04:10'da ısındı: ertesi sabah 03:50'ye kadar aynı gün, üretimi bekliyor.
         let warm = [(date: at(0, 4, 10), mode: choice)]
-        #expect(DailyMix.isPendingProduction(logs: warm, isLapsed: false, now: at(1, 3, 50), calendar: calendar))
-        #expect(!DailyMix.isPendingProduction(logs: warm, isLapsed: false, now: at(1, 4, 10), calendar: calendar))
+        #expect(DailyMix.isPendingProduction(logs: warm, isLapsed: false, anchoredToday: true, now: at(1, 3, 50), calendar: calendar))
+        #expect(!DailyMix.isPendingProduction(logs: warm, isLapsed: false, anchoredToday: false, now: at(1, 4, 10), calendar: calendar))
         // 03:30'daki ısınma önceki güne ait; 04:30'da yeni gün başladı.
         let late = [(date: at(1, 3, 30), mode: choice)]
-        #expect(!DailyMix.isPendingProduction(logs: late, isLapsed: false, now: at(1, 4, 30), calendar: calendar))
+        #expect(!DailyMix.isPendingProduction(logs: late, isLapsed: false, anchoredToday: false, now: at(1, 4, 30), calendar: calendar))
         // Üretim cevabı varsa bekleyen yok.
         let done = warm + [(date: at(0, 4, 20), mode: GameMode.letters.rawValue)]
-        #expect(!DailyMix.isPendingProduction(logs: done, isLapsed: false, now: at(0, 9), calendar: calendar))
+        #expect(!DailyMix.isPendingProduction(logs: done, isLapsed: false, anchoredToday: true, now: at(0, 9), calendar: calendar))
         // Eskiden çalışılmış, zayıf olmayan kelime Çoktan Seçmeli oyununda sorulduysa bekleyen sayılmaz.
         let old = [(date: at(-5, 9), mode: GameMode.dailyReview.rawValue), (date: at(0, 9), mode: choice)]
-        #expect(!DailyMix.isPendingProduction(logs: old, isLapsed: false, now: at(0, 10), calendar: calendar))
-        #expect(DailyMix.isPendingProduction(logs: old, isLapsed: true, now: at(0, 10), calendar: calendar))
+        #expect(!DailyMix.isPendingProduction(logs: old, isLapsed: false, anchoredToday: false, now: at(0, 10), calendar: calendar))
+        #expect(DailyMix.isPendingProduction(logs: old, isLapsed: true, anchoredToday: false, now: at(0, 10), calendar: calendar))
+        // Göç etmiş (tabanı olan, kaydı olmayan) eski kelimenin bugünkü ilk kaydı onu yeni yapmaz: çıpası eski.
+        let migrated = [(date: at(0, 9), mode: choice)]
+        #expect(!DailyMix.isPendingProduction(logs: migrated, isLapsed: false, anchoredToday: false, now: at(0, 10), calendar: calendar))
     }
 
     @Test func estimateCountsQuestionTypes() {
@@ -434,6 +437,38 @@ struct DailyMixSessionTests {
         let asked = drain(session, now: later)
         #expect(asked.count == 20)
         #expect(asked.allSatisfy { if case .letters = $0 { true } else { false } })
+    }
+
+    /// Kayıtları olan eski güçlü kelime Çoktan Seçmeli oyununda bugün cevaplanınca bekleyen sayılmaz.
+    @Test func oldStrongWordWithLogsIsNotPending() throws {
+        let context = try makeContext()
+        let word = Word(english: "stale", turkish: "bayat")
+        context.insert(word)
+        let at = noon
+        ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: at.addingTimeInterval(-20 * 86_400))
+        ReviewRecorder.record(word, grade: .good, mode: .dailyReview, responseTime: 3, now: at.addingTimeInterval(-10 * 86_400))
+        ReviewRecorder.record(word, grade: .good, mode: .multipleChoice, responseTime: 2, now: at)
+        #expect(!word.isLapsed)
+        #expect(!word.isPendingProduction(now: at.addingTimeInterval(60)))
+    }
+
+    /// Mac: seçmeli soru yanlış cevaplanıp pencere kapandı, 2 saat sonra açılınca soru atlandı; kapalı kalınan
+    /// süre tur süresine sayılmaz.
+    @Test func closedWindowTimeIsNotCountedWhenAnsweredStepIsSkipped() throws {
+        let context = try makeContext()
+        let words = newWords(5, in: context)
+        let start = noon
+        let session = makeSession()
+        session.start(with: words, plan: .daily, now: start)
+        let step = try #require(session.currentStep)
+        session.answer(.again, step: step.id, now: start.addingTimeInterval(5))
+        session.pauseClock(now: start.addingTimeInterval(6))
+        let reopened = start.addingTimeInterval(6 + 7200)
+        session.skipAnsweredStep(now: reopened)
+        session.resumeClock(now: reopened)
+        _ = drain(session, now: reopened.addingTimeInterval(1))
+        let duration = session.finishedAt.timeIntervalSince(session.startedAt)
+        #expect(duration > 0 && duration < 60)
     }
 
     @Test func strongWordFromChoiceGameIsNotPending() throws {

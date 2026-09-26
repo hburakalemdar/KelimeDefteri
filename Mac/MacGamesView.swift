@@ -131,10 +131,7 @@ struct MacGamesView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Günlük Tekrar")
                         .font(.title3.bold())
-                    Text(hasWork ? RoundText.daily(
-                        weak: count.weak, new: count.new, pending: StudySession.pendingProductionCount(words, now: now),
-                        seconds: StudySession.dailySeconds(words, now: now, count: count)
-                    ) : allStrongText)
+                    Text(hasWork ? dailyText(count) : allStrongText)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -178,6 +175,12 @@ struct MacGamesView: View {
     }
 
     private var allStrongText: String { DeckSummary.allDoneText(for: words, now: now) }
+
+    /// "5 kelime zayıfladı · 1 kelime tekrar bekliyor · 2 yeni · yaklaşık 3 dk"; bekleyenler tek geçişte sayılır.
+    private func dailyText(_ count: (weak: Int, new: Int)) -> String {
+        let estimate = StudySession.dailyEstimate(words, now: now, count: count)
+        return RoundText.daily(weak: count.weak, new: count.new, pending: estimate.pending, seconds: estimate.seconds)
+    }
 
     // MARK: Günlük hedef
 
