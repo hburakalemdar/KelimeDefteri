@@ -230,7 +230,11 @@ struct MatchGameView: View {
 
         switch result {
         case .matched(let id):
-            round.record(round.words[id], grade: board.grade(for: id), timed: false)
+            // Eşleşen kutudaki anlam (tur kurulurken alınan) kaydedilir.
+            round.record(
+                round.words[id], grade: board.grade(for: id),
+                meaning: meanings.indices.contains(id) ? meanings[id] : "", timed: false
+            )
             justMatched = id
             Task {
                 try? await Task.sleep(for: .seconds(0.35))

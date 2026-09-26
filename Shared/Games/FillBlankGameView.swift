@@ -54,7 +54,7 @@ struct FillBlankGameView: View {
                 options: question.options,
                 correctIndex: question.correctIndex,
                 optionFont: .system(.body, design: .serif, weight: .semibold),
-                onAnswer: { round.record(question.word, grade: .recognition(correct: $0)) },
+                onAnswer: { round.record(question.word, grade: .recognition(correct: $0), meaning: question.hint) },
                 onNext: { advance(from: index) }
             ) { revealed in
                 ClozeCard(cloze: question.cloze, hint: question.hint, revealed: revealed)

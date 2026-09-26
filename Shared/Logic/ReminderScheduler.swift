@@ -38,7 +38,10 @@ enum ReminderScheduler {
         let pendingIDs = Set(studied.filter { $0.isPendingProduction(now: now) }.map(ObjectIdentifier.init))
         let studiedDueDates = studied.filter { !pendingIDs.contains(ObjectIdentifier($0)) }.map(\.dueDate)
         let pendingDueDates = studied.filter { pendingIDs.contains(ObjectIdentifier($0)) }.map(\.dueDate)
+        // Günlük tanışma havuzu: yeni kelimeler + yalnız yeni anlam tanıtımı için gelecek kelimeler (bildirim anına
+        // kadar vadesi gelmeyenler; vadesi gelen zayıflar arasında sayılır, bkz. `ReminderPlanner.plan`).
         let newCount = words.count(where: \.isNew)
+        let introDueDates = StudySession.introOnlyWords(words, now: now).map(\.dueDate)
         let introducedToday = StudySession.introducedToday(words, now: now)
         let center = UNUserNotificationCenter.current()
 
@@ -58,7 +61,7 @@ enum ReminderScheduler {
         let minute = defaults.object(forKey: ReminderSettings.minuteKey) as? Int ?? ReminderSettings.defaultMinute
         let reminders = ReminderPlanner.plan(
             studiedDueDates: studiedDueDates, pendingDueDates: pendingDueDates, newCount: newCount,
-            introducedToday: introducedToday, hour: hour, minute: minute, now: now
+            introDueDates: introDueDates, introducedToday: introducedToday, hour: hour, minute: minute, now: now
         )
 
         #if os(iOS)

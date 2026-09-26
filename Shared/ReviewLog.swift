@@ -15,6 +15,10 @@ final class ReviewLog {
     var grade: Int = 0
     /// Kartın gösterilmesinden cevabın açılmasına kadar geçen süre (saniye).
     var responseTime: Double = 0
+    /// Cevabın gösterdiği anlam, yazıldığı gibi; boş = belirli bir anlam yok (docs/SPEC-ANLAM.md §4).
+    var meaning: String = ""
+    /// Yeni anlam tanıtımının cevabı: hafıza motoru bunu oynatmaz (bkz. `MemoryCache`).
+    var isIntro: Bool = false
     var word: Word?
 
     init(date: Date = .now, mode: String, correct: Bool, grade: Int, responseTime: Double) {

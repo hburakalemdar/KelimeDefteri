@@ -68,8 +68,11 @@ final class GameRound {
     /// Şu anki kelimenin cevabını kaydeder. Aynı kelime turda ikinci kez cevaplanırsa özet ilk cevabı tutar;
     /// aynı gündeki bütün cevaplar motorda birlikte değerlendirilir (günün notu).
     /// `timed` false ise (ör. Eşleştir) cevap süresi kaydedilmez. `mode` verilirse cevap o oyun adına
-    /// (ve o oyunun ağırlığıyla) kaydedilir; karışık Hızlı Tur her soruyu kendi türüyle yazar.
-    func record(_ word: Word, grade: AnswerGrade, mode: GameMode? = nil, timed: Bool = true, now: Date = .now) {
+    /// (ve o oyunun ağırlığıyla) kaydedilir; karışık Hızlı Tur her soruyu kendi türüyle yazar. `meaning`: sorunun
+    /// gösterdiği anlam, soru kurulurken alınan (bkz. `ReviewRecorder.record`).
+    func record(
+        _ word: Word, grade: AnswerGrade, mode: GameMode? = nil, meaning: String = "", timed: Bool = true, now: Date = .now
+    ) {
         guard !word.isDeleted else { return }
         // Eski biçimli kelimenin önceki durumu "Yeni" görünmesin.
         MemoryMigration.migrate(word)
@@ -78,7 +81,7 @@ final class GameRound {
         }
         ReviewRecorder.record(
             word, grade: grade, mode: mode ?? self.mode,
-            responseTime: timed ? now.timeIntervalSince(shownAt) : 0, now: now
+            responseTime: timed ? now.timeIntervalSince(shownAt) : 0, meaning: meaning, now: now
         )
         finishedAt = now
     }

@@ -15,7 +15,8 @@ enum MemoryCache {
         guard !word.isDeleted else { return false }
         MemoryMigration.migrateBaseIfNeeded(word, now: now)
         let answers = (logs ?? word.logs ?? [])
-            .filter { !$0.isDeleted }
+            // Yeni anlam tanıtımı oynatılmaz: yeni anlamı bilmemek kelimeyi unutmak değil (docs/SPEC-ANLAM.md §4).
+            .filter { !$0.isDeleted && !$0.isIntro }
             .map { Memory.Answer(date: $0.date, mode: $0.mode, correct: $0.correct, grade: $0.grade) }
         let state = Memory.replay(base: MemoryMigration.base(of: word), answers: answers, now: now)
         return apply(state, to: word)

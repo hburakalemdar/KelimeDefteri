@@ -50,7 +50,11 @@ struct ChoiceGameView: View {
             ChoiceQuestionView(
                 options: question.options,
                 correctIndex: question.correctIndex,
-                onAnswer: { round.record(question.word, grade: .recognition(correct: $0)) },
+                onAnswer: {
+                    round.record(
+                        question.word, grade: .recognition(correct: $0), meaning: question.options[question.correctIndex]
+                    )
+                },
                 onNext: { advance(from: index) }
             ) { revealed in
                 GameWordCard(word: question.word, meaning: question.options[question.correctIndex], showsMeanings: revealed)

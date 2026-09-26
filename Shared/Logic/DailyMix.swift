@@ -64,4 +64,11 @@ nonisolated enum DailyMix {
         if warmup { return choiceSeconds + production }
         return pendingProduction ? production : recallSeconds
     }
+
+    /// Yeni anlam tanıtımıyla giren kelimenin tahmini süresi: tanıtım (seçmeli), ardından zayıf ya da üretim
+    /// bekleyen kelimede üretim, vadesi gelmiş kelimede yazarak cevap; yalnız tanıtım için gelmişse başka adım yok.
+    static func introSeconds(production: Bool, recall: Bool, letters: Bool) -> Double {
+        if production { return choiceSeconds + (letters ? lettersSeconds : recallSeconds) }
+        return choiceSeconds + (recall ? recallSeconds : 0)
+    }
 }

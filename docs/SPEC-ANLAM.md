@@ -1,6 +1,6 @@
 # Spec: Yeni anlam tanıtımı
 
-Durum (2026-09-26): tasarım. Kaynak: `docs/GOREV-YENI-ANLAM.md`, `docs/PLAN-CUMLE-OYUN.md` (İŞ 4 "Açık sorun" + Codex
+Durum (2026-09-26): uygulandı (bkz. §9 uygulama notları). Kaynak: `docs/GOREV-YENI-ANLAM.md`, `docs/PLAN-CUMLE-OYUN.md` (İŞ 4 "Açık sorun" + Codex
 itirazları). İlgili: `docs/SPEC-CUMLE.md`, `docs/SPEC-OYUN.md` §5.11.
 
 ## 0. Sorun ve ana fikir
@@ -122,3 +122,26 @@ farklı anlam var (`DailyMix.minimumMeanings`).
   yazarak; aynı gün ikinci kez girmez; bütçe: 5 yeni kelime + 2 yeni anlam → 2 anlam + 3 kelime; `recentWaitingCount`
   doğru; `introducedToday` tanıtımı sayar.
 - Birleştirme: tabanlar birleşir.
+
+## 9. Uygulama notları (2026-09-26)
+
+Belgede açık olmayan, uygulamada verilen kararlar:
+- `Word.needsMeaningIntro(now:)` yalnız bekleyen anlama ve bugünkü tanıtım kaydına bakar; "defterde en az 4 farklı
+  anlam" şartına çağıran bakar (`StudySession.introOnlyWords`, `steps`, `dailyEstimate`), çünkü kelime defteri bilmez.
+- `productionMeaning` yalnız Günlük Tekrar'da değil, `StudySession`'ın bütün yazarak cevap ve harf adımlarında
+  `questionMeaning` olur (Hızlı Tur'un, Ters Yön'ün, Zayıflar'ın yazarak sorusu da üretimdir).
+- Yazarak cevapta tutan anlam: sorulan anlam tutuyorsa o, değilse kayıttaki sırayla ilk tutan (`Word.matchedMeaning`).
+  Ters Yön kaydı `""`.
+- Yine de Çalış'ta (ve kendisi için seçilmiş her kelimede) tanıtımın ardından yazarak cevap gelir; "başka adım yok"
+  yalnız Günlük Tekrar'ın bütçeden aldığı yalnız-tanıtım kelimeleri içindir. Bu kelime tur özetine tanıtım cevabıyla girer.
+- Boşluğu Doldur kaydına ipucu (gösterilen Türkçe anlam), Eşleştir kaydına kutuda gösterilen anlam yazılır.
+- `StoreMaintenance.Summary.meaningBaselines`: göçte taban alınan kelime sayısı (kaydı tetikler).
+- Birleştirmede hiçbir kopya çalışılmamışsa taban `nil` kalır.
+- Kelime ayrıntısı (iOS): anlamların altında "Yeni: …" notu. Mac'in Kelimelerim tablosuna eklenmedi.
+- Bildirim planı (`ReminderScheduler`): `newCount` = yeni kelimeler + yalnız tanıtım için gelecek kelimeler; ileri
+  günler için bu sayı sabit varsayılır (yaklaşık).
+- Kasıtlı: yanlış tanıtımdan sonra aynı gün Günlük Tekrar tanıtımı yeniden sormaz, ama başka tanıma oyunları ve
+  widget bekleyen anlamı göstermeye devam eder ve kayıtları yine `isIntro` olur (hafızaya işlenmez).
+- Seçmeli adım (ısınma ya da tanıtım) yanlış da olsa yeniden sorulmaz; yalnız takip adımı eklenir, yalnız-tanıtım
+  kelimesi doğru/yanlış fark etmeden turdan çıkar.
+- Kilit ekranı özeti yeni anlamları ayrı yazar ("2 yeni kelime · 1 yeni anlam").

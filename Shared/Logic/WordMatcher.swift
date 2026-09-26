@@ -51,6 +51,8 @@ extension Word {
     /// geldiyse ona bağlanır; yoksa belirsiz kalır. İlerleme (hafıza, sıradaki tekrar) değişmez.
     func absorb(turkish: String, sentences incoming: [(text: String, meaning: String)], now: Date = .now) {
         let added = newMeanings(in: turkish)
+        // Taban eski anlamlarla alınır; eklenen anlam bekleyen olur (docs/SPEC-ANLAM.md §3).
+        fillMeaningBaselineIfNeeded()
         self.turkish = WordMatcher.mergedMeanings(existing: self.turkish, adding: turkish)
         var inserted = false
         for (offset, sentence) in incoming.enumerated() where !hasSentence(sentence.text) {

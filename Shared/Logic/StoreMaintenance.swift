@@ -14,8 +14,10 @@ nonisolated enum StoreMaintenance {
         var removedLogs = 0
         /// Cümle değişiklikleri: kayda alınan eski cümle, silinen kopya cümle, güncellenen `example` aynası.
         var sentenceChanges = 0
+        /// Anlam tabanı alınan eski (çalışılmış, tabansız) kelime sayısı (docs/SPEC-ANLAM.md §3).
+        var meaningBaselines = 0
 
-        var changed: Bool { mergedWords > 0 || removedLogs > 0 || sentenceChanges > 0 }
+        var changed: Bool { mergedWords > 0 || removedLogs > 0 || sentenceChanges > 0 || meaningBaselines > 0 }
     }
 
     /// Sahipsiz cevap kaydı ancak bu kadar süre sonra hâlâ sahipsizse silinir: iCloud bir cevap
@@ -52,6 +54,11 @@ nonisolated enum StoreMaintenance {
                 summary.sentenceChanges += 1
             }
             summary.sentenceChanges += try adoptOrphanSentences(words, in: context)
+            // Çalışılmış eski kelimelerin anlam tabanı: o anki anlamları (birleştirmeden önce; birleştirme tabanları birleştirir).
+            for word in words where word.meaningBaseline == nil && !word.isNew {
+                word.fillMeaningBaselineIfNeeded()
+                summary.meaningBaselines += 1
+            }
             for group in duplicateGroups(words) {
                 merge(group, now: now)
                 summary.mergedWords += group.count - 1
@@ -162,6 +169,13 @@ nonisolated enum StoreMaintenance {
         } ?? group.first { $0.baseAt == .distantPast }
         if let baseSource, baseSource !== keeper {
             copyBase(from: baseSource, to: keeper)
+        }
+
+        // Anlam tabanı: bütün kopyaların tabanlarının birleşimi (tabansız ama çalışılmış kopyanın tabanı kendi
+        // anlamları, hiç çalışılmamışınki boş); böylece yeni kopyadan gelen anlam tanıtılır. Hiçbiri çalışılmamışsa `nil`.
+        let baselines = group.compactMap { $0.meaningBaseline ?? ($0.isNew ? nil : $0.turkish) }
+        if !baselines.isEmpty {
+            keeper.meaningBaseline = baselines.reduce("") { WordMatcher.mergedMeanings(existing: $0, adding: $1) }
         }
 
         for other in others {

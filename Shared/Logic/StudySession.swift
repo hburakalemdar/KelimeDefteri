@@ -74,10 +74,23 @@ final class StudySession {
             case letters(LetterPuzzle)
         }
 
+        /// Seçmeli adım cevaplanınca kelimeye eklenecek adım.
+        enum FollowUp {
+            /// Üretim (`productionKind`): ısınmanın ve zayıf ya da üretim bekleyen kelimenin tanıtımının ardından.
+            case production
+            /// Yazarak cevap: vadesi gelmiş (ya da kendisi için seçilmiş) kelimenin tanıtımından sonra.
+            case recall
+            /// Başka adım yok, kelime turdan çıkar: yalnız tanıtım için gelen kelime.
+            case finish
+        }
+
         /// Turda benzersiz; gecikmiş geri çağrılar (ör. 0,8 sn sonraki otomatik geçiş) eski adımı ilerletemesin diye.
         let id: Int
         let word: Word
         let kind: Kind
+        /// Yeni anlam tanıtımı: doğru şık kelimenin ilk bekleyen anlamı (docs/SPEC-ANLAM.md §6); kartta "Yeni anlam".
+        var isIntro = false
+        var followUp: FollowUp = .production
 
         var isWarmup: Bool {
             if case .choice = kind { true } else { false }
@@ -101,8 +114,12 @@ final class StudySession {
     private(set) var currentStep: Step?
     var current: Word? { currentStep?.word }
     /// Sorulan kelimenin sırası gelen anlamı, soru gösterilirken alınır (ipucu cümlesi bunun cümlesi); cevap
-    /// kaydedilince `askedMeaning` ilerler ama açık sorunun cümlesi değişmez.
+    /// kaydedilince `askedMeaning` ilerler ama açık sorunun cümlesi değişmez. Seçmelide doğru şık, yazarak cevapta
+    /// ve harf sorusunda bilinen bir anlam (`Word.productionMeaning`).
     private(set) var questionMeaning = ""
+    /// Yazarak cevapta doğru bulunan cevabın tuttuğu anlam; kayda bu yazılır (başka anlamla verilen doğru cevap
+    /// sorulan anlamı kapatmaz). Yanlışta, bakmada ve elle notlamada `nil`: sorulan anlam yazılır.
+    private var matchedMeaning: String?
     /// Şu anki seçmeli/harf adımının cevabı kaydedildi mi: aynı adım ikinci kez kaydedilmez, ilerleme ancak bundan sonra.
     private(set) var stepAnswered = false
     private var stepCorrect = false
@@ -190,12 +207,14 @@ final class StudySession {
         roundBeganAt = now
         finishedAt = now
         let previousFirst = defaults.string(forKey: Self.lastFirstWordKey)
+        // Günlük Tekrar'a yalnız yeni anlam tanıtımı için giren kelimeler (tanıtımdan sonra turdan çıkarlar).
+        var introOnly: Set<ObjectIdentifier> = []
         let picked: [Word] = switch plan {
         case .weak:
             ordered(words.filter { $0.isDue(at: now) }, now: now, avoidingFirst: previousFirst)
         case .daily:
             // Önce çalışılmış zayıflar, kalan yere yeniler; kartta yazan dağılımla aynı olsun diye.
-            dailyWords(words, now: now, avoidingFirst: previousFirst)
+            dailyWords(words, now: now, avoidingFirst: previousFirst, introOnly: &introOnly)
         case .extraPractice:
             extraPracticeWords(words, now: now, avoidingFirst: previousFirst)
         case .recent:
@@ -205,11 +224,12 @@ final class StudySession {
         case .reverse:
             ordered(words, now: now, avoidingFirst: previousFirst, limit: Self.reverseCount)
         }
-        queue = steps(for: picked, now: now)
+        queue = steps(for: picked, introOnly: introOnly, now: now)
         if let first = queue.first {
             defaults.set(Self.key(for: first.word), forKey: Self.lastFirstWordKey)
         }
-        wordCount = picked.count
+        // Her kelimenin tek adımı var; şıkkı kurulamayan yalnız-tanıtım kelimesi düşmüş olabilir.
+        wordCount = queue.count
         finishedWordCount = 0
         hasRound = !queue.isEmpty
         advance(now: now)
@@ -239,7 +259,9 @@ final class StudySession {
         }
     }
 
-    private func dailyWords(_ words: [Word], now: Date, avoidingFirst previousFirst: String?) -> [Word] {
+    private func dailyWords(
+        _ words: [Word], now: Date, avoidingFirst previousFirst: String?, introOnly: inout Set<ObjectIdentifier>
+    ) -> [Word] {
         let count = Self.dailyCount(words, now: now)
         // Yarıda bırakılan turdan üretimi kalan kelimeler önce alınır; sınır dolsa da dışarıda kalmasın.
         let pending = ordered(words.filter { !$0.isNew && $0.isPendingProduction(now: now) }, now: now, limit: count.weak)
@@ -248,16 +270,29 @@ final class StudySession {
             words.filter { !$0.isNew && $0.isDue(at: now) && !taken.contains(ObjectIdentifier($0)) },
             now: now, limit: max(0, count.weak - pending.count)
         )
-        return ordered(pending + due + Self.dailyNewWords(words, now: now), now: now, avoidingFirst: previousFirst)
+        // Bütçeden alınanlar: önce yeni anlamlar (çalışılmış kelimeler, yalnız tanıtım için), sonra yeni kelimeler.
+        let fresh = Self.dailyNewWords(words, now: now)
+        introOnly = Set(fresh.filter { !$0.isNew }.map(ObjectIdentifier.init))
+        return ordered(pending + due + fresh, now: now, avoidingFirst: previousFirst)
     }
 
-    /// Seçilen kelimelerin ilk adımları. Karışık turda ısınmaya uygun kelime Çoktan Seçmeli ile başlar (üretim adımı
-    /// ısınma cevaplanınca eklenir), bugün ısınması yapılmış kelime doğrudan üretimle, diğerleri yazarak.
-    private func steps(for picked: [Word], now: Date) -> [Step] {
+    /// Seçilen kelimelerin ilk adımları. Karışık turda yeni anlamı tanıtılacak kelime tanıtımla (Çoktan Seçmeli, doğru
+    /// şık ilk bekleyen anlam), ısınmaya uygun kelime Çoktan Seçmeli ile başlar (sonraki adım cevaplanınca eklenir),
+    /// bugün ısınması yapılmış kelime doğrudan üretimle, diğerleri yazarak. Şıkkı kurulamayan tanıtımda kelime normal
+    /// adımıyla sorulur; yalnız tanıtım için gelmişse (`introOnly`) turdan düşer.
+    private func steps(for picked: [Word], introOnly: Set<ObjectIdentifier> = [], now: Date) -> [Step] {
         guard usesMix else { return picked.map { makeStep($0, .recall) } }
         let deckMeanings = GameDeck.distinctMeaningCount(words.map(\.turkish))
-        let first = picked.map { word -> Step in
+        let first = picked.compactMap { word -> Step? in
             let pending = !word.isNew && word.isPendingProduction(now: now)
+            let onlyIntro = introOnly.contains(ObjectIdentifier(word))
+            if deckMeanings >= DailyMix.minimumMeanings, word.needsMeaningIntro(now: now) {
+                if let choice = choiceKind(for: word) {
+                    let followUp: Step.FollowUp = word.isLapsed || pending ? .production : onlyIntro ? .finish : .recall
+                    return makeStep(word, choice, isIntro: true, followUp: followUp)
+                }
+                if onlyIntro { return nil }
+            }
             if DailyMix.needsWarmup(
                 isNew: word.isNew, isLapsed: word.isLapsed, pendingProduction: pending, deckMeanings: deckMeanings
             ), let choice = choiceKind(for: word) {
@@ -268,12 +303,15 @@ final class StudySession {
         return DailyMix.order(warmups: first.map(\.isWarmup)).map { first[$0] }
     }
 
-    private func makeStep(_ word: Word, _ kind: Step.Kind) -> Step {
+    private func makeStep(
+        _ word: Word, _ kind: Step.Kind, isIntro: Bool = false, followUp: Step.FollowUp = .production
+    ) -> Step {
         nextStepID += 1
-        return Step(id: nextStepID, word: word, kind: kind)
+        return Step(id: nextStepID, word: word, kind: kind, isIntro: isIntro, followUp: followUp)
     }
 
-    /// Çoktan Seçmeli şıkları (doğru şık sırası gelen anlam); 3 çeldirici bulunamazsa `nil` (ısınma atlanır).
+    /// Çoktan Seçmeli şıkları (doğru şık `askedMeaning`: bekleyen anlam varsa ilki, yoksa sırası gelen); 3 çeldirici
+    /// bulunamazsa `nil` (ısınma atlanır).
     private func choiceKind(for word: Word) -> Step.Kind? {
         let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(turkish: $0.turkish) }
         let result = ChoiceQuiz.options(answer: word.askedCandidate, others: others, using: &generator)
@@ -296,20 +334,26 @@ final class StudySession {
     ) -> (pending: Int, seconds: Double) {
         let pendingIDs = Set(words.filter { !$0.isNew && $0.isPendingProduction(now: now) }.map(ObjectIdentifier.init))
         let deckMeanings = GameDeck.distinctMeaningCount(words.map(\.turkish))
+        let fresh = Array((introOnlyWords(words, now: now) + newWordsOldestFirst(words)).prefix(count.new))
+        let introOnly = Set(fresh.filter { !$0.isNew }.map(ObjectIdentifier.init))
         func seconds(_ word: Word) -> Double {
             let pending = pendingIDs.contains(ObjectIdentifier(word))
+            let letters = DailyMix.productionUsesLetters(english: word.english)
+            // Tanıtım: seçmeli, sonra zayıfsa üretim, vadesi gelmişse yazarak, yalnız tanıtımsa başka adım yok.
+            if deckMeanings >= DailyMix.minimumMeanings, word.needsMeaningIntro(now: now) {
+                return DailyMix.introSeconds(
+                    production: word.isLapsed || pending, recall: !introOnly.contains(ObjectIdentifier(word)), letters: letters
+                )
+            }
             let warmup = DailyMix.needsWarmup(
                 isNew: word.isNew, isLapsed: word.isLapsed, pendingProduction: pending, deckMeanings: deckMeanings
             )
-            return DailyMix.seconds(
-                warmup: warmup, pendingProduction: pending, letters: DailyMix.productionUsesLetters(english: word.english)
-            )
+            return DailyMix.seconds(warmup: warmup, pendingProduction: pending, letters: letters)
         }
         let studied = words.filter { !$0.isNew && ($0.isDue(at: now) || pendingIDs.contains(ObjectIdentifier($0))) }
             .map(seconds)
         let studiedSeconds = studied.isEmpty ? 0 : studied.reduce(0, +) / Double(studied.count) * Double(count.weak)
-        let newWords = Array(newWordsOldestFirst(words).prefix(count.new))
-        return (pendingIDs.count, studiedSeconds + newWords.map(seconds).reduce(0, +))
+        return (pendingIDs.count, studiedSeconds + fresh.map(seconds).reduce(0, +))
     }
 
     /// Üretimi bekleyen (yarıda bırakılan ısınmadan kalan) kelime sayısı; kartta "zayıfladı"dan ayrı yazılır.
@@ -319,28 +363,55 @@ final class StudySession {
 
     // MARK: Yeni kelimelerin paylaşımı
 
-    /// Hiç çalışılmamış kelimeler eklenme sırasıyla (eşitse İngilizce yazılışa göre); sıra her açılışta aynı.
-    private static func newWordsOldestFirst(_ words: [Word]) -> [Word] {
-        words.filter(\.isNew).sorted {
-            $0.createdAt != $1.createdAt ? $0.createdAt < $1.createdAt : AnswerChecker.fold($0.english) < AnswerChecker.fold($1.english)
-        }
+    /// Eklenme sırası (eşitse İngilizce yazılışa göre); sıra her açılışta aynı.
+    private static func oldestFirst(_ a: Word, _ b: Word) -> Bool {
+        a.createdAt != b.createdAt ? a.createdAt < b.createdAt : AnswerChecker.fold(a.english) < AnswerChecker.fold(b.english)
     }
 
-    /// Günlük Tekrar'ın bugünkü yenileri: en önce eklenenler (sırası gelen bekletilmez).
+    /// Hiç çalışılmamış kelimeler eklenme sırasıyla.
+    private static func newWordsOldestFirst(_ words: [Word]) -> [Word] {
+        words.filter(\.isNew).sorted(by: oldestFirst)
+    }
+
+    /// Günlük Tekrar'a yalnız yeni anlam tanıtımı için gelecek kelimeler (günlük "yeni" bütçesinden yer alırlar):
+    /// tanıtıma uygun, vadesi gelmemiş, üretim beklemeyen; eklenme sırasıyla. Vadesi gelmiş ya da üretim bekleyen
+    /// kelimenin tanıtımı zaten zayıflar arasında sorulur. Defterde 4 farklı anlam yoksa (şık kurulamaz) boş.
+    static func introOnlyWords(_ words: [Word], now: Date = .now) -> [Word] {
+        let eligible = words.filter {
+            !$0.isNew && !$0.isDue(at: now) && $0.needsMeaningIntro(now: now) && !$0.isPendingProduction(now: now)
+        }
+        guard !eligible.isEmpty,
+              GameDeck.distinctMeaningCount(words.map(\.turkish)) >= DailyMix.minimumMeanings else { return [] }
+        return eligible.sorted(by: oldestFirst)
+    }
+
+    /// Günlük Tekrar'ın bugünkü tanışmaları: önce yeni anlamlar (`introOnlyWords`), sonra yeni kelimeler (en önce
+    /// eklenenler; sırası gelen bekletilmez); toplam `dailyCount(...).new`.
     static func dailyNewWords(_ words: [Word], now: Date = .now) -> [Word] {
-        Array(newWordsOldestFirst(words).prefix(dailyCount(words, now: now).new))
+        Array((introOnlyWords(words, now: now) + newWordsOldestFirst(words)).prefix(dailyCount(words, now: now).new))
+    }
+
+    /// Günlük Tekrar'ın bugün tanıtacağı yeni anlam sayısı (`count.new`in içinden; kartta ayrı yazılır).
+    static func dailyMeaningCount(_ words: [Word], now: Date = .now, count: (weak: Int, new: Int)) -> Int {
+        min(count.new, introOnlyWords(words, now: now).count)
+    }
+
+    /// Günlük Tekrar'ın bugün alacağı yeni kelime sayısı: bütçe, önce alınan yeni anlamlar düşülerek.
+    private static func dailyNewWordCount(_ words: [Word], now: Date) -> Int {
+        let count = dailyCount(words, now: now)
+        return count.new - dailyMeaningCount(words, now: now, count: count)
     }
 
     /// Yeni Eklenenler turunun kelimeleri: Günlük Tekrar'ın almadığı yeniler, en yeni eklenen önce, en fazla 10.
-    /// Günlük Tekrar en eskileri aldığı için ikisi aynı kelimeyi sormaz.
+    /// Günlük Tekrar en eskileri aldığı için ikisi aynı kelimeyi sormaz. Yeni anlam almaz.
     static func recentWords(_ words: [Word], now: Date = .now) -> [Word] {
-        let queued = newWordsOldestFirst(words).dropFirst(dailyCount(words, now: now).new)
+        let queued = newWordsOldestFirst(words).dropFirst(dailyNewWordCount(words, now: now))
         return Array(queued.reversed().prefix(recentLimit))
     }
 
     /// Günlük Tekrar'ın bugün almadığı yeni kelime sayısı; 0 ise Günlük Tekrar kartındaki satır görünmez.
     static func recentWaitingCount(_ words: [Word], now: Date = .now) -> Int {
-        words.count(where: \.isNew) - dailyCount(words, now: now).new
+        words.count(where: \.isNew) - dailyNewWordCount(words, now: now)
     }
 
     /// Zorlanılan kelimeler ağırlıklı karışık sırayla önde; kalan yer hafızası en düşüklerle dolar.
@@ -378,12 +449,13 @@ final class StudySession {
     }
 
     /// Günlük Tekrar turuna girecek kelime sayısı: vadesi gelmiş çalışılmış kelimeler ve yeniler; günde en
-    /// fazla 5 yeni kelime (bugün tanıtılanlar düşülür), toplam en fazla 20.
-    /// Yarıda bırakılan turdan üretimi kalan kelimeler (`isPendingProduction`) de çalışılmış sayılır.
+    /// fazla 5 tanışma (yeni kelime ya da yeni anlam; bugün tanıtılanlar düşülür), toplam en fazla 20.
+    /// Yarıda bırakılan turdan üretimi kalan kelimeler (`isPendingProduction`) de çalışılmış sayılır. `new` havuzu:
+    /// hiç çalışılmamış kelimeler + yalnız tanıtım için gelecek kelimeler (`introOnlyWords`).
     static func dailyCount(_ words: [Word], now: Date = .now) -> (weak: Int, new: Int) {
         dailyCount(
             weak: words.count { !$0.isNew && ($0.isDue(at: now) || $0.isPendingProduction(now: now)) },
-            new: words.count(where: \.isNew),
+            new: words.count(where: \.isNew) + introOnlyWords(words, now: now).count,
             introducedToday: introducedToday(words, now: now)
         )
     }
@@ -394,12 +466,14 @@ final class StudySession {
         return (min(weak, dailyLimit), takenNew)
     }
 
-    /// İlk cevabı bugün (04:00 sınırıyla) verilen kelime sayısı: günlük yeni kelime sınırı bunlarla dolar.
+    /// Bugün (04:00 sınırıyla) tanışılan kelime sayısı: ilk cevabı bugün verilenler ve ilk cevabı daha eski olup
+    /// bugün yeni anlam tanıtımı (`ReviewLog.isIntro`) olanlar. Günlük tanışma sınırı bunlarla dolar.
     static func introducedToday(_ words: [Word], now: Date = .now) -> Int {
         let today = DayBoundary.start(of: now)
         return words.count { word in
-            guard let first = word.logs?.min(by: { $0.date < $1.date }) else { return false }
-            return DayBoundary.start(of: first.date) == today
+            guard let logs = word.logs, let first = logs.min(by: { $0.date < $1.date }) else { return false }
+            if DayBoundary.start(of: first.date) == today { return true }
+            return logs.contains { $0.isIntro && !$0.isDeleted && DayBoundary.start(of: $0.date) == today }
         }
     }
 
@@ -419,7 +493,9 @@ final class StudySession {
             }
             phase = .revealed(verdict)
         } else {
-            phase = .revealed(AnswerChecker.isCorrect(trimmed, expected: word.turkish) ? .correct : .incorrect)
+            let correct = AnswerChecker.isCorrect(trimmed, expected: word.turkish)
+            phase = .revealed(correct ? .correct : .incorrect)
+            matchedMeaning = correct ? word.matchedMeaning(for: trimmed, preferring: questionMeaning) : nil
         }
     }
 
@@ -522,10 +598,16 @@ final class StudySession {
     /// (o kadar kelime yoksa sona; üretim hiç atlanmaz). Üretim yanlışsa aynı tür yeniden sorulur; hemen arkasından
     /// değil, arada en az iki kelime olacak şekilde. O kadar kelime kalmadıysa yeniden sorulmaz, turdan çıkar.
     /// Kuyrukta bir kelimenin en fazla bir adımı bulunur; bu yüzden "iki adım" iki farklı kelime demektir.
+    /// Tanıtımdan sonra adımın `followUp`'ı eklenir (yalnız tanıtım için gelen kelime turdan çıkar); tanıtım yeniden sorulmaz.
     private func complete(_ step: Step, correct: Bool, now: Date) {
         if step.isWarmup {
-            let production = makeStep(step.word, productionKind(for: step.word))
-            queue.insert(production, at: WordPicker.reinsertionIndex(queueCount: queue.count) ?? queue.count)
+            // Seçmeli adım (ısınma, tanıtım) doğru da yanlış da olsa yeniden sorulmaz; ardından yalnız takip adımı gelir.
+            if step.followUp == .finish {
+                finishedWordCount += 1
+            } else {
+                let kind: Step.Kind = step.followUp == .recall ? .recall : productionKind(for: step.word)
+                queue.insert(makeStep(step.word, kind), at: WordPicker.reinsertionIndex(queueCount: queue.count) ?? queue.count)
+            }
         } else if !correct, let index = WordPicker.reinsertionIndex(queueCount: queue.count) {
             let retry: Step.Kind = step.isRecall ? .recall : productionKind(for: step.word)
             queue.insert(makeStep(step.word, retry), at: index)
@@ -559,8 +641,9 @@ final class StudySession {
         // Isınan kelime özete ilk üretim cevabıyla girer: önceki durum ısınmadan önceki, doğru sayılması için
         // ısınma da ilk üretim de doğru olmalı. Üretimi yapılmadan bırakılan kelime özete girmez.
         let key = ObjectIdentifier(word)
+        // Yalnız tanıtım için gelen kelime (ardından adım yok) özete tanıtım cevabıyla girer.
         if !roundEntries.contains(where: { $0.word === word }) {
-            if step.isWarmup {
+            if step.isWarmup, step.followUp != .finish {
                 if warmupEntries[key] == nil {
                     warmupEntries[key] = RoundEntry(before: word, firstCorrect: grade.isCorrect)
                 }
@@ -574,7 +657,16 @@ final class StudySession {
             }
         }
         finishedAt = now
-        return ReviewRecorder.record(word, grade: grade, mode: mode(of: step), responseTime: responseTime, now: now)
+        // Cevabın gösterdiği anlam (docs/SPEC-ANLAM.md §4): seçmelide doğru şık; yazarak cevapta tutan anlam, yoksa
+        // sorulan anlam; Ters Yön ve Harfleri Diz belirli bir anlam göstermez.
+        let meaning: String = switch step.kind {
+        case .choice(let options, let correctIndex): options[correctIndex]
+        case .letters: ""
+        case .recall: isReverse ? "" : matchedMeaning ?? questionMeaning
+        }
+        return ReviewRecorder.record(
+            word, grade: grade, mode: mode(of: step), responseTime: responseTime, meaning: meaning, now: now
+        )
     }
 
     /// Kelime listesi dışarıda değiştiğinde (silme, yeni kelime, iCloud'dan gelen değişiklik)
@@ -628,8 +720,10 @@ final class StudySession {
         questionMeaning = currentStep.map { step in
             // Seçmeli adımda doğru şık zaten sorulan anlam.
             if case .choice(let options, let correctIndex) = step.kind { options[correctIndex] }
-            else if step.word.isDeleted { "" } else { step.word.askedMeaning }
+            // Üretim sorusu bilinen bir anlamla sorulur (bekleyen anlamlar hariç).
+            else if step.word.isDeleted { "" } else { step.word.productionMeaning }
         } ?? ""
+        matchedMeaning = nil
         stepAnswered = false
         stepCorrect = false
         phase = .asking

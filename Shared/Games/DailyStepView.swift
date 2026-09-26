@@ -21,7 +21,16 @@ struct DailyStepView: View {
                     onAnswer: { session.answer(.recognition(correct: $0), step: step.id) },
                     onNext: { session.next(from: step.id) }
                 ) { revealed in
-                    GameWordCard(word: step.word, meaning: options[correctIndex], showsMeanings: revealed)
+                    VStack(alignment: .leading, spacing: 8) {
+                        // Güçlü kelimenin neden sorulduğu belli olsun (docs/SPEC-ANLAM.md §7).
+                        if step.isIntro {
+                            Label("Yeni anlam", systemImage: "sparkles")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.tint)
+                                .padding(.horizontal, 4)
+                        }
+                        GameWordCard(word: step.word, meaning: options[correctIndex], showsMeanings: revealed)
+                    }
                 }
                 .id(step.id)
             case .letters(let puzzle):

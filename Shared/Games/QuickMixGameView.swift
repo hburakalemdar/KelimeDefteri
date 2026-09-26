@@ -84,7 +84,9 @@ struct QuickMixGameView: View {
             ChoiceQuestionView(
                 options: options,
                 correctIndex: correct,
-                onAnswer: { round.record(word, grade: .recognition(correct: $0), mode: .multipleChoice) },
+                onAnswer: {
+                    round.record(word, grade: .recognition(correct: $0), mode: .multipleChoice, meaning: options[correct])
+                },
                 onNext: { next(from: index) }
             ) { revealed in
                 GameWordCard(word: word, meaning: options[correct], showsMeanings: revealed)
@@ -94,7 +96,7 @@ struct QuickMixGameView: View {
                 options: options,
                 correctIndex: correct,
                 optionFont: .system(.body, design: .serif, weight: .semibold),
-                onAnswer: { round.record(word, grade: .recognition(correct: $0), mode: .fillBlank) },
+                onAnswer: { round.record(word, grade: .recognition(correct: $0), mode: .fillBlank, meaning: hint) },
                 onNext: { next(from: index) }
             ) { revealed in
                 ClozeCard(cloze: cloze, hint: hint, revealed: revealed)

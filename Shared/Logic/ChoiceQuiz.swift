@@ -83,9 +83,12 @@ extension Word {
     /// (`answerCount` değil: Leitner döneminden kalan büyük sayaç kayıt sayısını geçene dek sabit kalırdı.)
     var meaningTurn: Int { logs?.count ?? 0 }
 
-    /// Oyunlarda ve widget'ta gösterilecek anlam: sırası gelen (`meaningTurn`).
-    var askedMeaning: String { ChoiceQuiz.meaning(turkish, turn: meaningTurn) }
+    /// Oyunlarda ve widget'ta gösterilecek anlam: bekleyen (yeni eklenmiş, henüz bilinmemiş) anlam varsa ilki,
+    /// yoksa sırası gelen (`meaningTurn`). Tanıtım böylece her tanıma sorusunda olabilir (docs/SPEC-ANLAM.md §5).
+    var askedMeaning: String { pendingMeanings.first ?? ChoiceQuiz.meaning(turkish, turn: meaningTurn) }
 
-    /// Sorulan kelimenin doğru cevabı: sırası gelen anlamı gösterilir, bütün anlamları karşılaştırılır.
-    var askedCandidate: ChoiceQuiz.Candidate { ChoiceQuiz.Candidate(turkish: turkish, turn: meaningTurn) }
+    /// Sorulan kelimenin doğru cevabı: `askedMeaning` gösterilir, bütün anlamları karşılaştırılır.
+    var askedCandidate: ChoiceQuiz.Candidate {
+        ChoiceQuiz.Candidate(text: askedMeaning, meanings: AnswerChecker.meanings(in: turkish))
+    }
 }

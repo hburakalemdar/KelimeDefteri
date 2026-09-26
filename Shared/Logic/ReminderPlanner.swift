@@ -13,8 +13,10 @@ nonisolated enum ReminderPlanner {
     }
 
     /// `studiedDueDates`: çalışılmış kelimelerin tekrar zamanları (o andan sonra sorulurlar).
-    /// `newCount`: hiç çalışılmamış kelime sayısı. `introducedToday`: ilk cevabı bugün verilen kelime
-    /// sayısı; yalnızca bugünün bildirimini kısar. İleri günlerde o günün henüz kelime tanıtmadığı
+    /// `newCount`: hiç çalışılmamış kelime sayısı. `introDueDates`: yalnız yeni anlam tanıtımı için gelecek kelimelerin
+    /// (`StudySession.introOnlyWords`) tekrar zamanları; bildirim anında vadesi gelmemişler tanışma havuzuna eklenir,
+    /// vadesi gelenler zaten `studiedDueDates` içinde sayılır (iki kez sayılmasın). `introducedToday`: bugün tanışılan kelime sayısı (`StudySession.introducedToday`);
+    /// yalnızca bugünün bildirimini kısar. İleri günlerde o günün henüz kelime tanıtmadığı
     /// varsayılır (`min(günlük sınır, newCount)` tahmini); plan her arka plana geçişte yeniden kurulur.
     /// `pendingDueDates`: bugün üretimi bekleyen kelimelerin tekrar zamanları (`Word.isPendingProduction`);
     /// bugünün (04:00 sınırıyla) bildiriminde vadesine bakılmadan sayılır, sonraki günlerde vadesiyle.
@@ -22,6 +24,7 @@ nonisolated enum ReminderPlanner {
         studiedDueDates: [Date],
         pendingDueDates: [Date] = [],
         newCount: Int,
+        introDueDates: [Date] = [],
         introducedToday: Int,
         hour: Int,
         minute: Int,
@@ -37,7 +40,8 @@ nonisolated enum ReminderPlanner {
             guard let fireDate = calendar.date(byAdding: .day, value: offset, to: todayAtTime) else { return nil }
             let pendingToday = DayBoundary.isSameDay(fireDate, now, calendar: calendar)
             let count = dailyCount(
-                studiedDueDates: studiedDueDates + (pendingToday ? [] : pendingDueDates), newCount: newCount,
+                studiedDueDates: studiedDueDates + (pendingToday ? [] : pendingDueDates),
+                newCount: newCount + introDueDates.count { $0 > fireDate },
                 introducedToday: introducedToday, at: fireDate, offset: offset,
                 pending: pendingToday ? pendingDueDates.count : 0
             )

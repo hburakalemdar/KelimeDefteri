@@ -37,11 +37,13 @@ nonisolated struct GlanceSummary: Equatable, Sendable {
     var average: Double?
     /// Günlük Tekrar'ın soracağı çalışılmış zayıf kelime sayısı (en fazla 20).
     var weak: Int
-    /// Günlük Tekrar'ın soracağı yeni kelime sayısı (en fazla 5).
+    /// Günlük Tekrar'ın bugünkü tanışma sayısı (yeni kelime + yeni anlam, en fazla 5).
     var new: Int
     var total: Int
     /// Yanlış bilinip vadesi henüz gelmemiş, tekrar edilecek kelime sayısı; varsa "hepsi güçlü" denmez.
     var repeating: Int = 0
+    /// `new`in içinden yeni anlam tanıtımları; kartta olduğu gibi ayrı yazılır.
+    var meanings: Int = 0
 
     /// "Hafıza %78"; çalışılmış kelime yoksa "Hafıza yeni".
     var memoryText: String {
@@ -52,7 +54,11 @@ nonisolated struct GlanceSummary: Equatable, Sendable {
     var detailText: String {
         if total == 0 { return "Defterin boş" }
         if weak > 0 { return "\(weak) kelime zayıfladı" }
-        if new > 0 { return "\(new) yeni kelime" }
+        if new > 0 {
+            let meanings = min(max(meanings, 0), new)
+            let parts = [(new - meanings, "yeni kelime"), (meanings, "yeni anlam")].filter { $0.0 > 0 }
+            return parts.map { "\($0.0) \($0.1)" }.joined(separator: " · ")
+        }
         if repeating > 0 { return "\(repeating) kelime tekrar edilecek" }
         return "Bütün kelimeler güçlü"
     }
@@ -136,7 +142,11 @@ enum GlanceQuiz {
         let words = (try? context.fetch(FetchDescriptor<Word>())) ?? []
         guard let word = word(for: question, in: words) else { return nil }
         let correct = chosen == question.correctIndex
-        ReviewRecorder.record(word, grade: .recognition(correct: correct), mode: mode, responseTime: 0, now: now)
+        // Doğru şık soru kurulurken sabitlenen anlam; bekleyen anlamsa tanıtım sayılır.
+        ReviewRecorder.record(
+            word, grade: .recognition(correct: correct), mode: mode, responseTime: 0,
+            meaning: question.options[question.correctIndex], now: now
+        )
         context.saveLogging()
         return correct
     }
@@ -147,7 +157,8 @@ enum GlanceQuiz {
         return GlanceSummary(
             average: MemoryStats.average(words.map { $0.memory(at: now) }),
             weak: count.weak, new: count.new, total: words.count,
-            repeating: DeckSummary.repeatingCount(words, now: now)
+            repeating: DeckSummary.repeatingCount(words, now: now),
+            meanings: StudySession.dailyMeaningCount(words, now: now, count: count)
         )
     }
 }

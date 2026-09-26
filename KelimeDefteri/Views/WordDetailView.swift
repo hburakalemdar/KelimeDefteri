@@ -41,6 +41,13 @@ struct WordDetailView: View {
                         .font(.title3.weight(.medium))
                         .foregroundStyle(.tint)
                         .textSelection(.enabled)
+                    // Sonradan eklenip henüz tanıtılmamış anlamlar (docs/SPEC-ANLAM.md §7).
+                    let pending = word.pendingMeanings
+                    if !pending.isEmpty {
+                        Label("Yeni: \(pending.joined(separator: ", "))", systemImage: "sparkles")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 8, trailing: 4))

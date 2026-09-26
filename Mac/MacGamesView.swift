@@ -176,10 +176,13 @@ struct MacGamesView: View {
 
     private var allStrongText: String { DeckSummary.allDoneText(for: words, now: now) }
 
-    /// "5 kelime zayıfladı · 1 kelime tekrar bekliyor · 2 yeni · yaklaşık 3 dk"; bekleyenler tek geçişte sayılır.
+    /// "5 kelime zayıfladı · 1 kelime tekrar bekliyor · 2 yeni · 1 yeni anlam · yaklaşık 3 dk"; bekleyenler tek geçişte sayılır.
     private func dailyText(_ count: (weak: Int, new: Int)) -> String {
         let estimate = StudySession.dailyEstimate(words, now: now, count: count)
-        return RoundText.daily(weak: count.weak, new: count.new, pending: estimate.pending, seconds: estimate.seconds)
+        return RoundText.daily(
+            weak: count.weak, new: count.new, pending: estimate.pending,
+            meanings: StudySession.dailyMeaningCount(words, now: now, count: count), seconds: estimate.seconds
+        )
     }
 
     // MARK: Günlük hedef

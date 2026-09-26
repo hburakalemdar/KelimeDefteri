@@ -52,6 +52,9 @@ final class Word {
     var baseLearnedAt: Date? = nil
     /// Tabanın geçerli olduğu an; `nil` = henüz taban göçünden geçmedi, `.distantPast` = boş taban.
     var baseAt: Date? = nil
+    /// Kelime ilk çalışıldığında `turkish`'in kopyası; `nil` = henüz alınmadı. Yalnız `nil` iken bir kez yazılır
+    /// (`fillMeaningBaselineIfNeeded`). Sonradan eklenen anlam bunda yoksa "bekleyen anlam"dır (docs/SPEC-ANLAM.md).
+    var meaningBaseline: String? = nil
     @Relationship(deleteRule: .cascade, inverse: \ReviewLog.word)
     var logs: [ReviewLog]?
     @Relationship(deleteRule: .cascade, inverse: \WordSentence.word)

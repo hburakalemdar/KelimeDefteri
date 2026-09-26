@@ -32,14 +32,18 @@ nonisolated enum RoundText {
     /// Günlük Tekrar kartının alt satırı: "5 kelime zayıfladı · 2 yeni · yaklaşık 3 dk". `seconds`: turun
     /// soru türlerine göre tahmini süresi (`StudySession.dailySeconds`); verilmezse kelime başına ortalama.
     /// `pending`: `weak`in içinden, yarıda bırakılan ısınmadan üretimi kalan kelimeler ("1 kelime tekrar bekliyor");
-    /// bunlar zayıflamış sayılmaz.
-    static func daily(weak: Int, new: Int, pending: Int = 0, seconds: Double? = nil) -> String {
+    /// bunlar zayıflamış sayılmaz. `meanings`: `new`in içinden yeni anlam tanıtımları ("1 yeni anlam"), yeni
+    /// kelimelerden ayrı yazılır.
+    static func daily(weak: Int, new: Int, pending: Int = 0, meanings: Int = 0, seconds: Double? = nil) -> String {
         var parts: [String] = []
         let pending = min(pending, weak)
         let weakened = weak - pending
+        let meanings = min(max(meanings, 0), new)
+        let newWords = new - meanings
         if weakened > 0 { parts.append("\(weakened) kelime zayıfladı") }
         if pending > 0 { parts.append("\(pending) kelime tekrar bekliyor") }
-        if new > 0 { parts.append(weak > 0 ? "\(new) yeni" : "\(new) yeni kelime") }
+        if newWords > 0 { parts.append(weak > 0 ? "\(newWords) yeni" : "\(newWords) yeni kelime") }
+        if meanings > 0 { parts.append("\(meanings) yeni anlam") }
         parts.append(estimate(seconds: seconds ?? Double(weak + new) * secondsPerWord))
         return parts.joined(separator: " · ")
     }

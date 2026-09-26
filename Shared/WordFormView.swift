@@ -798,6 +798,8 @@ struct WordFormView: View {
 
         if let word = editingWord {
             word.english = trimmedEnglish
+            // Taban eski anlamlarla alınır; eklenen anlam bekleyen olur (docs/SPEC-ANLAM.md §3).
+            word.fillMeaningBaselineIfNeeded()
             word.turkish = trimmedTurkish
             applySentences(to: word)
             guard commit() else { return }
