@@ -62,6 +62,8 @@ enum ReminderScheduler {
         var categories = Set<UNNotificationCategory>()
         var generator = SystemRandomNumberGenerator()
         var previousKey: String?
+        // Hatırlatmanın gününde (04:00 sınırı) zaten cevaplanmış kelimeler sorulmaz; gün başına bir sorgu.
+        var answeredByDay: [Date: Set<String>] = [:]
         defer { center.setNotificationCategories(categories) }
         #endif
 
@@ -74,8 +76,11 @@ enum ReminderScheduler {
             content.sound = .default
             content.badge = NSNumber(value: reminder.dueCount)
             #if os(iOS)
+            let day = DayBoundary.start(of: reminder.fireDate)
+            let answered = answeredByDay[day] ?? GlanceQuiz.answeredKeys(in: context, on: reminder.fireDate)
+            answeredByDay[day] = answered
             if let question = GlanceQuiz.question(
-                from: words, avoiding: previousKey, now: reminder.fireDate, using: &generator
+                from: words, answered: answered, avoiding: previousKey, now: reminder.fireDate, using: &generator
             ) {
                 let category = ReminderQuiz.category(for: question, identifier: ReminderQuiz.categoryPrefix + String(offset))
                 categories.insert(category)

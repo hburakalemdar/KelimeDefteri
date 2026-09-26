@@ -199,7 +199,7 @@ struct MatchGameView: View {
 
     private func startRound() {
         round.start(with: words, count: Self.pairCount, conflicts: { ChoiceQuiz.shareMeaning($0.turkish, $1.turkish) })
-        meanings = round.words.map { ChoiceQuiz.firstMeaning($0.turkish) }
+        meanings = round.words.map(\.askedMeaning)
         board = round.random { MatchBoard(count: round.count, using: &$0) }
         selectedLeft = nil
         selectedRight = nil

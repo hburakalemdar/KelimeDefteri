@@ -56,8 +56,11 @@ nonisolated struct QuizProvider: TimelineProvider {
         let box = UncheckedSendable(value: completion)
         Task { @MainActor in
             let now = Date.now
-            // Soru yalnızca cevaplanınca değişir; saatlik tazeleme silinen kelimeyi yakalamak için.
-            box.value(Timeline(entries: QuizTimeline.entries(now: now), policy: .after(now.addingTimeInterval(3600))))
+            // Soru cevaplanınca ya da süresi dolunca değişir (`GlanceQuizStore.currentQuestion`); tazeleme en geç
+            // o anda, yoksa saatte bir (silinen ya da başka yerde cevaplanan kelimeyi yakalamak için).
+            let entries = QuizTimeline.entries(now: now)
+            let next = GlanceQuizStore.nextRefresh(for: GlanceQuizStore.load(), now: now)
+            box.value(Timeline(entries: entries, policy: .after(next)))
         }
     }
 }
@@ -67,8 +70,9 @@ enum QuizTimeline {
     static func entries(now: Date) -> [QuizEntry] {
         guard let container = SharedStore.container else { return [QuizEntry(date: now, content: .unavailable)] }
         let words = (try? container.mainContext.fetch(FetchDescriptor<Word>())) ?? []
+        let answered = GlanceQuiz.answeredKeys(in: container.mainContext, on: now)
         var generator = SystemRandomNumberGenerator()
-        let question = GlanceQuizStore.currentQuestion(words: words, now: now, using: &generator)
+        let question = GlanceQuizStore.currentQuestion(words: words, answered: answered, now: now, using: &generator)
         let next: QuizEntry.Content = question.map { .question($0) } ?? .tooFewWords
         if let feedback = GlanceQuizStore.activeFeedback(in: GlanceQuizStore.load(), now: now) {
             return [
@@ -122,6 +126,14 @@ struct QuizWidgetView: View {
                         .widgetAccentable()
                         .accessibilityLabel(feedback.isCorrect ? "Doğru" : "Yanlış")
                 }
+            }
+            // Cevaptan sonra birden çok anlamlı kelimenin bütün anlamları (şıkta yalnızca biri soruldu).
+            if feedback != nil, let meanings = question.otherMeaningsText {
+                Text(meanings)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             if isSmall {
                 VStack(spacing: 4) {
@@ -239,8 +251,9 @@ private struct OptionLabel: View {
 } timeline: {
     QuizEntry.sample
     QuizEntry(date: .now, content: .feedback(GlanceFeedback(
-        question: GlanceQuestion(id: "s", english: "idempotent", wordKey: "idempotent",
-                                 options: ["eş etkili", "bayat", "yeter sayı", "gecikme"], correctIndex: 0),
+        question: GlanceQuestion(id: "s", english: "stale", wordKey: "stale",
+                                 options: ["eş etkili", "bayat", "yeter sayı", "gecikme"], correctIndex: 1,
+                                 meanings: ["bayat", "eskimiş"]),
         chosen: 2, date: .now
     )))
 }

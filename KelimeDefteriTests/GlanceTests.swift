@@ -165,8 +165,8 @@ struct GlanceTests {
         let words = deck(in: context)
         let store = defaults()
         var generator = SeededGenerator(seed: 7)
-        let first = try #require(GlanceQuizStore.currentQuestion(words: words, defaults: store, now: now, using: &generator))
-        let again = GlanceQuizStore.currentQuestion(words: words, defaults: store, now: now, using: &generator)
+        let first = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator))
+        let again = GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator)
         #expect(again == first)
     }
 
@@ -175,9 +175,9 @@ struct GlanceTests {
         var words = deck(in: context)
         let store = defaults()
         var generator = SeededGenerator(seed: 7)
-        let first = try #require(GlanceQuizStore.currentQuestion(words: words, defaults: store, now: now, using: &generator))
+        let first = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator))
         words.removeAll { AnswerChecker.fold($0.english) == first.wordKey }
-        let next = try #require(GlanceQuizStore.currentQuestion(words: words, defaults: store, now: now, using: &generator))
+        let next = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator))
         #expect(next.wordKey != first.wordKey)
     }
 
@@ -186,7 +186,7 @@ struct GlanceTests {
         let words = deck(in: context)
         let store = defaults()
         var generator = SeededGenerator(seed: 3)
-        let question = try #require(GlanceQuizStore.currentQuestion(words: words, defaults: store, now: now, using: &generator))
+        let question = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator))
 
         let result = GlanceQuizStore.answer(
             questionID: question.id, chosen: question.correctIndex, context: context,
@@ -209,12 +209,133 @@ struct GlanceTests {
         let words = deck(in: context)
         let store = defaults()
         var generator = SeededGenerator(seed: 3)
-        let question = try #require(GlanceQuizStore.currentQuestion(words: words, defaults: store, now: now, using: &generator))
+        let question = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator))
         GlanceQuizStore.answer(questionID: question.id, chosen: 0, context: context, defaults: store, now: now, using: &generator)
         // Aynı soruya ikinci dokunuş (eski görünüm) yeni bir kayıt yazmaz.
         let second = GlanceQuizStore.answer(questionID: question.id, chosen: 0, context: context, defaults: store, now: now, using: &generator)
         #expect(second == nil)
         #expect(try context.fetchCount(FetchDescriptor<ReviewLog>()) == 1)
+    }
+
+    // MARK: - Bugün cevaplanan kelimeler
+
+    @Test func dueWordAnsweredTodayGivesWayToOthers() throws {
+        let context = try makeContext()
+        let words = deck(in: context, weak: ["stale"])
+        let stale = try #require(words.first { $0.english == "stale" })
+        ReviewRecorder.record(stale, grade: .recognition(correct: true), mode: GlanceQuiz.mode,
+                              responseTime: 0, now: now.addingTimeInterval(-60))
+        try context.save()
+        let answered = GlanceQuiz.answeredKeys(in: context, on: now)
+        #expect(answered == ["stale"])
+        for seed in 0..<60 as Range<UInt64> {
+            var generator = SeededGenerator(seed: seed)
+            let question = try #require(GlanceQuiz.question(from: words, answered: answered, now: now, using: &generator))
+            #expect(question.wordKey != "stale")
+        }
+    }
+
+    @Test func lapsedWordAnsweredRightTodayIsNotAskedAgain() throws {
+        let context = try makeContext()
+        let words = deck(in: context, weak: ["stale"])
+        let stale = try #require(words.first { $0.english == "stale" })
+        // İki gün önce yanlış bilindi: zayıf ve vadeli.
+        ReviewRecorder.record(stale, grade: .recognition(correct: false), mode: GlanceQuiz.mode,
+                              responseTime: 0, now: now.addingTimeInterval(-2 * 86_400))
+        // Bugün tanımayla doğru bilindi: motor vadeyi ilerletmez, kelime vadeli kalır.
+        ReviewRecorder.record(stale, grade: .recognition(correct: true), mode: GlanceQuiz.mode,
+                              responseTime: 0, now: now.addingTimeInterval(-60))
+        try context.save()
+        #expect(stale.isLapsed)
+        #expect(stale.isDue(at: now))
+        let answered = GlanceQuiz.answeredKeys(in: context, on: now)
+        for seed in 0..<60 as Range<UInt64> {
+            var generator = SeededGenerator(seed: seed)
+            let question = try #require(GlanceQuiz.question(from: words, answered: answered, now: now, using: &generator))
+            #expect(question.wordKey != "stale")
+        }
+        // Ertesi gün yeniden sorulabilir.
+        let tomorrow = DayBoundary.nextStart(after: now).addingTimeInterval(3600)
+        #expect(GlanceQuiz.answeredKeys(in: context, on: tomorrow).isEmpty)
+    }
+
+    @Test func answeredKeysCountOnlyToday() throws {
+        let context = try makeContext()
+        let words = deck(in: context)
+        ReviewRecorder.record(words[0], grade: .recognition(correct: true), mode: GlanceQuiz.mode,
+                              responseTime: 0, now: DayBoundary.start(of: now).addingTimeInterval(-60))
+        ReviewRecorder.record(words[1], grade: .recognition(correct: true), mode: .dailyReview,
+                              responseTime: 0, now: DayBoundary.start(of: now))
+        try context.save()
+        #expect(GlanceQuiz.answeredKeys(in: context, on: now) == [GlanceQuiz.key(for: words[1])])
+    }
+
+    @Test func everythingAnsweredTodayFallsBackToStudiedWords() throws {
+        let context = try makeContext()
+        let words = deck(in: context)
+        let answered = Set(words.map(GlanceQuiz.key))
+        var asked = Set<String>()
+        for seed in 0..<60 as Range<UInt64> {
+            var generator = SeededGenerator(seed: seed)
+            let question = try #require(GlanceQuiz.question(
+                from: words, answered: answered, avoiding: "quorum", now: now, using: &generator
+            ))
+            #expect(question.wordKey != "quorum")
+            asked.insert(question.wordKey)
+        }
+        #expect(asked.count > 1)
+    }
+
+    @Test func unansweredQuestionExpires() throws {
+        let context = try makeContext()
+        let words = deck(in: context)
+        let store = defaults()
+        var generator = SeededGenerator(seed: 5)
+        let first = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator))
+        #expect(GlanceQuizStore.nextRefresh(for: GlanceQuizStore.load(store), now: now) == now.addingTimeInterval(3600))
+
+        let later = now.addingTimeInterval(GlanceQuizStore.questionLifetime - 1)
+        let same = GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: later, using: &generator)
+        #expect(same == first)
+        // Son saatte tazeleme sorunun süresinin dolduğu ana çekilir.
+        let lastHour = now.addingTimeInterval(GlanceQuizStore.questionLifetime - 1800)
+        #expect(GlanceQuizStore.nextRefresh(for: GlanceQuizStore.load(store), now: lastHour)
+            == now.addingTimeInterval(GlanceQuizStore.questionLifetime))
+
+        let expired = now.addingTimeInterval(GlanceQuizStore.questionLifetime)
+        let next = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: expired, using: &generator))
+        #expect(next.id != first.id)
+        #expect(next.wordKey != first.wordKey)
+        // Yeni soru yeniden tam süre durur.
+        #expect(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store,
+                                                now: expired.addingTimeInterval(60), using: &generator) == next)
+    }
+
+    @Test func currentQuestionChangesWhenAnsweredElsewhere() throws {
+        let context = try makeContext()
+        let words = deck(in: context)
+        let store = defaults()
+        var generator = SeededGenerator(seed: 9)
+        let first = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator))
+        let next = try #require(GlanceQuizStore.currentQuestion(
+            words: words, answered: [first.wordKey], defaults: store, now: now.addingTimeInterval(60), using: &generator
+        ))
+        #expect(next.wordKey != first.wordKey)
+    }
+
+    @Test func widgetAnswerSkipsWordsAnsweredToday() throws {
+        let context = try makeContext()
+        let words = deck(in: context, weak: ["stale"])
+        let store = defaults()
+        var generator = SeededGenerator(seed: 4)
+        let question = try #require(GlanceQuizStore.currentQuestion(words: words, answered: [], defaults: store, now: now, using: &generator))
+        // Tek vadeli kelime o; cevaplandıktan sonra (doğru da olsa) sıradaki soru başka kelimeden.
+        #expect(question.wordKey == "stale")
+        GlanceQuizStore.answer(questionID: question.id, chosen: question.correctIndex, context: context,
+                               defaults: store, now: now, using: &generator)
+        let state = GlanceQuizStore.load(store)
+        #expect(state.question?.wordKey != "stale")
+        #expect(state.questionDate == now)
     }
 
     // MARK: - Özet

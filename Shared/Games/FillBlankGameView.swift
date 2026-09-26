@@ -9,6 +9,8 @@ struct FillBlankGameView: View {
     private struct Question {
         let word: Word
         let cloze: ClozeSentence
+        /// Türkçe ipucu: sırası gelen anlam, soru kurulurken bir kez seçilir (cevap kaydı eklenince değişmesin).
+        let hint: String
         let options: [String]
         let correctIndex: Int
     }
@@ -55,7 +57,7 @@ struct FillBlankGameView: View {
                 onAnswer: { round.record(question.word, grade: .recognition(correct: $0)) },
                 onNext: { advance(from: index) }
             ) { revealed in
-                ClozeCard(word: question.word, cloze: question.cloze, revealed: revealed)
+                ClozeCard(cloze: question.cloze, hint: question.hint, revealed: revealed)
             }
             .id(round.index)
         }
@@ -74,7 +76,9 @@ struct FillBlankGameView: View {
             let others = words.filter { $0 !== word }.map(candidate)
             let answer = candidate(word)
             let result = round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
-            return Question(word: word, cloze: cloze, options: result.options, correctIndex: result.correctIndex)
+            return Question(
+                word: word, cloze: cloze, hint: word.askedMeaning, options: result.options, correctIndex: result.correctIndex
+            )
         }
         didStart = true
     }
@@ -103,8 +107,9 @@ struct FillBlankGameView: View {
 /// Boşluğu Doldur kartı: cümle, kelimenin yeri boş; altında Türkçe ipucu ve kitap adı.
 /// Cevap açılınca boşluk kelimeyle dolar (vurgu rengi, kalın).
 struct ClozeCard: View {
-    let word: Word
     let cloze: ClozeSentence
+    /// Türkçe ipucu (`Word.askedMeaning`, soru kurulurken alınır).
+    let hint: String
     let revealed: Bool
 
     var body: some View {
@@ -113,7 +118,7 @@ struct ClozeCard: View {
                 .font(.system(.title3, design: .serif))
                 .fixedSize(horizontal: false, vertical: true)
                 .contentTransition(.opacity)
-            Label(ChoiceQuiz.firstMeaning(word.turkish), systemImage: "lightbulb")
+            Label(hint, systemImage: "lightbulb")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }

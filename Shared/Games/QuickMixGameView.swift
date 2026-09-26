@@ -7,12 +7,12 @@ struct QuickMixGameView: View {
     private enum Question {
         case recall(Word, reverse: Bool)
         case choice(Word, options: [String], correct: Int)
-        case blank(Word, cloze: ClozeSentence, options: [String], correct: Int)
+        case blank(Word, cloze: ClozeSentence, hint: String, options: [String], correct: Int)
         case letters(Word, LetterPuzzle)
 
         var word: Word {
             switch self {
-            case .recall(let word, _), .choice(let word, _, _), .blank(let word, _, _, _), .letters(let word, _): word
+            case .recall(let word, _), .choice(let word, _, _), .blank(let word, _, _, _, _), .letters(let word, _): word
             }
         }
     }
@@ -86,10 +86,10 @@ struct QuickMixGameView: View {
                 correctIndex: correct,
                 onAnswer: { round.record(word, grade: .recognition(correct: $0), mode: .multipleChoice) },
                 onNext: { next(from: index) }
-            ) { _ in
-                GameWordCard(word: word)
+            ) { revealed in
+                GameWordCard(word: word, showsMeanings: revealed)
             }
-        case .blank(let word, let cloze, let options, let correct):
+        case .blank(let word, let cloze, let hint, let options, let correct):
             ChoiceQuestionView(
                 options: options,
                 correctIndex: correct,
@@ -97,7 +97,7 @@ struct QuickMixGameView: View {
                 onAnswer: { round.record(word, grade: .recognition(correct: $0), mode: .fillBlank) },
                 onNext: { next(from: index) }
             ) { revealed in
-                ClozeCard(word: word, cloze: cloze, revealed: revealed)
+                ClozeCard(cloze: cloze, hint: hint, revealed: revealed)
             }
         case .letters(let word, let puzzle):
             LettersQuestionView(
@@ -127,14 +127,17 @@ struct QuickMixGameView: View {
     private func makeQuestion(_ word: Word, mode: GameMode) -> Question {
         switch mode {
         case .multipleChoice:
-            let result = options(for: word) { ChoiceQuiz.Candidate(turkish: $0.turkish) }
+            // Doğru şık sırası gelen anlam; yanlış şıklar ilk anlamlarıyla.
+            let result = options(for: word, answer: word.askedCandidate) { ChoiceQuiz.Candidate(turkish: $0.turkish) }
             return .choice(word, options: result.options, correct: result.correctIndex)
         case .fillBlank:
             if let cloze = ClozeSentence(sentence: word.example, word: word.english) {
                 let result = options(for: word) {
                     ChoiceQuiz.Candidate(text: $0.english, meanings: AnswerChecker.meanings(in: $0.turkish))
                 }
-                return .blank(word, cloze: cloze, options: result.options, correct: result.correctIndex)
+                return .blank(
+                    word, cloze: cloze, hint: word.askedMeaning, options: result.options, correct: result.correctIndex
+                )
             }
             return .recall(word, reverse: false)
         case .letters:
@@ -146,9 +149,11 @@ struct QuickMixGameView: View {
         }
     }
 
-    private func options(for word: Word, candidate: (Word) -> ChoiceQuiz.Candidate) -> (options: [String], correctIndex: Int) {
+    private func options(
+        for word: Word, answer: ChoiceQuiz.Candidate? = nil, candidate: (Word) -> ChoiceQuiz.Candidate
+    ) -> (options: [String], correctIndex: Int) {
         let others = words.filter { $0 !== word }.map(candidate)
-        let answer = candidate(word)
+        let answer = answer ?? candidate(word)
         return round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
     }
 

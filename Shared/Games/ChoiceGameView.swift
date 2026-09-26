@@ -52,8 +52,8 @@ struct ChoiceGameView: View {
                 correctIndex: question.correctIndex,
                 onAnswer: { round.record(question.word, grade: .recognition(correct: $0)) },
                 onNext: { advance(from: index) }
-            ) { _ in
-                GameWordCard(word: question.word)
+            ) { revealed in
+                GameWordCard(word: question.word, showsMeanings: revealed)
             }
             .id(round.index)
         }
@@ -63,7 +63,7 @@ struct ChoiceGameView: View {
         round.start(with: words, count: Self.questionCount)
         questions = round.words.map { word in
             let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(turkish: $0.turkish) }
-            let answer = ChoiceQuiz.Candidate(turkish: word.turkish)
+            let answer = word.askedCandidate
             let result = round.random { ChoiceQuiz.options(answer: answer, others: others, using: &$0) }
             return Question(word: word, options: result.options, correctIndex: result.correctIndex)
         }
@@ -146,6 +146,8 @@ struct ChoiceQuestionView<Prompt: View>: View {
 struct GameWordCard: View {
     let word: Word
     var showsSentence = true
+    /// Cevaptan sonra birden çok anlamlı kelimenin bütün anlamları (şıkta yalnızca biri soruldu).
+    var showsMeanings = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -164,6 +166,13 @@ struct GameWordCard: View {
                 #if os(macOS)
                 .help("Telaffuzu dinle")
                 #endif
+            }
+            if showsMeanings, case let meanings = ChoiceQuiz.displayMeanings(word.turkish), meanings.count > 1 {
+                Text(meanings.joined(separator: ", "))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
             }
             if showsSentence && !word.example.isEmpty {
                 Text(AttributedString(quoting: word.example, highlighting: word.english))

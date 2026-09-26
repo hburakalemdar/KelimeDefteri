@@ -10,6 +10,15 @@ nonisolated struct GlanceQuestion: Codable, Equatable, Hashable, Sendable {
     var wordKey: String
     var options: [String]
     var correctIndex: Int
+    /// Kelimenin bütün anlamları, kayıttaki gibi; cevaptan sonra gösterilir (doğru şık yalnızca sırası gelen
+    /// anlamdır, bkz. `Word.meaningTurn`). Bu alan eklenmeden önce saklanan soruda yok (`nil`).
+    var meanings: [String]? = nil
+
+    /// Cevaptan sonra gösterilecek anlamlar; tek anlamlı kelimede (doğru şıkta zaten yazıyor) `nil`.
+    var otherMeaningsText: String? {
+        guard let meanings, meanings.count > 1 else { return nil }
+        return meanings.joined(separator: ", ")
+    }
 }
 
 /// Cevaplanan soru ve seçilen şık; widget kısa bir süre doğru/yanlış olarak gösterir.
@@ -62,18 +71,24 @@ enum GlanceQuiz {
 
     static func key(for word: Word) -> String { AnswerChecker.fold(word.english) }
 
-    /// Soru hiçbir zaman yeni kelimeden değildir (yeni kelime Günlük Tekrar'da tanıtılır): önce `now` anında
-    /// vadesi gelmiş çalışılmış kelimeler, yoksa bütün çalışılmış kelimeler arasından ağırlıklı rastgele.
-    /// `avoiding` (önceki sorunun kelimesi) mümkünse gelmez. Defterde 4'ten az kelime ya da hiç çalışılmış
-    /// kelime yoksa, yeterli farklı seçenek çıkmazsa `nil`.
+    /// Soru hiçbir zaman yeni kelimeden değildir (yeni kelime Günlük Tekrar'da tanıtılır). Havuz sırasıyla:
+    /// `now` anında vadesi gelmiş ve o gün cevaplanmamış çalışılmış kelimeler, yoksa o gün cevaplanmamış bütün
+    /// çalışılmış kelimeler, o da yoksa (hepsi bugün cevaplandı) bütün çalışılmış kelimeler; içinden ağırlıklı
+    /// rastgele. `answered`: o gün cevaplanmış kelimelerin anahtarları (`answeredKeys`). Aynı gün verilen
+    /// cevaplar hafızaya tek gün notu olarak işlendiğinden (bkz. `Memory.replay`) aynı kelimeyi gün içinde
+    /// yeniden sormak bir şey katmaz; zayıf kelime tanımayla doğru bilinse de vadeli kaldığı için bu elek
+    /// olmadan bütün gün o sorulurdu. `avoiding` (önceki sorunun kelimesi) mümkünse gelmez. Defterde 4'ten az
+    /// kelime ya da hiç çalışılmış kelime yoksa, yeterli farklı seçenek çıkmazsa `nil`.
     static func question<G: RandomNumberGenerator>(
-        from words: [Word], avoiding previousKey: String? = nil, now: Date = .now, using generator: inout G
+        from words: [Word], answered: Set<String> = [], avoiding previousKey: String? = nil, now: Date = .now,
+        using generator: inout G
     ) -> GlanceQuestion? {
         let words = words.filter { !$0.isDeleted && !key(for: $0).isEmpty }
         guard words.count >= minimumWords else { return nil }
         let studied = words.filter { !$0.isNew }
-        let due = studied.filter { $0.isDue(at: now) }
-        let pool = due.isEmpty ? studied : due
+        let unanswered = studied.filter { !answered.contains(key(for: $0)) }
+        let due = unanswered.filter { $0.isDue(at: now) }
+        let pool = !due.isEmpty ? due : !unanswered.isEmpty ? unanswered : studied
         let candidates = pool.indices.map { index in
             WordPicker.Candidate(id: index, weight: WordPicker.weight(memory: pool[index].memory(at: now)))
         }
@@ -83,13 +98,27 @@ enum GlanceQuiz {
         }
         let word = pool[index]
         let others = words.filter { $0 !== word }.map { ChoiceQuiz.Candidate(turkish: $0.turkish) }
-        let result = ChoiceQuiz.options(answer: ChoiceQuiz.Candidate(turkish: word.turkish), others: others, using: &generator)
+        let result = ChoiceQuiz.options(answer: word.askedCandidate, others: others, using: &generator)
         // Yanlış seçenek çıkmadıysa (bütün kelimeler aynı anlamda) soru sorulmaz.
         guard result.options.count >= 2 else { return nil }
         return GlanceQuestion(
             id: UUID().uuidString, english: word.english, wordKey: key(for: word),
-            options: result.options, correctIndex: result.correctIndex
+            options: result.options, correctIndex: result.correctIndex,
+            meanings: ChoiceQuiz.displayMeanings(word.turkish)
         )
+    }
+
+    /// `date` anının gününde (04:00 sınırı) herhangi bir cihazda ya da oyunda cevaplanmış kelimelerin anahtarları.
+    /// Yalnızca o günün cevap kayıtları çekilir; widget süreci bütün geçmişi yüklemez.
+    static func answeredKeys(in context: ModelContext, on date: Date) -> Set<String> {
+        let start = DayBoundary.start(of: date)
+        let end = DayBoundary.nextStart(after: date)
+        let descriptor = FetchDescriptor<ReviewLog>(predicate: #Predicate { $0.date >= start && $0.date < end })
+        let logs = (try? context.fetch(descriptor)) ?? []
+        return Set(logs.compactMap { log in
+            guard !log.isDeleted, let word = log.word, !word.isDeleted else { return nil }
+            return key(for: word)
+        })
     }
 
     /// Sorunun kelimesi depoda hâlâ duruyorsa o kelime.
@@ -127,6 +156,8 @@ enum GlanceQuiz {
 /// App Group ayarlarında durur; widget süreci her açılışta buradan okur.
 nonisolated struct GlanceQuizState: Codable, Equatable, Sendable {
     var question: GlanceQuestion?
+    /// Sorunun kurulduğu an; eski sürümün sakladığı durumda yok (soru ilk açılışta yenilenir).
+    var questionDate: Date?
     var feedback: GlanceFeedback?
 }
 
@@ -147,19 +178,46 @@ enum GlanceQuizStore {
         if let data = try? JSONEncoder().encode(state) { defaults.set(data, forKey: stateKey) }
     }
 
-    /// Gösterilecek soru: saklı soru kelimesi hâlâ duruyorsa o, yoksa yenisi kurulup saklanır.
-    /// Böylece widget her tazelendiğinde soru değişmez; yalnızca cevaplanınca değişir.
+    /// Cevaplanmayan sorunun gösterildiği en uzun süre. Widget saatte bir tazelenir; soru her tazelemede
+    /// değişirse okunamaz, hiç değişmezse bakılmayan widget bütün gün aynı kelimeyi gösterir. 3 saat günde
+    /// birkaç farklı kelime demek; aynı kelime bir bakışta tanınacak kadar da durur.
+    static let questionLifetime: TimeInterval = 3 * 3600
+    /// Soru değişmese de silinen kelimeyi ve başka yerde verilen cevapları yakalamak için tazeleme aralığı.
+    static let refreshInterval: TimeInterval = 3600
+
+    /// Gösterilecek soru: saklı soru hâlâ geçerliyse o, yoksa yenisi kurulup saklanır. Böylece widget her
+    /// tazelendiğinde soru değişmez; cevaplanınca, kelimesi silinince ya da bugün başka yerde cevaplanınca
+    /// (`answered`, bkz. `GlanceQuiz.answeredKeys`) ve `questionLifetime` dolunca değişir.
     static func currentQuestion<G: RandomNumberGenerator>(
-        words: [Word], defaults: UserDefaults = sharedDefaults, now: Date = .now, using generator: inout G
+        words: [Word], answered: Set<String>, defaults: UserDefaults = sharedDefaults, now: Date = .now,
+        using generator: inout G
     ) -> GlanceQuestion? {
         var state = load(defaults)
         if let question = state.question, words.count >= GlanceQuiz.minimumWords,
+           isFresh(state, now: now), !answered.contains(question.wordKey),
            GlanceQuiz.word(for: question, in: words) != nil {
             return question
         }
-        state.question = GlanceQuiz.question(from: words, avoiding: state.question?.wordKey, now: now, using: &generator)
+        state.question = GlanceQuiz.question(
+            from: words, answered: answered, avoiding: state.question?.wordKey, now: now, using: &generator
+        )
+        state.questionDate = now
         save(state, to: defaults)
         return state.question
+    }
+
+    /// Saklı soru `questionLifetime`dan daha kısa süre önce mi kuruldu.
+    static func isFresh(_ state: GlanceQuizState, now: Date) -> Bool {
+        guard let date = state.questionDate else { return false }
+        let age = now.timeIntervalSince(date)
+        return age >= 0 && age < questionLifetime
+    }
+
+    /// Widget'ın bir sonraki tazelenme anı: saatlik tazeleme ya da sorunun süresinin dolduğu an (hangisi önceyse).
+    static func nextRefresh(for state: GlanceQuizState, now: Date) -> Date {
+        let hourly = now.addingTimeInterval(refreshInterval)
+        guard let date = state.questionDate, isFresh(state, now: now) else { return hourly }
+        return min(hourly, date.addingTimeInterval(questionLifetime))
     }
 
     /// Widget'ta seçeneğe dokunulunca: cevabı yazar, geri bildirimi ve sıradaki soruyu saklar.
@@ -176,7 +234,11 @@ enum GlanceQuizStore {
             state.feedback = GlanceFeedback(question: question, chosen: chosen, date: now)
         }
         let words = (try? context.fetch(FetchDescriptor<Word>())) ?? []
-        state.question = GlanceQuiz.question(from: words, avoiding: question.wordKey, now: now, using: &generator)
+        let answered = GlanceQuiz.answeredKeys(in: context, on: now)
+        state.question = GlanceQuiz.question(
+            from: words, answered: answered, avoiding: question.wordKey, now: now, using: &generator
+        )
+        state.questionDate = now
         save(state, to: defaults)
         return correct
     }
