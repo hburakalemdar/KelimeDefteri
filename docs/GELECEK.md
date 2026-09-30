@@ -239,7 +239,7 @@ Uygulama:
 - Kaynaklar: developer.apple.com screenshot/app-preview specifications ve App Review Guidelines; avanderlee.com
   (simülatör kaydı); modelslab.com (video model fiyatları); matte.app (araç karşılaştırması).
 
-## Günlük yük ve yeni hakkı (26 Eylül 2026, yapıldı: 58ff78f, 208c2d3)
+## Günlük yük ve yeni hakkı (26 Eylül 2026, yapıldı: 7d2d869, 47a8859)
 
 Neden: Günlük Tekrar'ın toplam 20 tavanı yenileri de kapsıyordu. Günde 10 yeniyle tekrarlar 3. haftada 20'yi geçiyor,
 yeni hakkı fiilen sıfıra iniyor, tekrarlar birikiyordu (simülasyon: günde 10 yeniyle 6. haftada ~34 tekrar/gün, 15 yeniyle ~51).

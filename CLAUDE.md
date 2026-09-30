@@ -37,7 +37,7 @@ Mac düzeni `macFields`).
 # Testler (simülatör)
 xcodebuild test -project KelimeDefteri.xcodeproj -scheme KelimeDefteri -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath build -parallel-testing-enabled NO -collect-test-diagnostics never
 
-# Kullanıcının iPhone 14'ü
+# Kullanıcının iPhone 14'ü (<IPHONE_UDID> değeri CLAUDE.local.md'de, git dışı)
 xcodebuild -project KelimeDefteri.xcodeproj -scheme KelimeDefteri -destination 'id=<IPHONE_UDID>' -derivedDataPath build -allowProvisioningUpdates build
 xcrun devicectl device install app --device <IPHONE_UDID> build/Build/Products/Debug-iphoneos/KelimeDefteri.app
 
