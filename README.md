@@ -1,5 +1,33 @@
 # Kelime Defteri
 
+**English** · [Türkçe](#türkçe)
+
+Kelime Defteri ("vocabulary notebook") is an iPhone, iPad and Mac app for learning the English words
+you run into while reading technical books. You save a word with its Turkish meanings and the sentence
+it came from. The app then brings it back for review just before you are likely to forget it.
+
+**Highlights**
+
+- **Spaced repetition with an FSRS-based memory model.** Every word has a recall probability that decays
+  over time, and words below 90% come back for review. The app infers the grade from your answer
+  (speed, peeking, typos) instead of asking you to rate yourself.
+- **Daily Review and six quiz games:** Quick Round, Multiple Choice, Match, Fill in the Blank
+  (using the sentence from the book), Unscramble and Reverse (Turkish → English).
+- **Add words from anywhere:** from the iOS Share sheet in Books, Safari or a PDF reader, from the clipboard, or
+  with ⇧⌘E in any Mac app.
+- **Interactive widgets:** a quiz widget on the Home Screen and a memory summary on the Lock Screen.
+  You can also answer a quiz question directly from a notification.
+- **iCloud sync:** iPhone, iPad and the Mac menu bar app share the same notebook.
+
+**Tech:** Swift 6, SwiftUI, SwiftData and CloudKit, targeting iOS 26 and macOS 26. It uses the Translation
+framework for on-device suggestions and WidgetKit plus App Intents for the widgets. The project has
+five targets: the app, a Mac menu bar app, a widget, and share and action extensions. The business logic in
+`Shared/Logic` is separate from the UI and covered by 350+ unit tests written with Swift Testing.
+
+---
+
+## Türkçe
+
 Teknik kitap okurken karşılaşılan İngilizce kelimeleri kaydedip aralıklı tekrarla
 (FSRS unutma eğrisine dayanan hafıza modeli) ve kısa oyunlarla öğrenmek için iPhone, iPad ve Mac uygulaması. SwiftUI + SwiftData + CloudKit,
 iOS 26+ / macOS 26+ (Mac'te menü çubuğu uygulaması).

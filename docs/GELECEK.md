@@ -256,3 +256,10 @@ Kullanıcı kararları (Burak, 2026-09-26):
    kelimelere (in/on/an/of/up/to olduğu gibi aranır; "depend only", "raise and issue" eşleşmez). Düzensiz fiiller
    (took, made) bilinen sınır.
 Beklenen yük: günde 10 yeniyle 6. haftada ~18–20 dk/gün; karttaki tahmini süre bunu göstermeli.
+
+## İleride: GitHub vitrini, README ekran görüntüleri (not alındı 1 Ekim 2026)
+
+Repo 30 Eylül 2026'dan beri herkese açık ve Burak'ın GitHub profilinde öne çıkan proje. README'nin İngilizce
+bölümüne 3–4 ekran görüntüsü eklenecek: kelime listesi, bir oyun (Eşleştir ya da Boşluğu Doldur), widget ve Mac
+menü çubuğu penceresi. Görüntüler `-demo` argümanıyla örnek veriden alınır (CLAUDE.md), gerçek defter görünmez.
+Yukarıdaki "Mağaza görselleri" çekimiyle birlikte yapılabilir.
