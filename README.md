@@ -6,6 +6,12 @@ Kelime Defteri ("vocabulary notebook") is an iPhone, iPad and Mac app for learni
 you run into while reading technical books. You save a word with its Turkish meanings and the sentence
 it came from. The app then brings it back for review just before you are likely to forget it.
 
+<p align="center">
+  <img src="docs/screenshots/word-list.png" width="250" alt="Word list with Turkish meanings">
+  <img src="docs/screenshots/daily-review.png" width="250" alt="Study tab with Daily Review, daily goal and games">
+  <img src="docs/screenshots/game.png" width="250" alt="Fill in the Blank game using the sentence from the book">
+</p>
+
 **Highlights**
 
 - **Spaced repetition with an FSRS-based memory model.** Every word has a recall probability that decays

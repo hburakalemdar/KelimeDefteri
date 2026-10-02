@@ -263,3 +263,6 @@ Repo 30 Eylül 2026'dan beri herkese açık ve Burak'ın GitHub profilinde öne 
 bölümüne 3–4 ekran görüntüsü eklenecek: kelime listesi, bir oyun (Eşleştir ya da Boşluğu Doldur), widget ve Mac
 menü çubuğu penceresi. Görüntüler `-demo` argümanıyla örnek veriden alınır (CLAUDE.md), gerçek defter görünmez.
 Yukarıdaki "Mağaza görselleri" çekimiyle birlikte yapılabilir.
+
+**Kısmen yapıldı (2 Ekim 2026):** iPhone'dan 3 görüntü (`docs/screenshots/`: kelime listesi, Çalış ekranı, Boşluğu Doldur)
+README'nin İngilizce bölümünde. Kalanlar: widget ve Mac menü çubuğu penceresi. Not: Türkçe simülatörde saat "09:41" çıkıyor.
